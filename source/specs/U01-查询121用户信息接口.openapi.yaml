@@ -1,0 +1,261 @@
+openapi: 3.1.0
+info:
+  title: 121 User Verification API
+  version: 1.0.0
+  description: |
+    查询121登录账号对应的有效用户和客户端授权部门。
+    这是系统对系统查询接口，不是网页登录接口，不接收用户密码，不返回Token。
+    HMAC签名由121应用独立安全链校验；部署网关提供HTTPS并保留原始路径和正文。
+servers:
+  - url: https://{host}/open-api/v1
+    description: 121开放接口地址（由121提供方替换）
+    variables:
+      host:
+        default: api.example.com
+        description: 测试或生产域名
+tags:
+  - name: Users
+    description: 121用户查询
+paths:
+  /users/verify:
+    post:
+      tags: [Users]
+      operationId: verify121User
+      summary: 查询121用户信息
+      description: |
+        按121登录账号精确查询用户。调用方为智能化后台服务器，浏览器不得直接调用。
+        请求体原始字节和以下请求头参与HMAC-SHA256签名：
+        X-Client-Id、X-Key-Id、X-Timestamp、X-Nonce、X-Request-Id、Idempotency-Key、X-Content-SHA256。
+        本接口无查询参数和Idempotency-Key，但签名原文保留对应空行。
+      security:
+        - HmacHeaders: []
+      parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XKeyId'
+        - $ref: '#/components/parameters/XTimestamp'
+        - $ref: '#/components/parameters/XNonce'
+        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/XContentSha256'
+        - $ref: '#/components/parameters/XSignature'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyUserRequest'
+            examples:
+              valid:
+                value:
+                  loginAccount: zhangsan
+      responses:
+        '200':
+          description: 查询成功
+          headers:
+            Cache-Control:
+              schema: { type: string, const: 'no-store' }
+              description: 用户查询结果不得被共享缓存保存
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              examples:
+                success:
+                  value:
+                    code: SUCCESS
+                    message: success
+                    requestId: 7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41
+                    data:
+                      userId: '10086'
+                      loginAccount: zhangsan
+                      userName: 张三
+                      status: ACTIVE
+                      departments:
+                        - id: '80001'
+                          code: PTAC_OU_80001
+                          name: 器材北京公司政企业务部
+        '400':
+          $ref: '#/components/responses/ParamInvalid'
+        '401':
+          description: 客户端身份、签名、时间戳或防重放校验失败
+          headers:
+            WWW-Authenticate:
+              schema: { type: string, const: 'HMAC realm="121-open-api"' }
+              description: 121自定义HMAC认证方案标识
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidSignature:
+                  value:
+                    code: AUTH_SIGNATURE_INVALID
+                    message: 请求签名无效
+                    requestId: 7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41
+                    data: null
+        '403':
+          description: 客户端或用户无权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 用户不存在或已删除
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                notFound:
+                  value:
+                    code: USER_NOT_FOUND
+                    message: 121登录账号不存在
+                    requestId: 7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41
+                    data: null
+        '422':
+          description: 用户已停用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: 请求体超过8KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '415':
+          description: 不支持的媒体类型或请求体压缩
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: 超过调用频率
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: 建议等待的秒数
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/SystemError'
+        '503':
+          $ref: '#/components/responses/SystemBusy'
+components:
+  securitySchemes:
+    HmacHeaders:
+      type: apiKey
+      in: header
+      name: X-Signature
+      description: |
+        HMAC-SHA256签名。实际校验还需要X-Client-Id、X-Key-Id、X-Timestamp、X-Nonce、X-Request-Id和X-Content-SHA256。
+        签名密钥不写入OpenAPI文件。
+  parameters:
+    XClientId:
+      name: X-Client-Id
+      in: header
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9._:-]+$' }
+    XKeyId:
+      name: X-Key-Id
+      in: header
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9._:-]+$' }
+    XTimestamp:
+      name: X-Timestamp
+      in: header
+      required: true
+      schema: { type: string, pattern: '^[0-9]{10}$' }
+    XNonce:
+      name: X-Nonce
+      in: header
+      required: true
+      schema: { type: string, minLength: 16, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' }
+    XRequestId:
+      name: X-Request-Id
+      in: header
+      required: true
+      schema: { type: string, minLength: 16, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' }
+    XContentSha256:
+      name: X-Content-SHA256
+      in: header
+      required: true
+      schema: { type: string, minLength: 64, maxLength: 64, pattern: '^[0-9a-f]{64}$' }
+    XSignature:
+      name: X-Signature
+      in: header
+      required: true
+      schema: { type: string, minLength: 44, maxLength: 44, pattern: '^[A-Za-z0-9+/]{43}=$' }
+  schemas:
+    VerifyUserRequest:
+      type: object
+      additionalProperties: false
+      required: [loginAccount]
+      maxProperties: 1
+      properties:
+        loginAccount:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: 原始输入最长128个Unicode码点；验签后清理首尾U+0020空格，清理后须为1—30码点且无任何空白或控制字符，按121现有登录语义精确匹配
+    Department:
+      type: object
+      additionalProperties: true
+      required: [id, code, name]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 64 }
+        code: { type: string, maxLength: 64, description: 无部门编码时返回空字符串 }
+        name: { type: string, minLength: 1, maxLength: 100 }
+    User:
+      type: object
+      additionalProperties: true
+      required: [userId, loginAccount, userName, status, departments]
+      properties:
+        userId: { type: string, minLength: 1, maxLength: 64 }
+        loginAccount: { type: string, minLength: 1, maxLength: 30 }
+        userName: { type: string, minLength: 1, maxLength: 100 }
+        status: { type: string, enum: [ACTIVE] }
+        departments:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/Department' }
+          description: 当前客户端授权范围内的可操作部门
+    SuccessResponse:
+      type: object
+      additionalProperties: true
+      required: [code, message, requestId, data]
+      properties:
+        code: { type: string, const: SUCCESS }
+        message: { type: string }
+        requestId: { type: string, minLength: 16, maxLength: 128 }
+        data: { $ref: '#/components/schemas/User' }
+    ErrorResponse:
+      type: object
+      additionalProperties: true
+      required: [code, message, requestId, data]
+      properties:
+        code:
+          type: string
+          enum: [PARAM_INVALID, AUTH_CLIENT_NOT_FOUND, AUTH_SIGNATURE_INVALID, AUTH_TIMESTAMP_EXPIRED, AUTH_REPLAY_REQUEST, AUTH_FORBIDDEN, OPERATOR_FORBIDDEN, USER_NOT_FOUND, USER_DISABLED, RATE_LIMITED, PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, SYSTEM_ERROR, SYSTEM_BUSY]
+        message: { type: string }
+        requestId: { type: string, minLength: 16, maxLength: 128 }
+        data: { type: [object, 'null'] }
+  responses:
+    ParamInvalid:
+      description: 参数错误
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    SystemError:
+      description: 121内部异常
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    SystemBusy:
+      description: 121暂时不可用
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
