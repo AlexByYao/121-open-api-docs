@@ -4,12 +4,10 @@ info:
   version: 1.1.0
   description: 服务器对服务器；应用内HMAC-SHA256鉴权。代码已实现、默认关闭，部署后联调。完整签名算法与实际约束见配套Markdown。
 servers:
-  - url: 'https://{host}/open-api/v1'
-    description: 复用原121测试或生产域名，仅新增/open-api路径；GitHub文档域名不用于业务调用
-    variables:
-      host:
-        default: existing-121.example.com
-        description: 替换为原121对应环境域名，不需要新申请API域名；默认值为示例占位
+  - url: 'https://testfcst.chinaptac.com/open-api/v1'
+    description: '测试拟用地址，HTTPS及新接口转发待验收；已有抓包入口为http://testfcst.chinaptac.com/api，不能据此认定新接口已开放'
+  - url: 'https://fcst.chinaptac.com/open-api/v1'
+    description: '生产拟用地址，新接口部署及转发待验收，尚未开放；已有抓包入口为https://fcst.chinaptac.com/prod-api，保留既有路由'
 tags:
   - name: Users
     description: 121用户查询
