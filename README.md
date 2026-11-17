@@ -2,17 +2,19 @@
 
 对外静态文档网站。文档版本1.1.0，网页整理日期2026-11-17。
 
-`content.md` 是网页正文；`build.py` 根据正文、模板和配套OpenAPI生成 `site/`。页面只依赖站点内资源，支持目录、搜索、折叠示例、复制代码、打印和手机阅读。
+`source/content.md` 是网页正文；`source/build.py` 根据正文、模板和配套OpenAPI生成根目录静态文件。页面只依赖站点内资源，支持目录、搜索、折叠示例、复制代码、打印和手机阅读。
 
 ## 本地构建
 
 ```shell
-python -m pip install -r requirements.txt
-python build.py
-python -m http.server 8765 --directory site --bind 127.0.0.1
+python -m pip install -r source/requirements.txt
+python source/build.py --output .
+python -m http.server 8765 --bind 127.0.0.1
 ```
 
-在本121工作区构建时，脚本从上层 `docs/` 读取已核对的OpenAPI；在独立文档仓库中构建时读取 `specs/`。
+以上命令在独立文档仓库根目录运行。配套契约位于 `source/specs/`。
+
+在原121工作区维护时，文件位于 `docs-site/`：运行 `python docs-site/build.py` 生成 `docs-site/site/`，再运行 `python docs-site/prepare_publish.py` 更新独立发布目录 `docs-site/publish/`。只从独立发布目录提交和推送文档。
 
 ## GitHub Pages
 
