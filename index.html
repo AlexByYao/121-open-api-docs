@@ -90,7 +90,7 @@
     <div class="overview"><details><summary>展开完整章节目录</summary><ol><li><a href="#section-1">一、环境与接口总览</a></li><li><a href="#section-2">二、公共请求参数与鉴权</a></li><li><a href="#section-3">三、公共响应与返回值</a></li><li><a href="#section-4">四、U01 查询121用户信息</a></li><li><a href="#section-5">五、D01 查询基础字典</a></li><li><a href="#section-6">六、P01 创建采购草稿</a></li><li><a href="#section-7">七、P02 按来源和批次查询草稿</a></li><li><a href="#section-8">八、P03 按121采购单ID查询草稿</a></li><li><a href="#section-9">九、P04 取消同步并删除草稿</a></li><li><a href="#section-10">十、C01 采购草稿删除通知</a></li><li><a href="#section-11">十一、完整返回码与处理建议</a></li><li><a href="#section-12">十二、签名测试向量与联调</a></li><li><a href="#section-13">十三、下载、版本与规范参考</a></li></ol></details></div>
     <div id="no-results" hidden>未找到匹配内容。请尝试接口编号（如 P01）、参数名或错误码。</div>
     <div class="document-intro"><h1 id="top">121 智能化采购同步接口文档</h1>
-<p>版本 <strong>1.1.0</strong> · 更新 <strong>2026-11-17</strong> · 服务提供方 <strong>121系统</strong> · 调用方 <strong>智能化办公平台后台服务</strong></p>
+<p>版本 <strong>1.1.1</strong> · 更新 <strong>2026-11-17</strong> · 服务提供方 <strong>121系统</strong> · 调用方 <strong>智能化办公平台后台服务</strong></p>
 <p>本文是服务器对服务器的对接规范。网页用于公开查阅；业务接口代码已实现、默认关闭，尚需真实环境部署联调。环境表中的121域名及现有接口入口由121提供方根据前端抓包确认；其余示例账号、部门和订单为虚构数据，回调域名为占位。</p>
 </div><section class="doc-section" data-section="section-1"><h2 id="section-1">一、环境与接口总览</h2>
 <h3 id="section-1-1">1.1 环境地址</h3>
@@ -107,8 +107,8 @@
 <tr>
 <td>测试环境</td>
 <td><code>http://testfcst.chinaptac.com/api</code></td>
-<td><code>https://testfcst.chinaptac.com/open-api/v1</code></td>
-<td>复用原测试域名；HTTPS及新增转发待配置验收，暂不能作为已开放接口调用</td>
+<td><code>http://testfcst.chinaptac.com/open-api/v1</code></td>
+<td>复用原测试域名，允许HTTP联调；新接口部署及转发待验收，尚未开放</td>
 </tr>
 <tr>
 <td>生产环境</td>
@@ -120,12 +120,12 @@
 <td>删除回调</td>
 <td>由智能化提供</td>
 <td><code>https://&lt;智能化回调域名&gt;/&lt;约定路径&gt;</code></td>
-<td>智能化提供HTTPS接口，121运维配置固定地址</td>
+<td>正式提供HTTPS接口；测试可用HTTP，121按目标开启allow-http，固定地址由运维配置</td>
 </tr>
 </tbody>
 </table></div>
 <p>业务接口继续使用原121各环境域名，不需要新申请API域名。<code>/api</code>、<code>/prod-api</code>是已有业务接口的入口前缀；上表不代表新开放路径已经部署。新接口按下述独立转发方案验收后，由121交付最终调用地址。GitHub Pages仅托管本文档，不接收业务请求；测试与生产分别配置调用凭据。</p>
-<p>在原121域名下新增 <code>/open-api/</code> 转发到原121后端；已有页面和API转发规则保留。所有业务请求使用HTTPS、TLS 1.2或更高版本；调用方校验证书与域名。网关必须保留完整 <code>/open-api/v1</code> 路径及请求体原始字节；不要把原页面使用的 <code>/api</code> 或 <code>/prod-api</code> 前缀直接拼入签名路径。本协议外部与应用收到的开放接口路径一致，最终以部署验收地址为准。</p>
+<p>在原121域名下新增 <code>/open-api/</code> 转发到原121后端；已有页面和API转发规则保留。正式环境使用HTTPS、TLS 1.2或更高版本；调用方校验证书与域名。测试环境允许HTTP，使用独立测试凭据和测试数据，无需先配置HTTPS。网关必须保留完整 <code>/open-api/v1</code> 路径及请求体原始字节；不要把原页面使用的 <code>/api</code> 或 <code>/prod-api</code> 前缀直接拼入签名路径。本协议外部与应用收到的开放接口路径一致，最终以部署验收地址为准。</p>
 <h3 id="section-1-2">1.2 接口目录与调用权限</h3>
 <p>以下路径相对于基础地址 <code>/open-api/v1</code>。C01是121主动调用智能化的反向接口。</p>
 <div class="table-scroll" tabindex="0"><table>
@@ -185,7 +185,7 @@
 <td>C01</td>
 <td>采购草稿删除通知</td>
 <td>POST</td>
-<td>智能化提供的固定HTTPS地址</td>
+<td>智能化提供的固定回调地址</td>
 <td>独立反向凭据</td>
 </tr>
 </tbody>
@@ -202,7 +202,7 @@
 <li>来源草稿创建后供应商不可修改；部门归属沿用121现有规则，不支持跨部门修改，其余业务字段按121现有草稿规则编辑。取消同步只允许删除草稿，已锁单及退单状态不能取消。</li>
 </ul>
 </section><section class="doc-section" data-section="section-2"><h2 id="section-2">二、公共请求参数与鉴权</h2>
-<p>公共鉴权参数放在HTTP请求头，<strong>不放在JSON正文</strong>。智能化后台签名后调用121，不使用员工登录密码、员工JWT或网页登录会话。HMAC用于验证系统身份及请求完整性，传输加密由HTTPS提供。</p>
+<p>公共鉴权参数放在HTTP请求头，<strong>不放在JSON正文</strong>。智能化后台签名后调用121，不使用员工登录密码、员工JWT或网页登录会话。HMAC用于验证系统身份及请求完整性，不加密正文；正式环境由HTTPS提供传输加密，HTTP测试仅使用测试数据。初次接入每个环境只配置一套clientId、keyId、签名密钥；调用方封装一次签名函数即可，无需员工登录、申请Token或配置mTLS。</p>
 <h3 id="section-2-1">2.1 请求头参数</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -227,7 +227,7 @@
 <td>密钥编号</td>
 <td>string</td>
 <td>是</td>
-<td>1—64字符，字符集同上；用于密钥轮换</td>
+<td>1—64字符，字符集同上；初次接入使用121分配的固定编号，每次请求原样传入</td>
 </tr>
 <tr>
 <td><code>X-Timestamp</code></td>
@@ -1920,7 +1920,7 @@
 </tr>
 <tr>
 <td>地址</td>
-<td>智能化提供固定HTTPS完整URL；不可带用户名密码、query或fragment</td>
+<td>智能化提供固定完整URL；正式HTTPS，测试HTTP需121对应目标显式配置allow-http: true（默认false）；不可带用户名密码、query或fragment</td>
 </tr>
 <tr>
 <td>触发</td>
@@ -2417,7 +2417,7 @@
 </tr>
 <tr>
 <td>入口clientId/keyId及安全交换的签名密钥</td>
-<td>C01固定HTTPS回调地址及反向凭据</td>
+<td>C01固定回调地址及独立反向凭据（正式HTTPS，测试可HTTP）</td>
 </tr>
 <tr>
 <td>scope、部门白名单、限流配置</td>
@@ -2429,6 +2429,7 @@
 </tr>
 </tbody>
 </table></div>
+<p>首次接入：121部署新后端、执行扩展表SQL并连接Redis → 配置本环境一套入口凭据、接口权限和部门 → 在原域名新增 <code>/open-api/</code> 转发 → 安装完成后先启用集成保护，再受控开启接口入口 → 智能化封装签名并联调。C01由智能化提供固定地址及独立反向凭据；测试若用HTTP，121仅为该目标设置 <code>allow-http: true</code>，正式保持false。无需改动原员工登录流程。</p>
 <h3 id="section-12-3">12.3 建议联调顺序</h3>
 <ol>
 <li>离线验证签名向量；再使用真实凭据和当前时间验证U01。</li>
@@ -2459,6 +2460,11 @@
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>2026-11-17</td>
+<td>1.1.1</td>
+<td>测试允许HTTP、正式HTTPS；回调按目标显式允许HTTP；首次接入每环境一套凭据，不要求mTLS或轮换流程</td>
+</tr>
 <tr>
 <td>2026-11-17</td>
 <td>1.1.0</td>

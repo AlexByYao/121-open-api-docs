@@ -1,14 +1,14 @@
 openapi: 3.1.0
 info:
   title: 121 User Verification API
-  version: 1.0.0
+  version: 1.0.1
   description: |
     查询121登录账号对应的有效用户和客户端授权部门。
     这是系统对系统查询接口，不是网页登录接口，不接收用户密码，不返回Token。
-    HMAC签名由121应用独立安全链校验；部署网关提供HTTPS并保留原始路径和正文。
+    HMAC签名由121应用独立安全链校验；正式网关提供HTTPS，测试允许HTTP；均保留原始路径和正文。首次每环境配置一套系统凭据，不要求mTLS或轮换流程。
 servers:
-  - url: https://testfcst.chinaptac.com/open-api/v1
-    description: 测试拟用地址，HTTPS及新接口转发待验收；已有抓包入口为http://testfcst.chinaptac.com/api，不能据此认定新接口已开放
+  - url: http://testfcst.chinaptac.com/open-api/v1
+    description: 测试拟用HTTP地址，新接口部署及转发待验收；已有抓包入口为http://testfcst.chinaptac.com/api，不能据此认定新接口已开放
   - url: https://fcst.chinaptac.com/open-api/v1
     description: 生产拟用地址，新接口部署及转发待验收，尚未开放；已有抓包入口为https://fcst.chinaptac.com/prod-api，保留既有路由
 tags:
