@@ -105,13 +105,13 @@
 <tbody>
 <tr>
 <td>测试环境</td>
-<td><code>https://&lt;测试API域名&gt;/open-api/v1</code></td>
-<td>实际域名由121提供；尚未填写，不能直接调用</td>
+<td><code>https://&lt;原121测试域名&gt;/open-api/v1</code></td>
+<td>复用原121测试站点域名；正式地址及HTTPS转发确认后提供</td>
 </tr>
 <tr>
 <td>生产环境</td>
-<td><code>https://&lt;生产API域名&gt;/open-api/v1</code></td>
-<td>实际域名及开放时间由121提供</td>
+<td><code>https://&lt;原121生产域名&gt;/open-api/v1</code></td>
+<td>复用原121生产站点域名；开放时间由121提供</td>
 </tr>
 <tr>
 <td>删除回调</td>
@@ -120,7 +120,8 @@
 </tr>
 </tbody>
 </table></div>
-<p>文档网站地址与API地址分别管理。所有业务请求使用HTTPS、TLS 1.2或更高版本；调用方校验证书与域名。网关必须保留完整 <code>/open-api/v1</code> 路径及请求体原始字节。</p>
+<p>业务接口继续使用原121各环境域名，不需要新申请API域名。上述尖括号是原站点域名的占位说明，不表示更换域名。GitHub Pages仅托管本文档，不接收业务请求；测试与生产分别配置调用凭据。</p>
+<p>在原121域名下新增 <code>/open-api/</code> 转发到原121后端；已有页面和API转发规则保留。所有业务请求使用HTTPS、TLS 1.2或更高版本；调用方校验证书与域名。网关必须保留完整 <code>/open-api/v1</code> 路径及请求体原始字节；不要把原页面使用的 <code>/api</code> 或 <code>/prod-api</code> 前缀直接拼入签名路径。本协议外部与应用收到的开放接口路径一致，最终以部署验收地址为准。</p>
 <h3 id="section-1-2">1.2 接口目录与调用权限</h3>
 <p>以下路径相对于基础地址 <code>/open-api/v1</code>。C01是121主动调用智能化的反向接口。</p>
 <div class="table-scroll" tabindex="0"><table>
@@ -194,7 +195,7 @@
 <li><code>cashCycle</code> 单位是天；<code>budgetMonth</code> 为 <code>YYYY-MM</code>；<code>purchaseDate</code> 为 <code>yyyy-MM-dd</code>。回调 <code>eventTime</code> 为UTC ISO 8601，例如 <code>2026-11-17T02:00:00Z</code>。</li>
 <li>智能化必须提供预算月份、销售数量、销售单价和当日库存。121保存明细传入价格；预算、利润和导出继续沿用现有取价规则，同步接口不更新物料主数据价格。</li>
 <li>智能化维护供应商与默认项目、项目与默认变现周期的映射和页面默认值。121提供字典并在创建时再次校验。</li>
-<li>来源草稿创建后供应商不可修改；其余业务字段按121现有草稿规则编辑。取消同步只允许删除草稿，已锁单及退单状态不能取消。</li>
+<li>来源草稿创建后供应商不可修改；部门归属沿用121现有规则，不支持跨部门修改，其余业务字段按121现有草稿规则编辑。取消同步只允许删除草稿，已锁单及退单状态不能取消。</li>
 </ul>
 </section><section class="doc-section" data-section="section-2"><h2 id="section-2">二、公共请求参数与鉴权</h2>
 <p>公共鉴权参数放在HTTP请求头，<strong>不放在JSON正文</strong>。智能化后台签名后调用121，不使用员工登录密码、员工JWT或网页登录会话。HMAC用于验证系统身份及请求完整性，传输加密由HTTPS提供。</p>
@@ -681,7 +682,7 @@
 <td>Query</td>
 <td>string</td>
 <td>否</td>
-<td>stores时按库位关联项目ID精确筛选；省略则返回该部门全部库位</td>
+<td>传入须为正整数ID；仅stores按库位关联项目精确筛选，其他类型忽略；省略返回该部门全部库位</td>
 </tr>
 <tr>
 <td><code>parentId</code></td>
@@ -689,7 +690,7 @@
 <td>Query</td>
 <td>string</td>
 <td>否</td>
-<td>departments时按父部门ID筛选，当前仅接受正整数ID</td>
+<td>正整数ID，按返回项parentId精确过滤；只建议departments使用，其他字典通常得到空列表</td>
 </tr>
 <tr>
 <td><code>roleCode</code></td>
@@ -697,7 +698,7 @@
 <td>Query</td>
 <td>string</td>
 <td>条件</td>
-<td>approval-users必填，见角色表</td>
+<td>approval-users必填且须符合角色表；其他字典类型忽略</td>
 </tr>
 <tr>
 <td><code>keyword</code></td>
@@ -725,7 +726,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>不得重复或传未知参数。<code>projectId</code>、<code>parentId</code>、<code>roleCode</code> 仅在对应类型使用。字典数据可能变更，P01创建时会重新校验；同名记录以ID区分，调用方应遍历全部分页。</p>
+<p>不得重复或传未知参数。<code>projectId</code>和<code>parentId</code>只要传入就校验正整数ID；各筛选参数的实际生效范围见上表。字典数据可能变更，P01创建时会重新校验；同名记录以ID区分，调用方应遍历全部分页。</p>
 <h3 id="section-5-2">5.2 字典类型及联动</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -806,7 +807,7 @@
 <tr>
 <td><code>approval-users</code></td>
 <td>审批人员</td>
-<td>部门内具有指定有效角色的启用用户</td>
+<td>具有指定有效角色的启用用户；仅PRODUCT_MANAGER限定本部门，其他角色允许跨部门</td>
 <td>对应人员字段 <code>= id</code></td>
 </tr>
 </tbody>
@@ -964,7 +965,7 @@
 <td><code>items[].departmentIds</code></td>
 <td>array of string</td>
 <td>审批人员</td>
-<td>人员成员部门与客户白名单交集中的ID</td>
+<td>人员成员部门与客户白名单交集中的ID；跨部门审批人可为空数组，不代表不可选</td>
 </tr>
 </tbody>
 </table></div>
@@ -1103,7 +1104,7 @@
 <td>供应商展示名称</td>
 <td>string</td>
 <td>否</td>
-<td>最长100，仅接收校验，不用于查找、不更新主数据；以supplierId对应名称为准</td>
+<td>最长100，不用于查找、不更新主数据；ID不存在时用于提示，未提供名称则提示ID；有效时以ID对应名称为准</td>
 </tr>
 <tr>
 <td><code>authorized</code></td>
@@ -1221,7 +1222,8 @@
 </table></div>
 <p>不要提交状态、创建人、121主单ID等额外字段。字符串拒绝控制字符和尖括号。未填写的可选ID应省略，不传空字符串。</p>
 <h3 id="section-6-3">6.3 可选审批人员</h3>
-<p>以下都是string类型、可选、正整数用户ID；提供时必须属于当前部门、用户启用且具有相应有效角色。通过D01的approval-users取得ID，不能直接传姓名。121按现有业务字段保存人员姓名。</p>
+<p>以下都是string类型、可选、正整数用户ID；提供时用户须启用未删且具有相应有效角色。仅产品经理须属于当前部门，其他审批角色按现有页面允许跨部门。通过D01的approval-users取得ID，不能直接传姓名；departmentIds可能为空数组，不代表该跨部门审批人不可选。121按现有业务字段保存人员姓名。</p>
+<p>智能化按需求将产品经理默认设为制单人（采购发起人），其他人员按双方维护的默认配置选择，提交前可调整。默认人员仍须符合上述角色与有效性条件；没有匹配人员时应先补齐121人员配置，121不按姓名猜测或自动新增人员。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -1375,6 +1377,7 @@
 </tbody>
 </table></div>
 <p>多个物料编码不存在时一次返回全部缺失编码；编码对应多个物料时报 <code>MATERIAL_AMBIGUOUS</code>。未命中物料不能自行创建或按名称匹配。</p>
+<p>供应商ID不存在时返回422 <code>REFERENCE_INVALID</code>，message为“供应商xxx，在121系统未找到，请先核实供应商再推送至121”；xxx优先使用supplierName，未提供名称时使用supplierId，名称不参与匹配。物料缺失返回422 <code>MATERIAL_NOT_FOUND</code>，message为“物料编码xxx、xxx在121系统未找到，请先核实物料编码再推送至121”，一次列出全部缺失编码。</p>
 <h3 id="section-6-5">6.5 返回字段</h3>
 <p>P01、P02、P03和P04使用相同业务对象。</p>
 <div class="table-scroll" tabindex="0"><table>
@@ -1485,7 +1488,7 @@
 <p>缺失多个物料的失败示例，HTTP 422：</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
 <span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-string">&quot;MATERIAL_NOT_FOUND&quot;</span>,</span>
-<span class="code-line">  <span class="token-key">&quot;message&quot;</span>: <span class="token-string">&quot;Missing material codes: MAT-001,MAT-002&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;message&quot;</span>: <span class="token-string">&quot;物料编码MAT-001、MAT-002在121系统未找到，请先核实物料编码再推送至121&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>: <span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: <span class="token-literal">null</span></span>
 <span class="code-line">}</span></code></pre></div></details>
@@ -1581,8 +1584,8 @@
 <tr>
 <td>422</td>
 <td><code>REFERENCE_INVALID</code></td>
-<td>字典、审批人或联动关系不可用</td>
-<td>重新拉取字典并修正</td>
+<td>供应商不存在、字典/审批人或联动关系不可用</td>
+<td>核实供应商提示，或重新拉取字典并修正</td>
 </tr>
 <tr>
 <td>422</td>
@@ -1632,7 +1635,7 @@
 <td>Query</td>
 <td>string</td>
 <td>是</td>
-<td>创建时的INTELLIGENT_OFFICE</td>
+<td>使用创建时的INTELLIGENT_OFFICE；查询入口只校验非空及长度≤128码点</td>
 </tr>
 <tr>
 <td><code>sourceOrderId</code></td>
@@ -1640,7 +1643,7 @@
 <td>Query</td>
 <td>string</td>
 <td>是</td>
-<td>创建时的来源订单号</td>
+<td>使用创建时的来源订单号；非空且≤128码点</td>
 </tr>
 <tr>
 <td><code>syncBatchId</code></td>
@@ -1648,7 +1651,7 @@
 <td>Query</td>
 <td>string</td>
 <td>是</td>
-<td>创建时的UUID；不自动返回最近批次</td>
+<td>使用创建时的UUID；查询入口只校验非空及长度≤128码点，不自动返回最近批次</td>
 </tr>
 </tbody>
 </table></div>
@@ -1699,7 +1702,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>公共错误码仍适用。P02不是按来源查询“最新一单”，syncBatchId必须准确。</p>
+<p>公共错误码仍适用。P02不是按来源查询“最新一单”，syncBatchId必须准确。三个查询字段均禁止控制字符及尖括号；查询入口不另校验来源常量、订单号格式或UUID格式，格式错误且无匹配时返回404 DRAFT_NOT_FOUND。</p>
 </section><section class="doc-section" data-section="section-8"><h2 id="section-8">八、P03 按121采购单ID查询草稿</h2>
 <h3 id="section-8-1">8.1 接口与参数</h3>
 <p><code>GET /open-api/v1/purchase-drafts/{draftId}</code>，权限 <code>purchase-draft:read</code>。不接受查询参数，正文为空，不传幂等键。</p>
@@ -2224,8 +2227,8 @@
 <td>422</td>
 <td><code>REFERENCE_INVALID</code></td>
 <td>引用数据无效</td>
-<td>字典/审批人失效、部门停用或库位项目联动不符</td>
-<td>重新查询字典并修正选择</td>
+<td>供应商不存在、字典/审批人失效、部门停用或库位项目联动不符</td>
+<td>供应商缺失时message提示名称（未传名称则提示ID）；核实并补齐后重新查询字典</td>
 </tr>
 <tr>
 <td>422</td>
@@ -2452,6 +2455,11 @@
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>2026-11-17</td>
+<td>1.1.0</td>
+<td>审查修订：统一部门归属限制、供应商/物料缺失提示、U01失败响应和机器契约、字典与来源查询实际边界</td>
+</tr>
 <tr>
 <td>2026-11-17</td>
 <td>1.1.0</td>

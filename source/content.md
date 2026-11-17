@@ -10,11 +10,13 @@
 
 | 环境 | 基础地址 | 说明 |
 | --- | --- | --- |
-| 测试环境 | `https://<测试API域名>/open-api/v1` | 实际域名由121提供；尚未填写，不能直接调用 |
-| 生产环境 | `https://<生产API域名>/open-api/v1` | 实际域名及开放时间由121提供 |
+| 测试环境 | `https://<原121测试域名>/open-api/v1` | 复用原121测试站点域名；正式地址及HTTPS转发确认后提供 |
+| 生产环境 | `https://<原121生产域名>/open-api/v1` | 复用原121生产站点域名；开放时间由121提供 |
 | 删除回调 | `https://<智能化回调域名>/<约定路径>` | 智能化提供HTTPS接口，121运维配置固定地址 |
 
-文档网站地址与API地址分别管理。所有业务请求使用HTTPS、TLS 1.2或更高版本；调用方校验证书与域名。网关必须保留完整 `/open-api/v1` 路径及请求体原始字节。
+业务接口继续使用原121各环境域名，不需要新申请API域名。上述尖括号是原站点域名的占位说明，不表示更换域名。GitHub Pages仅托管本文档，不接收业务请求；测试与生产分别配置调用凭据。
+
+在原121域名下新增 `/open-api/` 转发到原121后端；已有页面和API转发规则保留。所有业务请求使用HTTPS、TLS 1.2或更高版本；调用方校验证书与域名。网关必须保留完整 `/open-api/v1` 路径及请求体原始字节；不要把原页面使用的 `/api` 或 `/prod-api` 前缀直接拼入签名路径。本协议外部与应用收到的开放接口路径一致，最终以部署验收地址为准。
 
 ### 1.2 接口目录与调用权限
 
@@ -40,7 +42,7 @@
 - `cashCycle` 单位是天；`budgetMonth` 为 `YYYY-MM`；`purchaseDate` 为 `yyyy-MM-dd`。回调 `eventTime` 为UTC ISO 8601，例如 `2026-11-17T02:00:00Z`。
 - 智能化必须提供预算月份、销售数量、销售单价和当日库存。121保存明细传入价格；预算、利润和导出继续沿用现有取价规则，同步接口不更新物料主数据价格。
 - 智能化维护供应商与默认项目、项目与默认变现周期的映射和页面默认值。121提供字典并在创建时再次校验。
-- 来源草稿创建后供应商不可修改；其余业务字段按121现有草稿规则编辑。取消同步只允许删除草稿，已锁单及退单状态不能取消。
+- 来源草稿创建后供应商不可修改；部门归属沿用121现有规则，不支持跨部门修改，其余业务字段按121现有草稿规则编辑。取消同步只允许删除草稿，已锁单及退单状态不能取消。
 
 ## 二、公共请求参数与鉴权
 
@@ -236,14 +238,14 @@ X-Content-SHA256
 | --- | --- | --- | --- | --- | --- |
 | `type` | 字典类型 | Path | string | 是 | 取值见下表 |
 | `deptId` | 部门ID | Query | string | 条件 | 除departments外均必填，且是客户授权有效部门 |
-| `projectId` | 项目筛选 | Query | string | 否 | stores时按库位关联项目ID精确筛选；省略则返回该部门全部库位 |
-| `parentId` | 父部门筛选 | Query | string | 否 | departments时按父部门ID筛选，当前仅接受正整数ID |
-| `roleCode` | 人员角色 | Query | string | 条件 | approval-users必填，见角色表 |
+| `projectId` | 项目筛选 | Query | string | 否 | 传入须为正整数ID；仅stores按库位关联项目精确筛选，其他类型忽略；省略返回该部门全部库位 |
+| `parentId` | 父部门筛选 | Query | string | 否 | 正整数ID，按返回项parentId精确过滤；只建议departments使用，其他字典通常得到空列表 |
+| `roleCode` | 人员角色 | Query | string | 条件 | approval-users必填且须符合角色表；其他字典类型忽略 |
 | `keyword` | 名称关键词 | Query | string | 否 | 最长100；名称包含匹配 |
 | `pageNum` | 页码 | Query | integer | 否 | 默认1，范围1—1000000 |
 | `pageSize` | 每页条数 | Query | integer | 否 | 默认100，范围1—200 |
 
-不得重复或传未知参数。`projectId`、`parentId`、`roleCode` 仅在对应类型使用。字典数据可能变更，P01创建时会重新校验；同名记录以ID区分，调用方应遍历全部分页。
+不得重复或传未知参数。`projectId`和`parentId`只要传入就校验正整数ID；各筛选参数的实际生效范围见上表。字典数据可能变更，P01创建时会重新校验；同名记录以ID区分，调用方应遍历全部分页。
 
 ### 5.2 字典类型及联动
 
@@ -260,7 +262,7 @@ X-Content-SHA256
 | `transport-costs` | 运费成本 | 部门字典中可解析的非负金额；额外value、unit | `transportCost = value` |
 | `tax-rates` | 税率 | 固定0、0.06、0.13；额外value、unit | `taxRate = value` |
 | `cash-cycles` | 变现周期 | 部门字典；额外value、unit，单位天 | `cashCycle = value` |
-| `approval-users` | 审批人员 | 部门内具有指定有效角色的启用用户 | 对应人员字段 `= id` |
+| `approval-users` | 审批人员 | 具有指定有效角色的启用用户；仅PRODUCT_MANAGER限定本部门，其他角色允许跨部门 | 对应人员字段 `= id` |
 
 省份必须用121字典ID，例如 `"6"`；不能使用 `"110000"` 等行政区划编码代替。供应商 `requiresProject=true` 时P01必须提交项目；选定库位的非零项目关联应与提交项目一致。按projectId筛选时，只返回精确匹配的库位。
 
@@ -295,7 +297,7 @@ X-Content-SHA256
 | `items[].value` | number / string | 运费、税率、变现周期 | 实际业务值，创建时传value；不能把字典项ID当金额/天数 |
 | `items[].unit` | string | 同上 | `CNY`=人民币元；`RATIO`=比例；`DAY`=天 |
 | `items[].loginAccount` | string | 审批人员 | 人员的121登录账号 |
-| `items[].departmentIds` | array of string | 审批人员 | 人员成员部门与客户白名单交集中的ID |
+| `items[].departmentIds` | array of string | 审批人员 | 人员成员部门与客户白名单交集中的ID；跨部门审批人可为空数组，不代表不可选 |
 
 ### 5.5 请求与响应示例
 
@@ -360,7 +362,7 @@ HTTP 200，省份示例：
 | `initiatorLoginAccount` | 采购发起人账号 | string | 是 | 必须与operatorLoginAccount相同，本版本不支持代发 |
 | `departmentId` | 业务部门 | string | 是 | 用户所属、客户端授权且启用的121部门ID |
 | `supplierId` | 供应商 | string | 是 | D01 suppliers返回的ID；同步后不可改供应商 |
-| `supplierName` | 供应商展示名称 | string | 否 | 最长100，仅接收校验，不用于查找、不更新主数据；以supplierId对应名称为准 |
+| `supplierName` | 供应商展示名称 | string | 否 | 最长100，不用于查找、不更新主数据；ID不存在时用于提示，未提供名称则提示ID；有效时以ID对应名称为准 |
 | `authorized` | 是否授权 | boolean | 是 | true=授权；false=未授权，false是合法值，不等同未填 |
 | `projectId` | 项目 | string | 条件 | 供应商requiresProject=true时必填；提供时必须有效 |
 | `storeId` | 库位 | string | 是 | 属departmentId；存在非零项目关联时与提交项目一致 |
@@ -382,7 +384,9 @@ HTTP 200，省份示例：
 
 ### 6.3 可选审批人员
 
-以下都是string类型、可选、正整数用户ID；提供时必须属于当前部门、用户启用且具有相应有效角色。通过D01的approval-users取得ID，不能直接传姓名。121按现有业务字段保存人员姓名。
+以下都是string类型、可选、正整数用户ID；提供时用户须启用未删且具有相应有效角色。仅产品经理须属于当前部门，其他审批角色按现有页面允许跨部门。通过D01的approval-users取得ID，不能直接传姓名；departmentIds可能为空数组，不代表该跨部门审批人不可选。121按现有业务字段保存人员姓名。
+
+智能化按需求将产品经理默认设为制单人（采购发起人），其他人员按双方维护的默认配置选择，提交前可调整。默认人员仍须符合上述角色与有效性条件；没有匹配人员时应先补齐121人员配置，121不按姓名猜测或自动新增人员。
 
 | 参数名 | 名称 | D01 roleCode |
 | --- | --- | --- |
@@ -415,6 +419,8 @@ HTTP 200，省份示例：
 | `remark` | 明细备注 | string | 否 | 最长500 |
 
 多个物料编码不存在时一次返回全部缺失编码；编码对应多个物料时报 `MATERIAL_AMBIGUOUS`。未命中物料不能自行创建或按名称匹配。
+
+供应商ID不存在时返回422 `REFERENCE_INVALID`，message为“供应商xxx，在121系统未找到，请先核实供应商再推送至121”；xxx优先使用supplierName，未提供名称时使用supplierId，名称不参与匹配。物料缺失返回422 `MATERIAL_NOT_FOUND`，message为“物料编码xxx、xxx在121系统未找到，请先核实物料编码再推送至121”，一次列出全部缺失编码。
 
 ### 6.5 返回字段
 
@@ -495,7 +501,7 @@ P01、P02、P03和P04使用相同业务对象。
 ```json
 {
   "code": "MATERIAL_NOT_FOUND",
-  "message": "Missing material codes: MAT-001,MAT-002",
+  "message": "物料编码MAT-001、MAT-002在121系统未找到，请先核实物料编码再推送至121",
   "requestId": "7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
   "data": null
 }
@@ -525,7 +531,7 @@ P01、P02、P03和P04使用相同业务对象。
 | 409 | `IDEMPOTENCY_CONFLICT` | 批次/键已用于不一致请求 | 查询原请求，不能覆盖原结果 |
 | 409 | `SOURCE_ALREADY_SYNCED` | 来源订单存在有效121单据 | 查询已有批次，勿重复创建 |
 | 422 | `USER_DISABLED` | 操作人已停用 | 更换可用账号 |
-| 422 | `REFERENCE_INVALID` | 字典、审批人或联动关系不可用 | 重新拉取字典并修正 |
+| 422 | `REFERENCE_INVALID` | 供应商不存在、字典/审批人或联动关系不可用 | 核实供应商提示，或重新拉取字典并修正 |
 | 422 | `MATERIAL_NOT_FOUND` | 一个或多个物料编码不存在 | 在121补齐/核实后重新推送 |
 | 422 | `MATERIAL_AMBIGUOUS` | 物料编码匹配多条记录 | 121消除重复数据后重试 |
 | 422 | `AMOUNT_MISMATCH` | 采购金额与数量×单价不同 | 修正金额或省略purchaseAmount |
@@ -541,9 +547,9 @@ P01、P02、P03和P04使用相同业务对象。
 
 | 参数名 | 名称 | 位置 | 类型 | 是否必填 | 说明 |
 | --- | --- | --- | --- | --- | --- |
-| `sourceSystem` | 来源系统 | Query | string | 是 | 创建时的INTELLIGENT_OFFICE |
-| `sourceOrderId` | 来源订单号 | Query | string | 是 | 创建时的来源订单号 |
-| `syncBatchId` | 同步批次 | Query | string | 是 | 创建时的UUID；不自动返回最近批次 |
+| `sourceSystem` | 来源系统 | Query | string | 是 | 使用创建时的INTELLIGENT_OFFICE；查询入口只校验非空及长度≤128码点 |
+| `sourceOrderId` | 来源订单号 | Query | string | 是 | 使用创建时的来源订单号；非空且≤128码点 |
+| `syncBatchId` | 同步批次 | Query | string | 是 | 使用创建时的UUID；查询入口只校验非空及长度≤128码点，不自动返回最近批次 |
 
 ### 7.2 返回字段与示例
 
@@ -578,7 +584,7 @@ HTTP 200：
 | 400 | `PARAM_INVALID` | 缺参数或参数不合法 | 使用原创建批次参数 |
 | 404 | `DRAFT_NOT_FOUND` | 批次不存在、主单不存在或不在本客户/授权部门范围 | 超时恢复时核对原参数，再按原业务请求重试；不得据此取消其他批次 |
 
-公共错误码仍适用。P02不是按来源查询“最新一单”，syncBatchId必须准确。
+公共错误码仍适用。P02不是按来源查询“最新一单”，syncBatchId必须准确。三个查询字段均禁止控制字符及尖括号；查询入口不另校验来源常量、订单号格式或UUID格式，格式错误且无匹配时返回404 DRAFT_NOT_FOUND。
 
 ## 八、P03 按121采购单ID查询草稿
 
@@ -778,7 +784,7 @@ HTTP 200；data完整字段见6.5，成功取消返回DELETED：
 | 413 | `PAYLOAD_TOO_LARGE` | 请求体过大 | U01超过8KiB，其他超过2MiB | 缩小请求体；P01同时最多500条 |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | 媒体类型或编码不支持 | 非JSON、非UTF-8声明或携带Content-Encoding压缩头 | 使用未压缩UTF-8 JSON |
 | 422 | `USER_DISABLED` | 用户已停用 | 账号存在但状态非启用 | 使用启用账号 |
-| 422 | `REFERENCE_INVALID` | 引用数据无效 | 字典/审批人失效、部门停用或库位项目联动不符 | 重新查询字典并修正选择 |
+| 422 | `REFERENCE_INVALID` | 引用数据无效 | 供应商不存在、字典/审批人失效、部门停用或库位项目联动不符 | 供应商缺失时message提示名称（未传名称则提示ID）；核实并补齐后重新查询字典 |
 | 422 | `MATERIAL_NOT_FOUND` | 物料不存在 | 一个或多个materialCode无匹配 | 核对message中的全部编码，121补齐后再推 |
 | 422 | `MATERIAL_AMBIGUOUS` | 物料编码不唯一 | materialCode匹配多条物料 | 121修复重复数据 |
 | 422 | `AMOUNT_MISMATCH` | 采购金额不一致 | purchaseAmount不等于quantity×purchasePrice | 修正金额或省略该字段 |
@@ -893,6 +899,7 @@ print("签名向量校验通过")
 
 | 日期 | 文档/契约版本 | 内容 |
 | --- | --- | --- |
+| 2026-11-17 | 1.1.0 | 审查修订：统一部门归属限制、供应商/物料缺失提示、U01失败响应和机器契约、字典与来源查询实际边界 |
 | 2026-11-17 | 1.1.0 | 整理公开网页，补齐逐字段响应含义、枚举、分接口返回码、回调确认规则与折叠示例；不改变接口行为 |
 | 2026-11-16 | 1.1.0 | 完整采购同步接口与代码实现对齐，确认现有取价、库存字段及省份ID规则 |
 

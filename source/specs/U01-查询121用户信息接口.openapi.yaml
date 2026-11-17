@@ -8,11 +8,11 @@ info:
     HMAC签名由121应用独立安全链校验；部署网关提供HTTPS并保留原始路径和正文。
 servers:
   - url: https://{host}/open-api/v1
-    description: 121开放接口地址（由121提供方替换）
+    description: 复用原121测试或生产域名，仅新增/open-api路径；GitHub文档域名不用于业务调用
     variables:
       host:
-        default: api.example.com
-        description: 测试或生产域名
+        default: existing-121.example.com
+        description: 替换为原121对应环境域名，不需要新申请API域名；默认值为示例占位
 tags:
   - name: Users
     description: 121用户查询
@@ -71,8 +71,8 @@ paths:
                       status: ACTIVE
                       departments:
                         - id: '80001'
-                          code: PTAC_OU_80001
-                          name: 器材北京公司政企业务部
+                          code: EXAMPLE_DEPT_80001
+                          name: 示例业务部
         '400':
           $ref: '#/components/responses/ParamInvalid'
         '401':
@@ -111,6 +111,16 @@ paths:
                     message: 121登录账号不存在
                     requestId: 7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41
                     data: null
+        '405':
+          description: 请求方法不支持，code为METHOD_NOT_ALLOWED
+          headers:
+            Allow:
+              schema: { type: string }
+              description: 支持的HTTP方法（POST）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '422':
           description: 用户已停用
           content:
@@ -216,7 +226,7 @@ components:
       properties:
         userId: { type: string, minLength: 1, maxLength: 64 }
         loginAccount: { type: string, minLength: 1, maxLength: 30 }
-        userName: { type: string, minLength: 1, maxLength: 100 }
+        userName: { type: string, maxLength: 100, description: 姓名或昵称未维护时为空字符串 }
         status: { type: string, enum: [ACTIVE] }
         departments:
           type: array
@@ -239,10 +249,10 @@ components:
       properties:
         code:
           type: string
-          enum: [PARAM_INVALID, AUTH_CLIENT_NOT_FOUND, AUTH_SIGNATURE_INVALID, AUTH_TIMESTAMP_EXPIRED, AUTH_REPLAY_REQUEST, AUTH_FORBIDDEN, OPERATOR_FORBIDDEN, USER_NOT_FOUND, USER_DISABLED, RATE_LIMITED, PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, SYSTEM_ERROR, SYSTEM_BUSY]
+          enum: [PARAM_INVALID, AUTH_CLIENT_NOT_FOUND, AUTH_SIGNATURE_INVALID, AUTH_TIMESTAMP_EXPIRED, AUTH_REPLAY_REQUEST, AUTH_FORBIDDEN, OPERATOR_FORBIDDEN, USER_NOT_FOUND, USER_DISABLED, METHOD_NOT_ALLOWED, RATE_LIMITED, PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, SYSTEM_ERROR, SYSTEM_BUSY]
         message: { type: string }
         requestId: { type: string, minLength: 16, maxLength: 128 }
-        data: { type: [object, 'null'] }
+        data: { type: 'null', description: 当前应用失败响应固定为空 }
   responses:
     ParamInvalid:
       description: 参数错误

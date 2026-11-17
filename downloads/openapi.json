@@ -8,11 +8,11 @@
   "servers": [
     {
       "url": "https://{host}/open-api/v1",
-      "description": "121开放接口地址（由121提供方替换）",
+      "description": "复用原121测试或生产域名，仅新增/open-api路径；GitHub文档域名不用于业务调用",
       "variables": {
         "host": {
-          "default": "api.example.com",
-          "description": "测试或生产域名"
+          "default": "existing-121.example.com",
+          "description": "替换为原121对应环境域名，不需要新申请API域名；默认值为示例占位"
         }
       }
     }
@@ -108,8 +108,8 @@
                         "departments": [
                           {
                             "id": "80001",
-                            "code": "PTAC_OU_80001",
-                            "name": "器材北京公司政企业务部"
+                            "code": "EXAMPLE_DEPT_80001",
+                            "name": "示例业务部"
                           }
                         ]
                       }
@@ -177,6 +177,24 @@
                       "data": null
                     }
                   }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "请求方法不支持，code为METHOD_NOT_ALLOWED",
+            "headers": {
+              "Allow": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "支持的HTTP方法（POST）"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -305,7 +323,8 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 19,
-              "pattern": "^[1-9][0-9]{0,18}$"
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "description": "仅stores生效；其他类型忽略，但只要传入仍须正整数ID"
             }
           },
           {
@@ -316,7 +335,8 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 19,
-              "pattern": "^[1-9][0-9]{0,18}$"
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "description": "按返回项parentId过滤；只建议departments使用，其他字典通常为空列表"
             }
           },
           {
@@ -334,6 +354,7 @@
             "required": false,
             "schema": {
               "type": "string",
+              "description": "仅approval-users生效且必填；PRODUCT_MANAGER限定本部门，其他有效角色允许跨部门，其他字典类型忽略",
               "enum": [
                 "PRODUCT_MANAGER",
                 "DEPARTMENT_MANAGER",
@@ -788,7 +809,9 @@
             "required": true,
             "schema": {
               "type": "string",
-              "const": "INTELLIGENT_OFFICE"
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "传创建时的INTELLIGENT_OFFICE；查询仅校验非空、长度、控制字符及尖括号，不另校验常量"
             }
           },
           {
@@ -798,7 +821,8 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 64
+              "maxLength": 128,
+              "description": "传创建时来源号；查询不另校验订单号格式"
             }
           },
           {
@@ -807,7 +831,9 @@
             "required": true,
             "schema": {
               "type": "string",
-              "format": "uuid"
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "传创建时UUID；查询不另校验UUID格式，无匹配返回404"
             }
           }
         ],
@@ -1560,8 +1586,8 @@
           },
           "userName": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 100
+            "maxLength": 100,
+            "description": "姓名或昵称未维护时为空字符串"
           },
           "status": {
             "type": "string",
@@ -1627,13 +1653,25 @@
               "AUTH_FORBIDDEN",
               "OPERATOR_FORBIDDEN",
               "USER_NOT_FOUND",
-              "USER_DISABLED",
-              "RATE_LIMITED",
+              "DRAFT_NOT_FOUND",
+              "NOT_FOUND",
+              "METHOD_NOT_ALLOWED",
+              "IDEMPOTENCY_CONFLICT",
+              "SOURCE_ALREADY_SYNCED",
+              "DRAFT_NOT_EDITABLE",
+              "SUPPLIER_IMMUTABLE",
               "PAYLOAD_TOO_LARGE",
               "UNSUPPORTED_MEDIA_TYPE",
+              "USER_DISABLED",
+              "REFERENCE_INVALID",
+              "MATERIAL_NOT_FOUND",
+              "MATERIAL_AMBIGUOUS",
+              "AMOUNT_MISMATCH",
+              "RATE_LIMITED",
               "SYSTEM_ERROR",
               "SYSTEM_BUSY"
-            ]
+            ],
+            "description": "PARAM_INVALID：请求参数错误；AUTH_CLIENT_NOT_FOUND：客户端或密钥不可用；AUTH_SIGNATURE_INVALID：签名或鉴权头无效；AUTH_TIMESTAMP_EXPIRED：请求时间过期；AUTH_REPLAY_REQUEST：请求重放；AUTH_FORBIDDEN：缺少接口scope；OPERATOR_FORBIDDEN：用户/部门越权、禁止代发或跨部门修改；USER_NOT_FOUND：用户不存在或已删；DRAFT_NOT_FOUND：同步采购单不存在或不可见；NOT_FOUND：字典类型不存在；METHOD_NOT_ALLOWED：HTTP方法不支持；IDEMPOTENCY_CONFLICT：幂等键或批次与原请求冲突；SOURCE_ALREADY_SYNCED：来源已有有效关联；DRAFT_NOT_EDITABLE：状态不允许删除/修改；SUPPLIER_IMMUTABLE：来源单供应商不可改；PAYLOAD_TOO_LARGE：请求体超过大小上限；UNSUPPORTED_MEDIA_TYPE：媒体类型或编码不支持；USER_DISABLED：用户已停用；REFERENCE_INVALID：供应商或其他引用数据无效；MATERIAL_NOT_FOUND：一个或多个物料不存在；MATERIAL_AMBIGUOUS：物料编码匹配不唯一；AMOUNT_MISMATCH：采购金额与数量乘单价不一致；RATE_LIMITED：超过客户端调用配额；SYSTEM_ERROR：内部处理失败；SYSTEM_BUSY：暂不可用"
           },
           "message": {
             "type": "string"
@@ -1644,10 +1682,8 @@
             "maxLength": 128
           },
           "data": {
-            "type": [
-              "object",
-              "null"
-            ]
+            "type": "null",
+            "description": "当前应用失败响应固定为空"
           }
         }
       },
@@ -1676,17 +1712,14 @@
           },
           "materialName": {
             "type": "string",
-            "minLength": 1,
             "maxLength": 100
           },
           "productCode": {
             "type": "string",
-            "minLength": 1,
             "maxLength": 64
           },
           "brandName": {
             "type": "string",
-            "minLength": 1,
             "maxLength": 100
           },
           "quantity": {
@@ -1798,8 +1831,8 @@
           },
           "supplierName": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 100
+            "maxLength": 100,
+            "description": "不用于匹配或更新主数据；供应商ID不存在时用于错误提示，未传名称则提示ID"
           },
           "authorized": {
             "type": "boolean"
@@ -1892,43 +1925,50 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 19,
-            "pattern": "^[1-9][0-9]{0,18}$"
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "description": "须为本部门具有有效产品经理角色的启用用户"
           },
           "departmentManagerUserId": {
             "type": "string",
             "minLength": 1,
             "maxLength": 19,
-            "pattern": "^[1-9][0-9]{0,18}$"
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "description": "具有对应有效角色的启用用户，可跨部门选择"
           },
           "departmentLeaderUserId": {
             "type": "string",
             "minLength": 1,
             "maxLength": 19,
-            "pattern": "^[1-9][0-9]{0,18}$"
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "description": "具有对应有效角色的启用用户，可跨部门选择"
           },
           "businessReviewerUserId": {
             "type": "string",
             "minLength": 1,
             "maxLength": 19,
-            "pattern": "^[1-9][0-9]{0,18}$"
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "description": "具有对应有效角色的启用用户，可跨部门选择"
           },
           "budgetReviewerUserId": {
             "type": "string",
             "minLength": 1,
             "maxLength": 19,
-            "pattern": "^[1-9][0-9]{0,18}$"
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "description": "具有对应有效角色的启用用户，可跨部门选择"
           },
           "chiefAccountantUserId": {
             "type": "string",
             "minLength": 1,
             "maxLength": 19,
-            "pattern": "^[1-9][0-9]{0,18}$"
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "description": "具有对应有效角色的启用用户，可跨部门选择"
           },
           "generalManagerUserId": {
             "type": "string",
             "minLength": 1,
             "maxLength": 19,
-            "pattern": "^[1-9][0-9]{0,18}$"
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "description": "具有对应有效角色的启用用户，可跨部门选择"
           }
         }
       },
@@ -2075,7 +2115,8 @@
               "minLength": 1,
               "maxLength": 19,
               "pattern": "^[1-9][0-9]{0,18}$"
-            }
+            },
+            "description": "用户成员部门与客户端白名单的交集；跨部门审批人可为空数组，不代表不可选"
           }
         }
       },
