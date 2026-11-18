@@ -1,9 +1,11 @@
 openapi: 3.1.0
 info:
   title: 121 User Verification API
-  version: 1.0.1
+  version: 1.0.2
   description: |
     查询121登录账号对应的有效用户和客户端授权部门。
+    121客户端配置all-departments为true时覆盖全部启用未删除部门；默认false时按department-ids白名单。
+    仅返回用户所属的有效授权部门；无有效成员部门仍返回403。该模式由121配置，不是请求参数。
     这是系统对系统查询接口，不是网页登录接口，不接收用户密码，不返回Token。
     HMAC签名由121应用独立安全链校验；正式网关提供HTTPS，测试允许HTTP；均保留原始路径和正文。首次每环境配置一套系统凭据，不要求mTLS或轮换流程。
 servers:

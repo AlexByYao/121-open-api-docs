@@ -90,7 +90,7 @@
     <div class="overview"><details><summary>展开完整章节目录</summary><ol><li><a href="#section-1">一、环境与接口总览</a></li><li><a href="#section-2">二、公共请求参数与鉴权</a></li><li><a href="#section-3">三、公共响应与返回值</a></li><li><a href="#section-4">四、U01 查询121用户信息</a></li><li><a href="#section-5">五、D01 查询基础字典</a></li><li><a href="#section-6">六、P01 创建采购草稿</a></li><li><a href="#section-7">七、P02 按来源和批次查询草稿</a></li><li><a href="#section-8">八、P03 按121采购单ID查询草稿</a></li><li><a href="#section-9">九、P04 取消同步并删除草稿</a></li><li><a href="#section-10">十、C01 采购草稿删除通知</a></li><li><a href="#section-11">十一、完整返回码与处理建议</a></li><li><a href="#section-12">十二、签名测试向量与联调</a></li><li><a href="#section-13">十三、下载、版本与规范参考</a></li></ol></details></div>
     <div id="no-results" hidden>未找到匹配内容。请尝试接口编号（如 P01）、参数名或错误码。</div>
     <div class="document-intro"><h1 id="top">121 智能化采购同步接口文档</h1>
-<p>版本 <strong>1.1.1</strong> · 更新 <strong>2026-11-17</strong> · 服务提供方 <strong>121系统</strong> · 调用方 <strong>智能化办公平台后台服务</strong></p>
+<p>版本 <strong>1.1.2</strong> · 更新 <strong>2026-11-18</strong> · 服务提供方 <strong>121系统</strong> · 调用方 <strong>智能化办公平台后台服务</strong></p>
 <p>本文是服务器对服务器的对接规范。网页用于公开查阅；业务接口代码已实现、默认关闭，尚需真实环境部署联调。环境表中的121域名及现有接口入口由121提供方根据前端抓包确认；其余示例账号、部门和订单为虚构数据，回调域名为占位。</p>
 </div><section class="doc-section" data-section="section-1"><h2 id="section-1">一、环境与接口总览</h2>
 <h3 id="section-1-1">1.1 环境地址</h3>
@@ -190,7 +190,7 @@
 </tr>
 </tbody>
 </table></div>
-<p><code>scope</code> 是调用方系统的接口权限，由121配置；用户的部门权限同时按客户端部门白名单校验。查询用户成功不等于证明账号所有权；智能化应完成账号绑定授权。本版本操作人必须与发起人相同，不开放代发。</p>
+<p><code>scope</code> 是调用方系统的接口权限，由121配置；用户的部门权限同时按客户端部门授权范围校验。121可显式配置全部有效部门模式（<code>all-departments: true</code>），也可使用指定部门白名单（默认false时的 <code>department-ids</code>）。全部模式每次请求读取全部启用、未删除部门，新部门自动纳入；此时忽略白名单。未配置模式且空白名单仍表示无部门权限。全部模式不会绕过用户归属、来源客户端隔离、库位关联或单据状态校验，创建仍必传真实 <code>departmentId</code>。该模式是121内部部署配置，不是请求字段。查询用户成功不等于证明账号所有权；智能化应完成账号绑定授权。本版本操作人必须与发起人相同，不开放代发。</p>
 <h3 id="section-1-3">1.3 数据与业务约定</h3>
 <ul>
 <li>ID使用JSON字符串，避免大整数丢精度；必填ID为正整数形式。字典中的 <code>code</code> 是业务编码，不能替代 <code>id</code>。</li>
@@ -562,7 +562,7 @@
 <tr>
 <td><code>departments</code></td>
 <td>array</td>
-<td>有效用户成员部门与客户端授权部门的交集，成功至少1项</td>
+<td>有效用户成员部门与客户端授权部门的交集；全部模式返回用户所属的全部有效部门，成功至少1项</td>
 </tr>
 <tr>
 <td><code>departments[].id</code></td>
@@ -632,7 +632,7 @@
 <td>403</td>
 <td><code>OPERATOR_FORBIDDEN</code></td>
 <td>没有可用授权部门</td>
-<td>核对用户部门与客户端白名单</td>
+<td>核对用户有效成员部门及客户端授权模式/白名单</td>
 </tr>
 <tr>
 <td>404</td>
@@ -969,7 +969,7 @@
 <td><code>items[].departmentIds</code></td>
 <td>array of string</td>
 <td>审批人员</td>
-<td>人员成员部门与客户白名单交集中的ID；跨部门审批人可为空数组，不代表不可选</td>
+<td>人员成员部门与客户本次部门范围交集中的ID；跨部门审批人可为空数组，不代表不可选</td>
 </tr>
 </tbody>
 </table></div>
@@ -2420,7 +2420,7 @@
 <td>C01固定回调地址及独立反向凭据（正式HTTPS，测试可HTTP）</td>
 </tr>
 <tr>
-<td>scope、部门白名单、限流配置</td>
+<td>scope、全部有效部门/白名单授权模式、限流配置</td>
 <td>账号绑定流程、采购发起人对应规则</td>
 </tr>
 <tr>
@@ -2460,6 +2460,11 @@
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>2026-11-18</td>
+<td>1.1.2</td>
+<td>新增显式全部有效部门授权模式；默认继续使用部门白名单，未配置不隐式授权；业务归属校验保持</td>
+</tr>
 <tr>
 <td>2026-11-17</td>
 <td>1.1.1</td>
