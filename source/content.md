@@ -1,6 +1,6 @@
 # 121 智能化采购同步接口文档
 
-版本 **1.1.4** · 更新 **2026-11-19** · 服务提供方 **121系统** · 调用方 **智能化办公平台后台服务**
+版本 **1.1.5** · 更新 **2026-11-19** · 服务提供方 **121系统** · 调用方 **智能化办公平台后台服务**
 
 本文是服务器对服务器的对接规范。网页用于公开查阅；业务接口代码已实现、默认关闭，尚需真实环境部署联调。环境表中的121域名及现有接口入口由121提供方根据前端抓包确认；其余示例账号、部门和订单为虚构数据，回调域名为占位。
 
@@ -111,7 +111,7 @@ X-Content-SHA256
 
 ```json
 {
-  "code": "SUCCESS",
+  "code": 200, "errorCode": null,
   "message": "success",
   "requestId": "7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
   "data": {}
@@ -120,14 +120,17 @@ X-Content-SHA256
 
 | 返回字段 | 类型 | 含义 | 取值说明 |
 | --- | --- | --- | --- |
-| `code` | string | 业务处理结果码 | 成功为 `SUCCESS`；失败为第十一节列出的字符串错误码，不能按数字 `0` 判断 |
+| `code` | integer | 数字结果码 | 成功为数字 `200`；失败与HTTP状态相同，如400、401、403、404、405、409、413、415、422、429、500、503 |
+| `errorCode` | string / null | 具体业务错误原因 | 成功为null；失败为第十一节列出的稳定业务码，如MATERIAL_NOT_FOUND |
 | `message` | string | 结果说明 | 供展示、排查使用；文字可变化，程序不能通过解析message判断结果 |
 | `requestId` | string | 本次请求追踪编号 | 合法时回显请求头；缺失或非法时由121生成，反馈问题时一并提供 |
 | `data` | object / null | 业务返回内容 | 成功为对应接口对象；失败可为结构化错误详情，无详情时为 `null`；SOURCE_ALREADY_SYNCED返回原单对象 |
 
 成功HTTP为200；失败使用实际HTTP状态码。所有应用响应带 `Cache-Control: no-store`；401额外带 `WWW-Authenticate: HMAC realm="121-open-api"`；429额外带 `Retry-After: 60`。网关502/504可能没有JSON正文，应按HTTP失败处理。
 
-HTTP状态码和JSON业务码分两层：`HTTP 200 + code=SUCCESS`表示成功；`HTTP 422 + code=MATERIAL_NOT_FOUND`表示缺失物料，同为422还可能是供应商不可用或金额不一致。`message: "success"`只是文字说明，不是业务码。程序按HTTP状态和稳定的`code`处理，不能把message当作判断依据，也不要期待响应体code为数字200。
+响应体`code`采用数字，与121现有接口成功码200保持一致。成功为`HTTP 200 + code=200 + errorCode=null`；缺失物料为`HTTP 422 + code=422 + errorCode=MATERIAL_NOT_FOUND`。详细原因仍放在message及data，不能解析message编写业务分支。HTTP状态继续按实际结果返回，不将失败统一转成HTTP200。部门和字典对象内部的code仍是原业务编码字符串。
+
+从旧版升级时，将`code === "SUCCESS"`改为`code === 200`，原先按字符串code判断错误的分支改读`errorCode`；同步更新Postman断言。此变更适用于全部121开放接口，需更新后端并重启；只更新文档不会改变正在运行的接口。message、requestId、data保留现有字段名。
 
 ### 3.2 错误详情字段与取值
 
@@ -225,7 +228,7 @@ HTTP状态码和JSON业务码分两层：`HTTP 200 + code=SUCCESS`表示成功�
 
 ```json
 {
-  "code": "SUCCESS",
+  "code": 200, "errorCode": null,
   "message": "success",
   "requestId": "7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
   "data": {
@@ -243,7 +246,7 @@ HTTP状态码和JSON业务码分两层：`HTTP 200 + code=SUCCESS`表示成功�
 
 ```json
 {
-  "code": "USER_NOT_FOUND",
+  "code": 404, "errorCode": "USER_NOT_FOUND",
   "message": "121登录账号不存在",
   "requestId": "7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
   "data": null
@@ -252,9 +255,9 @@ HTTP状态码和JSON业务码分两层：`HTTP 200 + code=SUCCESS`表示成功�
 
 ### 4.5 业务返回码
 
-| HTTP | code | 含义 | 调用方处理 |
+| HTTP | errorCode | 含义 | 调用方处理 |
 | --- | --- | --- | --- |
-| 200 | `SUCCESS` | 账号启用且至少一个可用授权部门 | 保存必要关联信息 |
+| 200 | `null` | 账号启用且至少一个可用授权部门 | 保存必要关联信息 |
 | 400 | `PARAM_INVALID` | 账号、JSON、查询参数或幂等键不符合要求 | 修正参数 |
 | 403 | `OPERATOR_FORBIDDEN` | 没有可用授权部门 | 核对用户有效成员部门及客户端授权模式/白名单 |
 | 404 | `USER_NOT_FOUND` | 账号不存在或已删除 | 提示修改绑定账号 |
@@ -343,7 +346,7 @@ HTTP 200，省份示例：
 
 ```json
 {
-  "code": "SUCCESS",
+  "code": 200, "errorCode": null,
   "message": "success",
   "requestId": "7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
   "data": {
@@ -369,9 +372,9 @@ HTTP 200，省份示例：
 
 ### 5.6 业务返回码
 
-| HTTP | code | 含义 | 调用方处理 |
+| HTTP | errorCode | 含义 | 调用方处理 |
 | --- | --- | --- | --- |
-| 200 | `SUCCESS` | 查询成功，无数据也成功 | 遍历分页或展示空列表 |
+| 200 | `null` | 查询成功，无数据也成功 | 遍历分页或展示空列表 |
 | 400 | `PARAM_INVALID` | 缺deptId、无效分页/roleCode、未知或不合法参数 | 修正参数 |
 | 403 | `OPERATOR_FORBIDDEN` | 部门超出客户端授权范围 | 核对授权 |
 | 404 | `NOT_FOUND` | 不支持的字典type | 使用5.2节枚举 |
@@ -515,7 +518,7 @@ P01、P02、P03和P04使用相同业务对象。
 
 ```json
 {
-  "code": "SUCCESS",
+  "code": 200, "errorCode": null,
   "message": "success",
   "requestId": "7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
   "data": {
@@ -534,7 +537,7 @@ P01、P02、P03和P04使用相同业务对象。
 
 ```json
 {
-  "code": "MATERIAL_NOT_FOUND",
+  "code": 422, "errorCode": "MATERIAL_NOT_FOUND",
   "message": "物料编码MAT-001、MAT-002在121系统未找到，请先核实物料编码再推送至121",
   "requestId": "7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
   "data": {
@@ -552,7 +555,7 @@ P01、P02、P03和P04使用相同业务对象。
 
 ```json
 {
-  "code":"AMOUNT_MISMATCH",
+  "code": 422, "errorCode": "AMOUNT_MISMATCH",
   "message":"来源明细line-1采购金额99与数量乘单价的计算金额100.00不一致",
   "requestId":"7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
   "data":{"field":"details[0].purchaseAmount","sourceDetailId":"line-1","provided":99,"calculated":100.00}
@@ -574,9 +577,9 @@ P01、P02、P03和P04使用相同业务对象。
 
 ### 6.8 业务返回码
 
-| HTTP | code | 含义 | 调用方处理 |
+| HTTP | errorCode | 含义 | 调用方处理 |
 | --- | --- | --- | --- |
-| 200 | `SUCCESS` | 新建成功或命中原请求 | 保存主单及明细映射，并判断当前status |
+| 200 | `null` | 新建成功或命中原请求 | 保存主单及明细映射，并判断当前status |
 | 400 | `PARAM_INVALID` | 缺字段、格式/类型/金额精度/范围或幂等键不合法 | 修正完整正文 |
 | 403 | `OPERATOR_FORBIDDEN` | 部门越权、用户不属部门、操作人与发起人不同 | 核对授权，不自动重试 |
 | 404 | `USER_NOT_FOUND` | 操作人不存在或已删除 | 重新绑定有效账号 |
@@ -615,7 +618,7 @@ HTTP 200：
 
 ```json
 {
-  "code": "SUCCESS",
+  "code": 200, "errorCode": null,
   "message": "success",
   "requestId": "7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
   "data": {
@@ -630,9 +633,9 @@ HTTP 200：
 
 ### 7.3 业务返回码
 
-| HTTP | code | 含义 | 调用方处理 |
+| HTTP | errorCode | 含义 | 调用方处理 |
 | --- | --- | --- | --- |
-| 200 | `SUCCESS` | 找到本轮结果 | 依据status恢复本地同步结果 |
+| 200 | `null` | 找到本轮结果 | 依据status恢复本地同步结果 |
 | 400 | `PARAM_INVALID` | 缺参数或参数不合法 | 使用原创建批次参数 |
 | 404 | `DRAFT_NOT_FOUND` | 批次不存在、主单不存在或不在本客户/授权部门范围 | 超时恢复时核对原参数，再按原业务请求重试；不得据此取消其他批次 |
 
@@ -660,7 +663,7 @@ HTTP 200，锁单示例：
 
 ```json
 {
-  "code": "SUCCESS", "message": "success",
+  "code": 200, "errorCode": null, "message": "success",
   "requestId": "7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
   "data": {
     "draftId": "12345", "purchaseOrderNo": "12345",
@@ -673,9 +676,9 @@ HTTP 200，锁单示例：
 
 ### 8.3 业务返回码
 
-| HTTP | code | 含义 | 调用方处理 |
+| HTTP | errorCode | 含义 | 调用方处理 |
 | --- | --- | --- | --- |
-| 200 | `SUCCESS` | 查询成功 | 以status判断当前状态 |
+| 200 | `null` | 查询成功 | 以status判断当前状态 |
 | 400 | `PARAM_INVALID` | draftId或附加参数不合法 | 修正请求 |
 | 404 | `DRAFT_NOT_FOUND` | 无同步来源记录、不存在、其他客户或超授权部门 | 核对ID/授权，不当作可重新创建的充分依据 |
 
@@ -703,7 +706,7 @@ HTTP 200；data完整字段见6.5，成功取消返回DELETED：
 
 ```json
 {
-  "code": "SUCCESS", "message": "success",
+  "code": 200, "errorCode": null, "message": "success",
   "requestId": "7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
   "data": {
     "draftId": "12345", "purchaseOrderNo": "12345",
@@ -718,7 +721,7 @@ HTTP 200；data完整字段见6.5，成功取消返回DELETED：
 
 ```json
 {
-  "code": "DRAFT_NOT_EDITABLE",
+  "code": 409, "errorCode": "DRAFT_NOT_EDITABLE",
   "message": "Only an active draft can be deleted",
   "requestId": "7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
   "data": null
@@ -729,9 +732,9 @@ HTTP 200；data完整字段见6.5，成功取消返回DELETED：
 
 仅DRAFT可删除；已DELETED重复调用返回同样结果，不再生成重复事件。主单、所属明细、当前来源关联和删除事件在同一事务内处理；锁单与删除使用主单行锁协调。内部退单不等同本接口取消。
 
-| HTTP | code | 含义 | 调用方处理 |
+| HTTP | errorCode | 含义 | 调用方处理 |
 | --- | --- | --- | --- |
-| 200 | `SUCCESS` | 删除成功或该批次已删除 | 按批次清空本地关联，不影响新批次 |
+| 200 | `null` | 删除成功或该批次已删除 | 按批次清空本地关联，不影响新批次 |
 | 400 | `PARAM_INVALID` | 参数无效 | 修正请求 |
 | 403 | `OPERATOR_FORBIDDEN` | 操作人不属该单部门或越权 | 核对部门和操作人 |
 | 404 | `USER_NOT_FOUND` | 操作人不存在/已删 | 更换有效账号 |
@@ -813,11 +816,11 @@ HTTP 200；data完整字段见6.5，成功取消返回DELETED：
 
 ### 11.1 业务返回码总表
 
-下表列出当前全部公开响应码。鉴权、限流和系统码适用于121入口；其余业务码按各接口业务校验产生。客户端按HTTP及code判断，不解析message。
+下表列出全部errorCode及对应HTTP/数字code。成功errorCode为null；错误行第一列同时是HTTP状态和响应体数字code。鉴权、限流和系统码适用于121入口；其余业务码按各接口业务校验产生。客户端按数字code及errorCode判断，不解析message。
 
-| HTTP | code返回值 | 中文含义 | 产生原因 | 建议处理 |
+| HTTP | errorCode | 中文含义 | 产生原因 | 建议处理 |
 | --- | --- | --- | --- | --- |
-| 200 | `SUCCESS` | 成功 | 查询、创建或取消已处理；P01可能是幂等返回 | 读取data；按status确认业务状态 |
+| 200 | `null` | 成功 | 查询、创建或取消已处理；P01可能是幂等返回 | 读取data；按status确认业务状态 |
 | 400 | `PARAM_INVALID` | 请求参数错误 | 缺少必填项，格式、类型、长度、精度/范围错误，未知/重复JSON字段，错误query/幂等键 | 修正请求，不原样自动重试 |
 | 401 | `AUTH_CLIENT_NOT_FOUND` | 客户端或密钥不可用 | clientId/keyId不存在、客户端停用、入口关闭或密钥配置不可用 | 联系121核对环境和凭据 |
 | 401 | `AUTH_SIGNATURE_INVALID` | 签名或鉴权头无效 | 缺头、头格式/重复、摘要不符或HMAC不符 | 核对原始字节和规范签名串 |
@@ -850,7 +853,7 @@ HTTP 200；data完整字段见6.5，成功取消返回DELETED：
 
 ```json
 {
-  "code": "AUTH_TIMESTAMP_EXPIRED",
+  "code": 401, "errorCode": "AUTH_TIMESTAMP_EXPIRED",
   "message": "请求时间戳已过期",
   "requestId": "7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
   "data": null
@@ -859,7 +862,7 @@ HTTP 200；data完整字段见6.5，成功取消返回DELETED：
 
 | 类别 | 情况 | 操作 |
 | --- | --- | --- |
-| 修正后再发 | 400、401、403、404、409、415、422 | 根据具体code修正，不盲目循环重试 |
+| 修正后再发 | 400、401、403、404、409、415、422 | 根据具体errorCode修正，不盲目循环重试 |
 | 等待后重发 | 429、503、网关502/504、网络错误 | 建议退避2秒、5秒、15秒；429以Retry-After为准 |
 | 结果不确定 | P01读取超时、500、连接在发送后中断 | 先查本批次，再按原业务请求重试 |
 
@@ -953,6 +956,7 @@ print("签名向量校验通过")
 
 | 日期 | 文档/契约版本 | 内容 |
 | --- | --- | --- |
+| 2026-11-19 | 1.1.5 | 全部开放接口code改为数字，成功200、失败与HTTP一致；原字符串错误原因迁移至errorCode，成功为null；调用方须同步修改判断逻辑 |
 | 2026-11-19 | 1.1.4 | U01补充phoneNumber完整手机号，未维护时为空字符串；明确姓名/昵称来源，保留多部门及授权规则 |
 | 2026-11-19 | 1.1.3 | 确认采购单序号为applyId；完善中文业务原因、结构化字段/明细定位、全部缺失物料扫描、重复同步原单返回及HTTP/业务码说明 |
 | 2026-11-18 | 1.1.2 | 新增显式全部有效部门授权模式；默认继续使用部门白名单，未配置不隐式授权；业务归属校验保持 |

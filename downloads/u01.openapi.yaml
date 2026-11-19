@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 121 User Verification API
-  version: 1.0.4
+  version: 1.0.5
   description: |
     查询121登录账号对应的有效用户和客户端授权部门。
     121客户端配置all-departments为true时覆盖全部启用未删除部门；默认false时按department-ids白名单。
@@ -61,7 +61,8 @@ paths:
               examples:
                 success:
                   value:
-                    code: SUCCESS
+                    code: 200
+                    errorCode: null
                     message: success
                     requestId: 7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41
                     data:
@@ -89,7 +90,8 @@ paths:
               examples:
                 invalidSignature:
                   value:
-                    code: AUTH_SIGNATURE_INVALID
+                    code: 401
+                    errorCode: AUTH_SIGNATURE_INVALID
                     message: 请求签名无效
                     requestId: 7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41
                     data: null
@@ -108,12 +110,13 @@ paths:
               examples:
                 notFound:
                   value:
-                    code: USER_NOT_FOUND
+                    code: 404
+                    errorCode: USER_NOT_FOUND
                     message: 121登录账号不存在
                     requestId: 7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41
                     data: null
         '405':
-          description: 请求方法不支持，code为METHOD_NOT_ALLOWED
+          description: 请求方法不支持，code为405，errorCode为METHOD_NOT_ALLOWED
           headers:
             Allow:
               schema: { type: string }
@@ -238,18 +241,23 @@ components:
     SuccessResponse:
       type: object
       additionalProperties: true
-      required: [code, message, requestId, data]
+      required: [code, errorCode, message, requestId, data]
       properties:
-        code: { type: string, const: SUCCESS }
+        code: { type: integer, const: 200, description: 数字状态码；成功为200 }
+        errorCode: { type: 'null', description: 成功时固定为null }
         message: { type: string }
         requestId: { type: string, minLength: 16, maxLength: 128 }
         data: { $ref: '#/components/schemas/User' }
     ErrorResponse:
       type: object
       additionalProperties: true
-      required: [code, message, requestId, data]
+      required: [code, errorCode, message, requestId, data]
       properties:
         code:
+          type: integer
+          enum: [400, 401, 403, 404, 405, 413, 415, 422, 429, 500, 503]
+          description: 数字错误码，与本次HTTP状态相同；具体原因见errorCode
+        errorCode:
           type: string
           enum: [PARAM_INVALID, AUTH_CLIENT_NOT_FOUND, AUTH_SIGNATURE_INVALID, AUTH_TIMESTAMP_EXPIRED, AUTH_REPLAY_REQUEST, AUTH_FORBIDDEN, OPERATOR_FORBIDDEN, USER_NOT_FOUND, USER_DISABLED, METHOD_NOT_ALLOWED, RATE_LIMITED, PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, SYSTEM_ERROR, SYSTEM_BUSY]
         message: { type: string }

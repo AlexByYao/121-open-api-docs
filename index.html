@@ -15,7 +15,7 @@
   <a class="skip-link" href="#content">跳到文档正文</a>
   <header class="site-header">
     <a class="brand" href="#top"><span class="brand-mark">121</span><span>开放接口文档<small>智能化采购同步</small></span></a>
-    <div class="header-actions"><span class="version">v1.1.4</span><a href="./downloads/openapi.yaml" download>下载 OpenAPI</a><button id="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">目录</button></div>
+    <div class="header-actions"><span class="version">v1.1.5</span><a href="./downloads/openapi.yaml" download>下载 OpenAPI</a><button id="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">目录</button></div>
   </header>
   <aside id="sidebar" class="sidebar" aria-label="文档目录">
     <label class="search-label" for="doc-search">查找文档</label>
@@ -91,7 +91,7 @@
     <div class="overview"><details><summary>展开完整章节目录</summary><ol><li><a href="#section-1">一、环境与接口总览</a></li><li><a href="#section-2">二、公共请求参数与鉴权</a></li><li><a href="#section-3">三、公共响应与返回值</a></li><li><a href="#section-4">四、U01 查询121用户信息</a></li><li><a href="#section-5">五、D01 查询基础字典</a></li><li><a href="#section-6">六、P01 创建采购草稿</a></li><li><a href="#section-7">七、P02 按来源和批次查询草稿</a></li><li><a href="#section-8">八、P03 按121采购单ID查询草稿</a></li><li><a href="#section-9">九、P04 取消同步并删除草稿</a></li><li><a href="#section-10">十、C01 采购草稿删除通知</a></li><li><a href="#section-11">十一、完整返回码与处理建议</a></li><li><a href="#section-12">十二、签名测试向量与联调</a></li><li><a href="#section-13">十三、下载、版本与规范参考</a></li></ol></details></div>
     <div id="no-results" hidden>未找到匹配内容。请尝试接口编号（如 P01）、参数名或错误码。</div>
     <div class="document-intro"><h1 id="top">121 智能化采购同步接口文档</h1>
-<p>版本 <strong>1.1.4</strong> · 更新 <strong>2026-11-19</strong> · 服务提供方 <strong>121系统</strong> · 调用方 <strong>智能化办公平台后台服务</strong></p>
+<p>版本 <strong>1.1.5</strong> · 更新 <strong>2026-11-19</strong> · 服务提供方 <strong>121系统</strong> · 调用方 <strong>智能化办公平台后台服务</strong></p>
 <p>本文是服务器对服务器的对接规范。网页用于公开查阅；业务接口代码已实现、默认关闭，尚需真实环境部署联调。环境表中的121域名及现有接口入口由121提供方根据前端抓包确认；其余示例账号、部门和订单为虚构数据，回调域名为占位。</p>
 </div><section class="doc-section" data-section="section-1"><h2 id="section-1">一、环境与接口总览</h2>
 <h3 id="section-1-1">1.1 环境地址</h3>
@@ -378,7 +378,7 @@
 </section><section class="doc-section" data-section="section-3"><h2 id="section-3">三、公共响应与返回值</h2>
 <h3 id="section-3-1">3.1 统一响应字段</h3>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
-<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-string">&quot;SUCCESS&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-literal">200</span>, <span class="token-key">&quot;errorCode&quot;</span>: <span class="token-literal">null</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;message&quot;</span>: <span class="token-string">&quot;success&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>: <span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: {}</span>
@@ -395,9 +395,15 @@
 <tbody>
 <tr>
 <td><code>code</code></td>
-<td>string</td>
-<td>业务处理结果码</td>
-<td>成功为 <code>SUCCESS</code>；失败为第十一节列出的字符串错误码，不能按数字 <code>0</code> 判断</td>
+<td>integer</td>
+<td>数字结果码</td>
+<td>成功为数字 <code>200</code>；失败与HTTP状态相同，如400、401、403、404、405、409、413、415、422、429、500、503</td>
+</tr>
+<tr>
+<td><code>errorCode</code></td>
+<td>string / null</td>
+<td>具体业务错误原因</td>
+<td>成功为null；失败为第十一节列出的稳定业务码，如MATERIAL_NOT_FOUND</td>
 </tr>
 <tr>
 <td><code>message</code></td>
@@ -420,7 +426,8 @@
 </tbody>
 </table></div>
 <p>成功HTTP为200；失败使用实际HTTP状态码。所有应用响应带 <code>Cache-Control: no-store</code>；401额外带 <code>WWW-Authenticate: HMAC realm=&quot;121-open-api&quot;</code>；429额外带 <code>Retry-After: 60</code>。网关502/504可能没有JSON正文，应按HTTP失败处理。</p>
-<p>HTTP状态码和JSON业务码分两层：<code>HTTP 200 + code=SUCCESS</code>表示成功；<code>HTTP 422 + code=MATERIAL_NOT_FOUND</code>表示缺失物料，同为422还可能是供应商不可用或金额不一致。<code>message: &quot;success&quot;</code>只是文字说明，不是业务码。程序按HTTP状态和稳定的<code>code</code>处理，不能把message当作判断依据，也不要期待响应体code为数字200。</p>
+<p>响应体<code>code</code>采用数字，与121现有接口成功码200保持一致。成功为<code>HTTP 200 + code=200 + errorCode=null</code>；缺失物料为<code>HTTP 422 + code=422 + errorCode=MATERIAL_NOT_FOUND</code>。详细原因仍放在message及data，不能解析message编写业务分支。HTTP状态继续按实际结果返回，不将失败统一转成HTTP200。部门和字典对象内部的code仍是原业务编码字符串。</p>
+<p>从旧版升级时，将<code>code === &quot;SUCCESS&quot;</code>改为<code>code === 200</code>，原先按字符串code判断错误的分支改读<code>errorCode</code>；同步更新Postman断言。此变更适用于全部121开放接口，需更新后端并重启；只更新文档不会改变正在运行的接口。message、requestId、data保留现有字段名。</p>
 <h3 id="section-3-2">3.2 错误详情字段与取值</h3>
 <p>以下字段按错误场景选择返回，不保证每次失败都有详情。明细下标从0开始，<code>sourceDetailId</code>便于调用方定位自己的明细。未知异常、鉴权错误等仍可能<code>data=null</code>，通过requestId排查，不返回SQL或堆栈。</p>
 <div class="table-scroll" tabindex="0"><table>
@@ -709,7 +716,7 @@
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{<span class="token-key">&quot;loginAccount&quot;</span>:<span class="token-string">&quot;zhangsan&quot;</span>}</span></code></pre></div></details>
 <p>成功响应，HTTP 200：</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
-<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-string">&quot;SUCCESS&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-literal">200</span>, <span class="token-key">&quot;errorCode&quot;</span>: <span class="token-literal">null</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;message&quot;</span>: <span class="token-string">&quot;success&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>: <span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: {</span>
@@ -723,7 +730,7 @@
 <span class="code-line">}</span></code></pre></div></details>
 <p>账号不存在或已删除，HTTP 404：</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
-<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-string">&quot;USER_NOT_FOUND&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-literal">404</span>, <span class="token-key">&quot;errorCode&quot;</span>: <span class="token-string">&quot;USER_NOT_FOUND&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;message&quot;</span>: <span class="token-string">&quot;121登录账号不存在&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>: <span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: <span class="token-literal">null</span></span>
@@ -733,7 +740,7 @@
 <thead>
 <tr>
 <th>HTTP</th>
-<th>code</th>
+<th>errorCode</th>
 <th>含义</th>
 <th>调用方处理</th>
 </tr>
@@ -741,7 +748,7 @@
 <tbody>
 <tr>
 <td>200</td>
-<td><code>SUCCESS</code></td>
+<td><code>null</code></td>
 <td>账号启用且至少一个可用授权部门</td>
 <td>保存必要关联信息</td>
 </tr>
@@ -1100,7 +1107,7 @@
 <details class="code-example" open><summary><span>HTTP 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-http"><span class="code-line">GET /open-api/v1/dictionaries/provinces?deptId=80001&amp;pageNum=1&amp;pageSize=100</span></code></pre></div></details>
 <p>HTTP 200，省份示例：</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
-<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-string">&quot;SUCCESS&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-literal">200</span>, <span class="token-key">&quot;errorCode&quot;</span>: <span class="token-literal">null</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;message&quot;</span>: <span class="token-string">&quot;success&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>: <span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: {</span>
@@ -1123,7 +1130,7 @@
 <thead>
 <tr>
 <th>HTTP</th>
-<th>code</th>
+<th>errorCode</th>
 <th>含义</th>
 <th>调用方处理</th>
 </tr>
@@ -1131,7 +1138,7 @@
 <tbody>
 <tr>
 <td>200</td>
-<td><code>SUCCESS</code></td>
+<td><code>null</code></td>
 <td>查询成功，无数据也成功</td>
 <td>遍历分页或展示空列表</td>
 </tr>
@@ -1599,7 +1606,7 @@
 <span class="code-line">}</span></code></pre></div></details>
 <p>成功响应，HTTP 200：</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
-<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-string">&quot;SUCCESS&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-literal">200</span>, <span class="token-key">&quot;errorCode&quot;</span>: <span class="token-literal">null</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;message&quot;</span>: <span class="token-string">&quot;success&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>: <span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: {</span>
@@ -1614,7 +1621,7 @@
 <span class="code-line">}</span></code></pre></div></details>
 <p>缺失多个物料的失败示例，HTTP 422：</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
-<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-string">&quot;MATERIAL_NOT_FOUND&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-literal">422</span>, <span class="token-key">&quot;errorCode&quot;</span>: <span class="token-string">&quot;MATERIAL_NOT_FOUND&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;message&quot;</span>: <span class="token-string">&quot;物料编码MAT-001、MAT-002在121系统未找到，请先核实物料编码再推送至121&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>: <span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: {</span>
@@ -1628,7 +1635,7 @@
 <span class="code-line">}</span></code></pre></div></details>
 <p>金额不一致示例，HTTP 422：</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
-<span class="code-line">  <span class="token-key">&quot;code&quot;</span>:<span class="token-string">&quot;AMOUNT_MISMATCH&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-literal">422</span>, <span class="token-key">&quot;errorCode&quot;</span>: <span class="token-string">&quot;AMOUNT_MISMATCH&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;message&quot;</span>:<span class="token-string">&quot;来源明细line-1采购金额99与数量乘单价的计算金额100.00不一致&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>:<span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>:{<span class="token-key">&quot;field&quot;</span>:<span class="token-string">&quot;details[0].purchaseAmount&quot;</span>,<span class="token-key">&quot;sourceDetailId&quot;</span>:<span class="token-string">&quot;line-1&quot;</span>,<span class="token-key">&quot;provided&quot;</span>:<span class="token-literal">99</span>,<span class="token-key">&quot;calculated&quot;</span>:<span class="token-literal">100.00</span>}</span>
@@ -1674,7 +1681,7 @@
 <thead>
 <tr>
 <th>HTTP</th>
-<th>code</th>
+<th>errorCode</th>
 <th>含义</th>
 <th>调用方处理</th>
 </tr>
@@ -1682,7 +1689,7 @@
 <tbody>
 <tr>
 <td>200</td>
-<td><code>SUCCESS</code></td>
+<td><code>null</code></td>
 <td>新建成功或命中原请求</td>
 <td>保存主单及明细映射，并判断当前status</td>
 </tr>
@@ -1801,7 +1808,7 @@
 <details class="code-example" open><summary><span>HTTP 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-http"><span class="code-line">GET /open-api/v1/purchase-drafts/by-source?sourceSystem=INTELLIGENT_OFFICE&amp;sourceOrderId=PC202611170001&amp;syncBatchId=550e8400-e29b-41d4-a716-446655440001</span></code></pre></div></details>
 <p>HTTP 200：</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
-<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-string">&quot;SUCCESS&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-literal">200</span>, <span class="token-key">&quot;errorCode&quot;</span>: <span class="token-literal">null</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;message&quot;</span>: <span class="token-string">&quot;success&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>: <span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: {</span>
@@ -1817,7 +1824,7 @@
 <thead>
 <tr>
 <th>HTTP</th>
-<th>code</th>
+<th>errorCode</th>
 <th>含义</th>
 <th>调用方处理</th>
 </tr>
@@ -1825,7 +1832,7 @@
 <tbody>
 <tr>
 <td>200</td>
-<td><code>SUCCESS</code></td>
+<td><code>null</code></td>
 <td>找到本轮结果</td>
 <td>依据status恢复本地同步结果</td>
 </tr>
@@ -1874,7 +1881,7 @@
 <details class="code-example" open><summary><span>HTTP 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-http"><span class="code-line">GET /open-api/v1/purchase-drafts/12345</span></code></pre></div></details>
 <p>HTTP 200，锁单示例：</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
-<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-string">&quot;SUCCESS&quot;</span>, <span class="token-key">&quot;message&quot;</span>: <span class="token-string">&quot;success&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-literal">200</span>, <span class="token-key">&quot;errorCode&quot;</span>: <span class="token-literal">null</span>, <span class="token-key">&quot;message&quot;</span>: <span class="token-string">&quot;success&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>: <span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: {</span>
 <span class="code-line">    <span class="token-key">&quot;draftId&quot;</span>: <span class="token-string">&quot;12345&quot;</span>, <span class="token-key">&quot;purchaseOrderNo&quot;</span>: <span class="token-string">&quot;12345&quot;</span>,</span>
@@ -1888,7 +1895,7 @@
 <thead>
 <tr>
 <th>HTTP</th>
-<th>code</th>
+<th>errorCode</th>
 <th>含义</th>
 <th>调用方处理</th>
 </tr>
@@ -1896,7 +1903,7 @@
 <tbody>
 <tr>
 <td>200</td>
-<td><code>SUCCESS</code></td>
+<td><code>null</code></td>
 <td>查询成功</td>
 <td>以status判断当前状态</td>
 </tr>
@@ -1960,7 +1967,7 @@
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{<span class="token-key">&quot;operatorLoginAccount&quot;</span>:<span class="token-string">&quot;zhangsan&quot;</span>,<span class="token-key">&quot;reason&quot;</span>:<span class="token-string">&quot;智能化取消同步&quot;</span>}</span></code></pre></div></details>
 <p>HTTP 200；data完整字段见6.5，成功取消返回DELETED：</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
-<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-string">&quot;SUCCESS&quot;</span>, <span class="token-key">&quot;message&quot;</span>: <span class="token-string">&quot;success&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-literal">200</span>, <span class="token-key">&quot;errorCode&quot;</span>: <span class="token-literal">null</span>, <span class="token-key">&quot;message&quot;</span>: <span class="token-string">&quot;success&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>: <span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: {</span>
 <span class="code-line">    <span class="token-key">&quot;draftId&quot;</span>: <span class="token-string">&quot;12345&quot;</span>, <span class="token-key">&quot;purchaseOrderNo&quot;</span>: <span class="token-string">&quot;12345&quot;</span>,</span>
@@ -1971,7 +1978,7 @@
 <span class="code-line">}</span></code></pre></div></details>
 <p>锁单后取消，HTTP 409：</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
-<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-string">&quot;DRAFT_NOT_EDITABLE&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-literal">409</span>, <span class="token-key">&quot;errorCode&quot;</span>: <span class="token-string">&quot;DRAFT_NOT_EDITABLE&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;message&quot;</span>: <span class="token-string">&quot;Only an active draft can be deleted&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>: <span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: <span class="token-literal">null</span></span>
@@ -1982,7 +1989,7 @@
 <thead>
 <tr>
 <th>HTTP</th>
-<th>code</th>
+<th>errorCode</th>
 <th>含义</th>
 <th>调用方处理</th>
 </tr>
@@ -1990,7 +1997,7 @@
 <tbody>
 <tr>
 <td>200</td>
-<td><code>SUCCESS</code></td>
+<td><code>null</code></td>
 <td>删除成功或该批次已删除</td>
 <td>按批次清空本地关联，不影响新批次</td>
 </tr>
@@ -2219,12 +2226,12 @@
 </ul>
 </section><section class="doc-section" data-section="section-11"><h2 id="section-11">十一、完整返回码与处理建议</h2>
 <h3 id="section-11-1">11.1 业务返回码总表</h3>
-<p>下表列出当前全部公开响应码。鉴权、限流和系统码适用于121入口；其余业务码按各接口业务校验产生。客户端按HTTP及code判断，不解析message。</p>
+<p>下表列出全部errorCode及对应HTTP/数字code。成功errorCode为null；错误行第一列同时是HTTP状态和响应体数字code。鉴权、限流和系统码适用于121入口；其余业务码按各接口业务校验产生。客户端按数字code及errorCode判断，不解析message。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
 <th>HTTP</th>
-<th>code返回值</th>
+<th>errorCode</th>
 <th>中文含义</th>
 <th>产生原因</th>
 <th>建议处理</th>
@@ -2233,7 +2240,7 @@
 <tbody>
 <tr>
 <td>200</td>
-<td><code>SUCCESS</code></td>
+<td><code>null</code></td>
 <td>成功</td>
 <td>查询、创建或取消已处理；P01可能是幂等返回</td>
 <td>读取data；按status确认业务状态</td>
@@ -2418,7 +2425,7 @@
 <p><code>SUPPLIER_IMMUTABLE</code> 是来源单的121编辑业务保护码；当前开放接口不提供修改供应商接口。未知URL还可能由网关/框架返回普通404，不能保证包含此JSON外壳。</p>
 <h3 id="section-11-2">11.2 失败响应与重试分组</h3>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
-<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-string">&quot;AUTH_TIMESTAMP_EXPIRED&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-literal">401</span>, <span class="token-key">&quot;errorCode&quot;</span>: <span class="token-string">&quot;AUTH_TIMESTAMP_EXPIRED&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;message&quot;</span>: <span class="token-string">&quot;请求时间戳已过期&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>: <span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: <span class="token-literal">null</span></span>
@@ -2435,7 +2442,7 @@
 <tr>
 <td>修正后再发</td>
 <td>400、401、403、404、409、415、422</td>
-<td>根据具体code修正，不盲目循环重试</td>
+<td>根据具体errorCode修正，不盲目循环重试</td>
 </tr>
 <tr>
 <td>等待后重发</td>
@@ -2599,6 +2606,11 @@
 <tbody>
 <tr>
 <td>2026-11-19</td>
+<td>1.1.5</td>
+<td>全部开放接口code改为数字，成功200、失败与HTTP一致；原字符串错误原因迁移至errorCode，成功为null；调用方须同步修改判断逻辑</td>
+</tr>
+<tr>
+<td>2026-11-19</td>
 <td>1.1.4</td>
 <td>U01补充phoneNumber完整手机号，未维护时为空字符串；明确姓名/昵称来源，保留多部门及授权规则</td>
 </tr>
@@ -2644,7 +2656,7 @@
 </ul>
 <p>本接口采用121自定义HMAC协议，不兼容AWS SigV4、OAuth或员工登录协议。</p>
 </section>
-    <footer class="document-footer"><span>121系统 · 智能化采购同步接口 v1.1.4</span><a href="#top">返回顶部 ↑</a></footer>
+    <footer class="document-footer"><span>121系统 · 智能化采购同步接口 v1.1.5</span><a href="#top">返回顶部 ↑</a></footer>
   </main>
 </body>
 </html>
