@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "121 智能化采购同步开放接口",
-    "version": "1.1.2",
+    "version": "1.1.3",
     "description": "服务器对服务器；应用内HMAC-SHA256鉴权。代码已实现、默认关闭，部署后联调。测试允许HTTP、正式HTTPS；每环境初次配置一套系统凭据，无需mTLS或轮换流程。客户端可显式授权全部有效部门或使用部门白名单；默认空白名单不授权。完整签名算法与实际约束见配套Markdown。"
   },
   "servers": [
@@ -1680,8 +1680,93 @@
             "maxLength": 128
           },
           "data": {
-            "type": "null",
-            "description": "当前应用失败响应固定为空"
+            "description": "无详情时为null；已知校验错误返回ErrorDetail；SOURCE_ALREADY_SYNCED返回经部门授权校验的原Draft（含原syncBatchId），不得当作本次创建成功。客户端兼容可选字段。",
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "$ref": "#/components/schemas/Draft"
+              }
+            ]
+          }
+        }
+      },
+      "ErrorDetail": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "field": {
+            "type": "string",
+            "description": "字段路径；明细使用details[0].purchasePrice，数组下标从0开始"
+          },
+          "sourceDetailId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "REQUIRED",
+              "INVALID_VALUE",
+              "TYPE_INVALID",
+              "UNKNOWN_FIELD",
+              "UNAVAILABLE",
+              "NOT_FOUND",
+              "DISABLED",
+              "DEPARTMENT_MISMATCH",
+              "ROLE_MISSING"
+            ]
+          },
+          "referenceType": {
+            "type": "string"
+          },
+          "referenceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "departmentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 19,
+            "pattern": "^[1-9][0-9]{0,18}$"
+          },
+          "roleCode": {
+            "type": "string"
+          },
+          "materialCode": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "matchCount": {
+            "type": "integer"
+          },
+          "missingMaterialCodes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          "provided": {
+            "type": "number"
+          },
+          "calculated": {
+            "type": "number"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            }
           }
         }
       },
@@ -1991,7 +2076,8 @@
           "purchaseOrderNo": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 64
+            "maxLength": 64,
+            "description": "需求中的121采购单序号，即purchase_apply.apply_id（Java applyId），与draftId相同，不另建编号"
           },
           "sourceSystem": {
             "type": "string",
@@ -2212,7 +2298,8 @@
           "purchaseOrderNo": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 64
+            "maxLength": 64,
+            "description": "121采购单序号，即applyId，与draftId相同"
           },
           "status": {
             "type": "string",

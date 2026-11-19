@@ -1,6 +1,6 @@
 # 121 智能化采购同步接口文档
 
-版本 **1.1.2** · 更新 **2026-11-18** · 服务提供方 **121系统** · 调用方 **智能化办公平台后台服务**
+版本 **1.1.3** · 更新 **2026-11-19** · 服务提供方 **121系统** · 调用方 **智能化办公平台后台服务**
 
 本文是服务器对服务器的对接规范。网页用于公开查阅；业务接口代码已实现、默认关闭，尚需真实环境部署联调。环境表中的121域名及现有接口入口由121提供方根据前端抓包确认；其余示例账号、部门和订单为虚构数据，回调域名为占位。
 
@@ -123,11 +123,43 @@ X-Content-SHA256
 | `code` | string | 业务处理结果码 | 成功为 `SUCCESS`；失败为第十一节列出的字符串错误码，不能按数字 `0` 判断 |
 | `message` | string | 结果说明 | 供展示、排查使用；文字可变化，程序不能通过解析message判断结果 |
 | `requestId` | string | 本次请求追踪编号 | 合法时回显请求头；缺失或非法时由121生成，反馈问题时一并提供 |
-| `data` | object / null | 业务返回内容 | 成功为对应接口对象；当前应用失败响应固定为 `null` |
+| `data` | object / null | 业务返回内容 | 成功为对应接口对象；失败可为结构化错误详情，无详情时为 `null`；SOURCE_ALREADY_SYNCED返回原单对象 |
 
 成功HTTP为200；失败使用实际HTTP状态码。所有应用响应带 `Cache-Control: no-store`；401额外带 `WWW-Authenticate: HMAC realm="121-open-api"`；429额外带 `Retry-After: 60`。网关502/504可能没有JSON正文，应按HTTP失败处理。
 
-### 3.2 采购单状态值
+HTTP状态码和JSON业务码分两层：`HTTP 200 + code=SUCCESS`表示成功；`HTTP 422 + code=MATERIAL_NOT_FOUND`表示缺失物料，同为422还可能是供应商不可用或金额不一致。`message: "success"`只是文字说明，不是业务码。程序按HTTP状态和稳定的`code`处理，不能把message当作判断依据，也不要期待响应体code为数字200。
+
+### 3.2 错误详情字段与取值
+
+以下字段按错误场景选择返回，不保证每次失败都有详情。明细下标从0开始，`sourceDetailId`便于调用方定位自己的明细。未知异常、鉴权错误等仍可能`data=null`，通过requestId排查，不返回SQL或堆栈。
+
+| data字段 | 类型 | 含义 |
+| --- | --- | --- |
+| `field` | string | 字段路径，如`details[0].purchasePrice`；`details.materialCode`表示汇总物料错误 |
+| `sourceDetailId` | string | 对应来源行ID；能可靠识别时提供 |
+| `reason` | string | 具体原因，全部取值见下表 |
+| `referenceType` / `referenceId` | string | 引用类型及提交的ID，例如`sale-channels`、`supplier`或`approver` |
+| `departmentId` / `roleCode` | string | 引用校验的部门、审批角色；按场景提供 |
+| `missingMaterialCodes` | string[] | 本次扫描的全部缺失物料编码，去重并保留顺序 |
+| `materialCode` / `matchCount` | string / integer | 重复匹配的编码和匹配数量 |
+| `provided` / `calculated` | number | 提交采购金额及数量乘单价后的计算金额 |
+| `errors` | object[] | 缺失/重复物料的行详情，每项使用上述field、sourceDetailId、materialCode等字段 |
+
+| reason取值 | 含义 | 调用方处理 |
+| --- | --- | --- |
+| `REQUIRED` | 缺少必填项 | 补齐对应字段 |
+| `INVALID_VALUE` | 格式、范围、精度、重复来源行等值不符合约束 | 按field及message修正 |
+| `TYPE_INVALID` | JSON字段类型不符合接口定义 | 改为约定类型，数量不能传小数 |
+| `UNKNOWN_FIELD` | 出现未定义的JSON字段 | 删除字段或核实接口版本 |
+| `UNAVAILABLE` | 字典引用不在当前可用选项中 | 刷新对应部门字典并重新选择 |
+| `NOT_FOUND` | 审批用户不存在 | 更换有效审批用户 |
+| `DISABLED` | 审批用户已停用或删除 | 更换启用且未删除的用户 |
+| `DEPARTMENT_MISMATCH` | 产品经理不属于所选部门 | 选择本部门产品经理 |
+| `ROLE_MISSING` | 审批用户缺少对应有效角色 | 在121补齐角色或重新选择 |
+
+`SOURCE_ALREADY_SYNCED`的data使用6.5节原单对象，含原`draftId`、`purchaseOrderNo`、`syncBatchId`和当前状态。只能在原单属于当前客户端且在授权部门内时返回；不可访问时返回404 `DRAFT_NOT_FOUND`。这仍是409冲突，不表示本次创建成功。
+
+### 3.3 采购单状态值
 
 下面是P01、P02、P03、P04的 `data.status`，与响应外层 `code` 含义不同。
 
@@ -429,11 +461,11 @@ P01、P02、P03和P04使用相同业务对象。
 | 返回字段 | 类型 | 含义 |
 | --- | --- | --- |
 | `data.draftId` | string | 121采购主单ID，即现有apply_id |
-| `data.purchaseOrderNo` | string | 本版本与draftId相同的采购单序号，未另建编号规则 |
+| `data.purchaseOrderNo` | string | 需求中的121采购单序号，即applyId（purchase_apply.apply_id），与draftId相同 |
 | `data.sourceSystem` | string | 来源系统，当前为INTELLIGENT_OFFICE |
 | `data.sourceOrderId` | string | 智能化来源订单号 |
 | `data.syncBatchId` | string | 本轮同步UUID，用于查询、重试和防止旧事件覆盖新批次 |
-| `data.status` | string | 当前采购状态；全部取值和含义见3.2节 |
+| `data.status` | string | 当前采购状态；全部取值和含义见3.3节 |
 | `data.details` | array | 来源明细与121明细ID的映射 |
 | `data.details[].sourceDetailId` | string | 创建时传入的来源明细号 |
 | `data.details[].detailId` | string | 121采购明细ID |
@@ -503,7 +535,25 @@ P01、P02、P03和P04使用相同业务对象。
   "code": "MATERIAL_NOT_FOUND",
   "message": "物料编码MAT-001、MAT-002在121系统未找到，请先核实物料编码再推送至121",
   "requestId": "7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
-  "data": null
+  "data": {
+    "field": "details.materialCode",
+    "missingMaterialCodes": ["MAT-001", "MAT-002"],
+    "errors": [
+      {"field":"details[0].materialCode","sourceDetailId":"line-1","materialCode":"MAT-001"},
+      {"field":"details[1].materialCode","sourceDetailId":"line-2","materialCode":"MAT-002"}
+    ]
+  }
+}
+```
+
+金额不一致示例，HTTP 422：
+
+```json
+{
+  "code":"AMOUNT_MISMATCH",
+  "message":"来源明细line-1采购金额99与数量乘单价的计算金额100.00不一致",
+  "requestId":"7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
+  "data":{"field":"details[0].purchaseAmount","sourceDetailId":"line-1","provided":99,"calculated":100.00}
 }
 ```
 
@@ -513,7 +563,7 @@ P01、P02、P03和P04使用相同业务对象。
 | --- | --- |
 | 同客户、同批次、同幂等键、同原始正文摘要 | 返回已有单当前状态及原ID，不重复创建；可能返回DELETED |
 | 批次或幂等键与原请求组合/内容不一致 | 409 IDEMPOTENCY_CONFLICT |
-| 同sourceSystem+sourceOrderId仍有有效121关联 | 409 SOURCE_ALREADY_SYNCED，先查询已有单 |
+| 同sourceSystem+sourceOrderId仍有有效121关联 | 409 SOURCE_ALREADY_SYNCED，data返回可访问原单及原批次，按返回draftId调用P03查询 |
 | 创建超时、网关502/504、网络中断 | 先P02查本批次；查不到再用原批次、原键、原始正文重试 |
 | 每次HTTP重试 | 更新鉴权头，但业务批次、幂等键、正文都不变 |
 | 原草稿已确认DELETED | 新批次UUID、新幂等键再创建；旧批次保留历史可查询 |
@@ -529,7 +579,7 @@ P01、P02、P03和P04使用相同业务对象。
 | 403 | `OPERATOR_FORBIDDEN` | 部门越权、用户不属部门、操作人与发起人不同 | 核对授权，不自动重试 |
 | 404 | `USER_NOT_FOUND` | 操作人不存在或已删除 | 重新绑定有效账号 |
 | 409 | `IDEMPOTENCY_CONFLICT` | 批次/键已用于不一致请求 | 查询原请求，不能覆盖原结果 |
-| 409 | `SOURCE_ALREADY_SYNCED` | 来源订单存在有效121单据 | 查询已有批次，勿重复创建 |
+| 409 | `SOURCE_ALREADY_SYNCED` | 来源订单存在有效121单据 | 按data.draftId查询原单，勿重复创建 |
 | 422 | `USER_DISABLED` | 操作人已停用 | 更换可用账号 |
 | 422 | `REFERENCE_INVALID` | 供应商不存在、字典/审批人或联动关系不可用 | 核实供应商提示，或重新拉取字典并修正 |
 | 422 | `MATERIAL_NOT_FOUND` | 一个或多个物料编码不存在 | 在121补齐/核实后重新推送 |
@@ -553,7 +603,7 @@ P01、P02、P03和P04使用相同业务对象。
 
 ### 7.2 返回字段与示例
 
-`data`字段逐项见6.5节；`data.status`的所有值见3.2节。仅查询本客户端及授权部门范围内的批次。删除后仍返回原ID和明细映射，状态为DELETED。
+`data`字段逐项见6.5节；`data.status`的所有值见3.3节。仅查询本客户端及授权部门范围内的批次。删除后仍返回原ID和明细映射，状态为DELETED。
 
 ```http
 GET /open-api/v1/purchase-drafts/by-source?sourceSystem=INTELLIGENT_OFFICE&sourceOrderId=PC202611170001&syncBatchId=550e8400-e29b-41d4-a716-446655440001
@@ -598,7 +648,7 @@ HTTP 200：
 
 ### 8.2 返回与示例
 
-响应外壳见3.1节，完整data字段见6.5节，全部status含义见3.2节。
+响应外壳见3.1节，完整data字段见6.5节，全部status含义见3.3节。
 
 ```http
 GET /open-api/v1/purchase-drafts/12345
@@ -714,7 +764,7 @@ HTTP 200；data完整字段见6.5，成功取消返回DELETED：
 | `sourceOrderId` | 来源订单号 | string | 是 | 智能化原订单号 |
 | `syncBatchId` | 被删同步批次 | string | 是 | 仅清除此UUID对应的关联 |
 | `draftId` | 被删121主单ID | string | 是 | 与本地当前关联一起核对 |
-| `purchaseOrderNo` | 121采购单序号 | string | 是 | 本版本与draftId相同 |
+| `purchaseOrderNo` | 121采购单序号 | string | 是 | 即applyId，与draftId相同 |
 | `status` | 删除结果 | string | 是 | 固定DELETED |
 | `reason` | 删除原因 | string | 是 | USER_DELETE=121页面删除；CANCEL_SYNC=未提供原因的接口取消；其他非空文本=取消方自定义原因 |
 
@@ -901,6 +951,7 @@ print("签名向量校验通过")
 
 | 日期 | 文档/契约版本 | 内容 |
 | --- | --- | --- |
+| 2026-11-19 | 1.1.3 | 确认采购单序号为applyId；完善中文业务原因、结构化字段/明细定位、全部缺失物料扫描、重复同步原单返回及HTTP/业务码说明 |
 | 2026-11-18 | 1.1.2 | 新增显式全部有效部门授权模式；默认继续使用部门白名单，未配置不隐式授权；业务归属校验保持 |
 | 2026-11-17 | 1.1.1 | 测试允许HTTP、正式HTTPS；回调按目标显式允许HTTP；首次接入每环境一套凭据，不要求mTLS或轮换流程 |
 | 2026-11-17 | 1.1.0 | 审查修订：统一部门归属限制、供应商/物料缺失提示、U01失败响应和机器契约、字典与来源查询实际边界 |

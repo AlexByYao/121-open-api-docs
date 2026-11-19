@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 121 User Verification API
-  version: 1.0.2
+  version: 1.0.3
   description: |
     查询121登录账号对应的有效用户和客户端授权部门。
     121客户端配置all-departments为true时覆盖全部启用未删除部门；默认false时按department-ids白名单。
@@ -252,7 +252,13 @@ components:
           enum: [PARAM_INVALID, AUTH_CLIENT_NOT_FOUND, AUTH_SIGNATURE_INVALID, AUTH_TIMESTAMP_EXPIRED, AUTH_REPLAY_REQUEST, AUTH_FORBIDDEN, OPERATOR_FORBIDDEN, USER_NOT_FOUND, USER_DISABLED, METHOD_NOT_ALLOWED, RATE_LIMITED, PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, SYSTEM_ERROR, SYSTEM_BUSY]
         message: { type: string }
         requestId: { type: string, minLength: 16, maxLength: 128 }
-        data: { type: 'null', description: 当前应用失败响应固定为空 }
+        data:
+          type: [object, 'null']
+          description: 无详情时为空；JSON类型或未知字段错误可返回field和reason，不回显正文
+          additionalProperties: true
+          properties:
+            field: { type: string, description: 出错字段路径 }
+            reason: { type: string, description: TYPE_INVALID表示类型错误；UNKNOWN_FIELD表示未定义字段 }
   responses:
     ParamInvalid:
       description: 参数错误
