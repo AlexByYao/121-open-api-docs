@@ -1,24 +1,21 @@
 # 121 智能化采购同步接口文档
 
-版本 **1.1.5** · 更新 **2026-11-19** · 服务提供方 **121系统** · 调用方 **智能化办公平台后台服务**
+版本 **1.1.6** · 更新 **2026-11-19** · 服务提供方 **121系统** · 调用方 **智能化办公平台后台服务**
 
-本文是服务器对服务器的对接规范。网页用于公开查阅；业务接口代码已实现、默认关闭，尚需真实环境部署联调。环境表中的121域名及现有接口入口由121提供方根据前端抓包确认；其余示例账号、部门和订单为虚构数据，回调域名为占位。
+本文说明智能化后台与121后台之间的接口调用方式。示例账号、手机号、部门和订单均为虚构数据。实际开放时间及调用凭据由121提供方交付。
 
-## 一、环境与接口总览
+## 接入说明
 
-### 1.1 环境地址
+### 调用地址
 
-| 环境 | 已有后端接口入口（抓包确认） | 新开放接口拟用基础地址 | 当前状态 |
-| --- | --- | --- | --- |
-| 测试环境 | `http://testfcst.chinaptac.com/api` | `http://testfcst.chinaptac.com/open-api/v1` | 复用原测试域名，允许HTTP联调；新接口部署及转发待验收，尚未开放 |
-| 生产环境 | `https://fcst.chinaptac.com/prod-api` | `https://fcst.chinaptac.com/open-api/v1` | 复用原生产域名；新接口部署及转发待验收，尚未开放 |
-| 删除回调 | 由智能化提供 | `https://<智能化回调域名>/<约定路径>` | 正式提供HTTPS接口；测试可用HTTP，121按目标开启allow-http，固定地址由运维配置 |
+| 环境 | API基础地址 | 说明 |
+| --- | --- | --- |
+| 测试环境 | `http://testfcst.chinaptac.com/open-api/v1` | 允许HTTP联调，使用测试凭据 |
+| 正式环境 | `https://fcst.chinaptac.com/open-api/v1` | 使用HTTPS和正式凭据 |
 
-业务接口继续使用原121各环境域名，不需要新申请API域名。`/api`、`/prod-api`是已有业务接口的入口前缀；上表不代表新开放路径已经部署。新接口按下述独立转发方案验收后，由121交付最终调用地址。GitHub Pages仅托管本文档，不接收业务请求；测试与生产分别配置调用凭据。
+调用地址 = API基础地址 + 接口路径。例如用户查询为`POST http://testfcst.chinaptac.com/open-api/v1/users/verify`。测试、正式凭据分别交付；文档网站仅供查阅，不接收业务请求。C01由智能化提供固定回调地址，正式使用HTTPS，测试可按双方约定使用HTTP。
 
-在原121域名下新增 `/open-api/` 转发到原121后端；已有页面和API转发规则保留。正式环境使用HTTPS、TLS 1.2或更高版本；调用方校验证书与域名。测试环境允许HTTP，使用独立测试凭据和测试数据，无需先配置HTTPS。网关必须保留完整 `/open-api/v1` 路径及请求体原始字节；不要把原页面使用的 `/api` 或 `/prod-api` 前缀直接拼入签名路径。本协议外部与应用收到的开放接口路径一致，最终以部署验收地址为准。
-
-### 1.2 接口目录与调用权限
+### 接口目录
 
 以下路径相对于基础地址 `/open-api/v1`。C01是121主动调用智能化的反向接口。
 
@@ -32,9 +29,9 @@
 | P04 | 取消同步并删除草稿 | POST | `/purchase-drafts/{draftId}/cancel` | `purchase-draft:cancel` |
 | C01 | 采购草稿删除通知 | POST | 智能化提供的固定回调地址 | 独立反向凭据 |
 
-`scope` 是调用方系统的接口权限，由121配置；用户的部门权限同时按客户端部门授权范围校验。121可显式配置全部有效部门模式（`all-departments: true`），也可使用指定部门白名单（默认false时的 `department-ids`）。全部模式每次请求读取全部启用、未删除部门，新部门自动纳入；此时忽略白名单。未配置模式且空白名单仍表示无部门权限。全部模式不会绕过用户归属、来源客户端隔离、库位关联或单据状态校验，创建仍必传真实 `departmentId`。该模式是121内部部署配置，不是请求字段。查询用户成功不等于证明账号所有权；智能化应完成账号绑定授权。本版本操作人必须与发起人相同，不开放代发。
+`scope`是由121配置的系统调用权限，不需要作为请求参数提交。用户查询及单据操作仍校验客户端授权部门和用户归属；创建时必须传用户所属的有效departmentId。查询用户成功不代表完成账号所有权验证，账号绑定由智能化负责。本版本操作人与发起人必须相同。
 
-### 1.3 数据与业务约定
+### 数据约定
 
 - ID使用JSON字符串，避免大整数丢精度；必填ID为正整数形式。字典中的 `code` 是业务编码，不能替代 `id`。
 - 所有金额以人民币元计，使用十进制数，非负、最多两位小数；单价、金额及采购合计最大 `9999999999999.99`。
@@ -44,11 +41,9 @@
 - 智能化维护供应商与默认项目、项目与默认变现周期的映射和页面默认值。121提供字典并在创建时再次校验。
 - 来源草稿创建后供应商不可修改；部门归属沿用121现有规则，不支持跨部门修改，其余业务字段按121现有草稿规则编辑。取消同步只允许删除草稿，已锁单及退单状态不能取消。
 
-## 二、公共请求参数与鉴权
+所有接口均使用系统间HMAC-SHA256鉴权，请求头见下表。智能化后台使用121分配的clientId、keyId及密钥签名；员工无需登录。HMAC验证身份及正文完整性，正式环境通过HTTPS加密传输。
 
-公共鉴权参数放在HTTP请求头，**不放在JSON正文**。智能化后台签名后调用121，不使用员工登录密码、员工JWT或网页登录会话。HMAC用于验证系统身份及请求完整性，不加密正文；正式环境由HTTPS提供传输加密，HTTP测试仅使用测试数据。初次接入每个环境只配置一套clientId、keyId、签名密钥；调用方封装一次签名函数即可，无需员工登录、申请Token或配置mTLS。
-
-### 2.1 请求头参数
+### 请求头参数
 
 | 参数名 | 名称 | 类型 | 是否必填 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -65,7 +60,7 @@
 
 Header名称不区分大小写。鉴权头不能重复，值不得带额外空格或换行。签名密钥为32字节随机数的标准Base64，双方通过安全渠道交换，计算前先Base64解码；不会出现在网页、浏览器脚本或业务正文里。
 
-### 2.2 签名原文与算法
+### 签名原文与算法
 
 按以下10行拼接，以单个LF（`\n`）连接，最后一行后没有LF；无查询参数或幂等键时，仍保留对应空行。
 
@@ -92,7 +87,7 @@ X-Content-SHA256
 
 例如 `?pageSize=100&deptId=80001&pageNum=1` 的规范查询串为 `deptId=80001&pageNum=1&pageSize=100`。签名后必须发送相同正文原始字节；再次序列化、重排属性或改空格都可能导致验签失败。
 
-### 2.3 正文、限流与重试
+### 正文、限流与重试
 
 | 规则 | 当前约定 |
 | --- | --- |
@@ -105,9 +100,7 @@ X-Content-SHA256
 | 每次HTTP重试 | 生成新时间戳、Nonce、Request-Id及签名 |
 | P01业务重试 | 同时保留原 `syncBatchId`、`Idempotency-Key` 及原始正文；先按P02查询 |
 
-## 三、公共响应与返回值
-
-### 3.1 统一响应字段
+### 统一响应字段
 
 ```json
 {
@@ -121,7 +114,7 @@ X-Content-SHA256
 | 返回字段 | 类型 | 含义 | 取值说明 |
 | --- | --- | --- | --- |
 | `code` | integer | 数字结果码 | 成功为数字 `200`；失败与HTTP状态相同，如400、401、403、404、405、409、413、415、422、429、500、503 |
-| `errorCode` | string / null | 具体业务错误原因 | 成功为null；失败为第十一节列出的稳定业务码，如MATERIAL_NOT_FOUND |
+| `errorCode` | string / null | 具体业务错误原因 | 成功为null；失败为“返回码说明”列出的稳定业务码，如MATERIAL_NOT_FOUND |
 | `message` | string | 结果说明 | 供展示、排查使用；文字可变化，程序不能通过解析message判断结果 |
 | `requestId` | string | 本次请求追踪编号 | 合法时回显请求头；缺失或非法时由121生成，反馈问题时一并提供 |
 | `data` | object / null | 业务返回内容 | 成功为对应接口对象；失败可为结构化错误详情，无详情时为 `null`；SOURCE_ALREADY_SYNCED返回原单对象 |
@@ -130,9 +123,7 @@ X-Content-SHA256
 
 响应体`code`采用数字，与121现有接口成功码200保持一致。成功为`HTTP 200 + code=200 + errorCode=null`；缺失物料为`HTTP 422 + code=422 + errorCode=MATERIAL_NOT_FOUND`。详细原因仍放在message及data，不能解析message编写业务分支。HTTP状态继续按实际结果返回，不将失败统一转成HTTP200。部门和字典对象内部的code仍是原业务编码字符串。
 
-从旧版升级时，将`code === "SUCCESS"`改为`code === 200`，原先按字符串code判断错误的分支改读`errorCode`；同步更新Postman断言。此变更适用于全部121开放接口，需更新后端并重启；只更新文档不会改变正在运行的接口。message、requestId、data保留现有字段名。
-
-### 3.2 错误详情字段与取值
+### 错误详情字段与取值
 
 以下字段按错误场景选择返回，不保证每次失败都有详情。明细下标从0开始，`sourceDetailId`便于调用方定位自己的明细。未知异常、鉴权错误等仍可能`data=null`，通过requestId排查，不返回SQL或堆栈。
 
@@ -141,11 +132,15 @@ X-Content-SHA256
 | `field` | string | 字段路径，如`details[0].purchasePrice`；`details.materialCode`表示汇总物料错误 |
 | `sourceDetailId` | string | 对应来源行ID；能可靠识别时提供 |
 | `reason` | string | 具体原因，全部取值见下表 |
-| `referenceType` / `referenceId` | string | 引用类型及提交的ID，例如`sale-channels`、`supplier`或`approver` |
-| `departmentId` / `roleCode` | string | 引用校验的部门、审批角色；按场景提供 |
+| `referenceType` | string | 引用类型，例如`sale-channels`、`supplier`或`approver` |
+| `referenceId` | string / null | 请求中提交的引用ID；缺失时可为null |
+| `departmentId` | string | 引用校验使用的部门ID |
+| `roleCode` | string | 审批角色，取值见D01“审批角色枚举” |
 | `missingMaterialCodes` | string[] | 本次扫描的全部缺失物料编码，去重并保留顺序 |
-| `materialCode` / `matchCount` | string / integer | 重复匹配的编码和匹配数量 |
-| `provided` / `calculated` | number | 提交采购金额及数量乘单价后的计算金额 |
+| `materialCode` | string | 存在重复匹配或未匹配的物料编码 |
+| `matchCount` | integer | 对应物料编码匹配到的记录数 |
+| `provided` | number | 调用方提交的采购金额 |
+| `calculated` | number | 采购数量乘单价后的计算金额 |
 | `errors` | object[] | 缺失/重复物料的行详情，每项使用上述field、sourceDetailId、materialCode等字段 |
 
 | reason取值 | 含义 | 调用方处理 |
@@ -160,37 +155,23 @@ X-Content-SHA256
 | `DEPARTMENT_MISMATCH` | 产品经理不属于所选部门 | 选择本部门产品经理 |
 | `ROLE_MISSING` | 审批用户缺少对应有效角色 | 在121补齐角色或重新选择 |
 
-`SOURCE_ALREADY_SYNCED`的data使用6.5节原单对象，含原`draftId`、`purchaseOrderNo`、`syncBatchId`和当前状态。只能在原单属于当前客户端且在授权部门内时返回；不可访问时返回404 `DRAFT_NOT_FOUND`。这仍是409冲突，不表示本次创建成功。
+`SOURCE_ALREADY_SYNCED`的data使用P01“返回字段”中的原单对象，含原`draftId`、`purchaseOrderNo`、`syncBatchId`和当前状态。只能在原单属于当前客户端且在授权部门内时返回；不可访问时返回404 `DRAFT_NOT_FOUND`。这仍是409冲突，不表示本次创建成功。
 
-### 3.3 采购单状态值
+## U01 查询121用户信息（POST）
 
-下面是P01、P02、P03、P04的 `data.status`，与响应外层 `code` 含义不同。
-
-| 返回值 | 中文含义 | 业务说明 | 可通过P04取消 |
-| --- | --- | --- | --- |
-| `DRAFT` | 草稿 | 已在121建立有效采购草稿，尚未锁单 | 是 |
-| `LOCKED` | 已锁单 | 已进入121锁单流程，来源关联继续有效 | 否 |
-| `RETURN_PENDING` | 退单待审核 | 已申请退单，等待审核；不能视为删除 | 否 |
-| `RETURNED` | 退单通过 | 现有退单流程已通过；来源关联仍保留 | 否 |
-| `RETURN_REJECTED` | 退单驳回 | 退单申请被驳回；来源关联仍有效 | 否 |
-| `DELETED` | 已删除 | 草稿已软删除，本轮批次可查询历史ID；不能恢复为已同步 | 重复调用返回DELETED |
-
-已删除标记优先于其他状态。只有确认旧批次为 `DELETED` 后，智能化才能使用新批次和新幂等键重新同步。同来源有效关联包括锁单及退单，不仅包括草稿。
-
-## 四、U01 查询121用户信息
-
-### 4.1 接口说明
+### 请求方式与地址
 
 | 项目 | 内容 |
 | --- | --- |
-| 请求方法 | `POST` |
+| 请求方法 | **POST** |
 | 请求路径 | `/open-api/v1/users/verify` |
 | 权限 | `user:verify` |
 | 用途 | 校验绑定账号有效性，查询基本信息及客户端授权范围内的用户部门 |
-| 传参方式 | Request Body JSON；不接受查询参数、幂等键 |
+| 传参位置 | Body JSON；不接受查询参数、幂等键 |
+| Content-Type | `application/json` |
 | 是否分页 | 否，部门按ID升序一次返回 |
 
-### 4.2 请求参数
+### 请求参数
 
 | 参数名 | 名称 | 类型 | 是否必填 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -198,7 +179,7 @@ X-Content-SHA256
 
 按现有121账号查询规则匹配，不强制转换大小写。传姓名、手机号或用户ID不能替代登录账号。返回成功只表示该账号有效，不证明智能化当前用户拥有此账号。
 
-### 4.3 返回字段
+### 返回字段
 
 以下字段均位于 `data` 对象中。
 
@@ -216,7 +197,7 @@ X-Content-SHA256
 
 上述字段每次成功均返回，手机号未维护时保留字段并返回`""`。用户可能有多个部门，部门对象含ID、编码和名称；不能假定其上次登录所选部门就是本次采购部门。
 
-### 4.4 请求与响应示例
+### 请求与响应示例
 
 请求正文：
 
@@ -253,7 +234,7 @@ X-Content-SHA256
 }
 ```
 
-### 4.5 业务返回码
+### 业务返回码
 
 | HTTP | errorCode | 含义 | 调用方处理 |
 | --- | --- | --- | --- |
@@ -263,13 +244,21 @@ X-Content-SHA256
 | 404 | `USER_NOT_FOUND` | 账号不存在或已删除 | 提示修改绑定账号 |
 | 422 | `USER_DISABLED` | 账号存在但已停用 | 使用启用账号 |
 
-鉴权、限流、正文大小和系统错误还可能返回第十一节公共错误码。网络/系统故障不能当作账号不存在。
+鉴权、限流、正文大小和系统错误还可能返回“返回码说明”公共错误码。网络/系统故障不能当作账号不存在。
 
-## 五、D01 查询基础字典
+## D01 查询基础字典（GET）
 
-### 5.1 接口说明与参数
+### 请求方式与地址
 
-`GET /open-api/v1/dictionaries/{type}`，权限 `dictionary:read`，无正文、不传幂等键。
+| 项目 | 内容 |
+| --- | --- |
+| 请求方法 | **GET** |
+| 请求路径 | `/open-api/v1/dictionaries/{type}` |
+| 权限 | `dictionary:read` |
+| 传参位置 | Path路径参数 + Query查询参数；无正文，不传幂等键 |
+| Content-Type | 无请求正文，无需设置 |
+
+### 请求参数
 
 | 参数名 | 名称 | 位置 | 类型 | 是否必填 | 说明 |
 | --- | --- | --- | --- | --- | --- |
@@ -284,7 +273,7 @@ X-Content-SHA256
 
 不得重复或传未知参数。`projectId`和`parentId`只要传入就校验正整数ID；各筛选参数的实际生效范围见上表。字典数据可能变更，P01创建时会重新校验；同名记录以ID区分，调用方应遍历全部分页。
 
-### 5.2 字典类型及联动
+### 字典类型及联动
 
 | type | 名称 | 返回/联动规则 | 创建时使用 |
 | --- | --- | --- | --- |
@@ -303,7 +292,7 @@ X-Content-SHA256
 
 省份必须用121字典ID，例如 `"6"`；不能使用 `"110000"` 等行政区划编码代替。供应商 `requiresProject=true` 时P01必须提交项目；选定库位的非零项目关联应与提交项目一致。按projectId筛选时，只返回精确匹配的库位。
 
-### 5.3 审批角色枚举
+### 审批角色枚举
 
 | roleCode | 含义 | P01对应参数 |
 | --- | --- | --- |
@@ -315,7 +304,7 @@ X-Content-SHA256
 | `CHIEF_ACCOUNTANT` | 总会计师 | `chiefAccountantUserId` |
 | `GENERAL_MANAGER` | 总经理 | `generalManagerUserId` |
 
-### 5.4 返回字段与枚举含义
+### 返回字段与枚举含义
 
 | 返回字段 | 类型 | 出现条件 | 含义与取值 |
 | --- | --- | --- | --- |
@@ -336,7 +325,7 @@ X-Content-SHA256
 | `items[].loginAccount` | string | 审批人员 | 人员的121登录账号 |
 | `items[].departmentIds` | array of string | 审批人员 | 人员成员部门与客户本次部门范围交集中的ID；跨部门审批人可为空数组，不代表不可选 |
 
-### 5.5 请求与响应示例
+### 请求与响应示例
 
 ```http
 GET /open-api/v1/dictionaries/provinces?deptId=80001&pageNum=1&pageSize=100
@@ -370,25 +359,33 @@ HTTP 200，省份示例：
 }
 ```
 
-### 5.6 业务返回码
+### 业务返回码
 
 | HTTP | errorCode | 含义 | 调用方处理 |
 | --- | --- | --- | --- |
 | 200 | `null` | 查询成功，无数据也成功 | 遍历分页或展示空列表 |
 | 400 | `PARAM_INVALID` | 缺deptId、无效分页/roleCode、未知或不合法参数 | 修正参数 |
 | 403 | `OPERATOR_FORBIDDEN` | 部门超出客户端授权范围 | 核对授权 |
-| 404 | `NOT_FOUND` | 不支持的字典type | 使用5.2节枚举 |
+| 404 | `NOT_FOUND` | 不支持的字典type | 使用D01“字典类型及联动”枚举 |
 | 422 | `REFERENCE_INVALID` | 部门不存在、停用或已删除 | 重新查询可用部门 |
 
 另见公共错误码。
 
-## 六、P01 创建采购草稿
+## P01 创建采购草稿（POST）
 
-### 6.1 接口说明
+### 请求方式与地址
 
-`POST /open-api/v1/purchase-drafts`，权限 `purchase-draft:create`。JSON正文，不接受查询参数，必须带 `Idempotency-Key`。成功创建草稿，原子保存主单、全部明细及来源关联；校验失败整体回滚，不新增供应商/物料。
+| 项目 | 内容 |
+| --- | --- |
+| 请求方法 | **POST** |
+| 请求路径 | `/open-api/v1/purchase-drafts` |
+| 权限 | `purchase-draft:create` |
+| 传参位置 | Body JSON；不接受查询参数；Header必须带Idempotency-Key |
+| Content-Type | `application/json` |
 
-### 6.2 主单请求参数
+成功创建草稿，原子保存主单、全部明细及来源关联；校验失败整体回滚，不新增供应商/物料。
+
+### 主单请求参数
 
 | 参数名 | 名称 | 类型 | 是否必填 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -415,11 +412,11 @@ HTTP 200，省份示例：
 | `contractNo` | 合同号 | string | 否 | 最长64 |
 | `externalPurchaseOrderNo` | 外部采购单号 | string | 否 | 最长64，业务备注关联号；不等于121内部ID |
 | `remark` | 主单备注 | string | 否 | 最长500 |
-| `details` | 采购明细 | array | 是 | 1—500条，字段见6.4 |
+| `details` | 采购明细 | array | 是 | 1—500条，字段见“明细请求参数” |
 
 不要提交状态、创建人、121主单ID等额外字段。字符串拒绝控制字符和尖括号。未填写的可选ID应省略，不传空字符串。
 
-### 6.3 可选审批人员
+### 可选审批人员
 
 以下都是string类型、可选、正整数用户ID；提供时用户须启用未删且具有相应有效角色。仅产品经理须属于当前部门，其他审批角色按现有页面允许跨部门。通过D01的approval-users取得ID，不能直接传姓名；departmentIds可能为空数组，不代表该跨部门审批人不可选。121按现有业务字段保存人员姓名。
 
@@ -435,7 +432,7 @@ HTTP 200，省份示例：
 | `chiefAccountantUserId` | 总会计师 | `CHIEF_ACCOUNTANT` |
 | `generalManagerUserId` | 总经理 | `GENERAL_MANAGER` |
 
-### 6.4 明细请求参数
+### 明细请求参数
 
 以下字段位于 `details[]` 中。
 
@@ -459,7 +456,7 @@ HTTP 200，省份示例：
 
 供应商ID不存在时返回422 `REFERENCE_INVALID`，message为“供应商xxx，在121系统未找到，请先核实供应商再推送至121”；xxx优先使用supplierName，未提供名称时使用supplierId，名称不参与匹配。物料缺失返回422 `MATERIAL_NOT_FOUND`，message为“物料编码xxx、xxx在121系统未找到，请先核实物料编码再推送至121”，一次列出全部缺失编码。
 
-### 6.5 返回字段
+### 返回字段
 
 P01、P02、P03和P04使用相同业务对象。
 
@@ -470,12 +467,27 @@ P01、P02、P03和P04使用相同业务对象。
 | `data.sourceSystem` | string | 来源系统，当前为INTELLIGENT_OFFICE |
 | `data.sourceOrderId` | string | 智能化来源订单号 |
 | `data.syncBatchId` | string | 本轮同步UUID，用于查询、重试和防止旧事件覆盖新批次 |
-| `data.status` | string | 当前采购状态；全部取值和含义见3.3节 |
+| `data.status` | string | 当前采购状态；全部取值和含义见P01“采购单状态值” |
 | `data.details` | array | 来源明细与121明细ID的映射 |
 | `data.details[].sourceDetailId` | string | 创建时传入的来源明细号 |
 | `data.details[].detailId` | string | 121采购明细ID |
 
-### 6.6 请求与响应示例
+### 采购单状态值
+
+下面是P01、P02、P03、P04的 `data.status`，与响应外层 `code` 含义不同。
+
+| 返回值 | 中文含义 | 业务说明 | 可通过P04取消 |
+| --- | --- | --- | --- |
+| `DRAFT` | 草稿 | 已在121建立有效采购草稿，尚未锁单 | 是 |
+| `LOCKED` | 已锁单 | 已进入121锁单流程，来源关联继续有效 | 否 |
+| `RETURN_PENDING` | 退单待审核 | 已申请退单，等待审核；不能视为删除 | 否 |
+| `RETURNED` | 退单通过 | 现有退单流程已通过；来源关联仍保留 | 否 |
+| `RETURN_REJECTED` | 退单驳回 | 退单申请被驳回；来源关联仍有效 | 否 |
+| `DELETED` | 已删除 | 草稿已软删除，本轮批次可查询历史ID；不能恢复为已同步 | 重复调用返回DELETED |
+
+已删除标记优先于其他状态。只有确认旧批次为 `DELETED` 后，智能化才能使用新批次和新幂等键重新同步。锁单及退单仍保留来源有效关联。
+
+### 请求与响应示例
 
 除公共鉴权头外再带 `Idempotency-Key: intelligent-office:PC202611170001:550e8400-e29b-41d4-a716-446655440001`。
 
@@ -562,7 +574,7 @@ P01、P02、P03和P04使用相同业务对象。
 }
 ```
 
-### 6.7 幂等、超时与重新同步
+### 幂等、超时与重新同步
 
 | 场景 | 处理结果/要求 |
 | --- | --- |
@@ -575,7 +587,7 @@ P01、P02、P03和P04使用相同业务对象。
 
 正文空格或属性顺序变化也会改变摘要。不要用“超时后直接更换批次”规避幂等。建议幂等键格式为 `intelligent-office:<sourceOrderId>:<syncBatchId>`。
 
-### 6.8 业务返回码
+### 业务返回码
 
 | HTTP | errorCode | 含义 | 调用方处理 |
 | --- | --- | --- | --- |
@@ -594,11 +606,19 @@ P01、P02、P03和P04使用相同业务对象。
 
 还可能返回公共鉴权/限流/系统错误。遇到500先查询结果，不应直接认为未创建。
 
-## 七、P02 按来源和批次查询草稿
+## P02 按来源和批次查询草稿（GET）
 
-### 7.1 接口与请求参数
+### 请求方式与地址
 
-`GET /open-api/v1/purchase-drafts/by-source`，权限 `purchase-draft:read`，无正文、不传幂等键。
+| 项目 | 内容 |
+| --- | --- |
+| 请求方法 | **GET** |
+| 请求路径 | `/open-api/v1/purchase-drafts/by-source` |
+| 权限 | `purchase-draft:read` |
+| 传参位置 | Query查询参数；无正文，不传幂等键 |
+| Content-Type | 无请求正文，无需设置 |
+
+### 请求参数
 
 | 参数名 | 名称 | 位置 | 类型 | 是否必填 | 说明 |
 | --- | --- | --- | --- | --- | --- |
@@ -606,9 +626,23 @@ P01、P02、P03和P04使用相同业务对象。
 | `sourceOrderId` | 来源订单号 | Query | string | 是 | 使用创建时的来源订单号；非空且≤128码点 |
 | `syncBatchId` | 同步批次 | Query | string | 是 | 使用创建时的UUID；查询入口只校验非空及长度≤128码点，不自动返回最近批次 |
 
-### 7.2 返回字段与示例
+### 返回字段
 
-`data`字段逐项见6.5节；`data.status`的所有值见3.3节。仅查询本客户端及授权部门范围内的批次。删除后仍返回原ID和明细映射，状态为DELETED。
+| 返回字段 | 类型 | 含义 |
+| --- | --- | --- |
+| `data.draftId` | string | 121采购主单ID，即现有apply_id |
+| `data.purchaseOrderNo` | string | 需求中的121采购单序号，即applyId（purchase_apply.apply_id），与draftId相同 |
+| `data.sourceSystem` | string | 来源系统，当前为INTELLIGENT_OFFICE |
+| `data.sourceOrderId` | string | 智能化来源订单号 |
+| `data.syncBatchId` | string | 本轮同步UUID，用于查询、重试和防止旧事件覆盖新批次 |
+| `data.status` | string | 当前采购状态；全部取值和含义见P01“采购单状态值” |
+| `data.details` | array | 来源明细与121明细ID的映射 |
+| `data.details[].sourceDetailId` | string | 创建时传入的来源明细号 |
+| `data.details[].detailId` | string | 121采购明细ID |
+
+### 请求与响应示例
+
+`data`字段逐项见P01“返回字段”；`data.status`的所有值见P01“采购单状态值”。仅查询本客户端及授权部门范围内的批次。删除后仍返回原ID和明细映射，状态为DELETED。
 
 ```http
 GET /open-api/v1/purchase-drafts/by-source?sourceSystem=INTELLIGENT_OFFICE&sourceOrderId=PC202611170001&syncBatchId=550e8400-e29b-41d4-a716-446655440001
@@ -631,7 +665,7 @@ HTTP 200：
 }
 ```
 
-### 7.3 业务返回码
+### 业务返回码
 
 | HTTP | errorCode | 含义 | 调用方处理 |
 | --- | --- | --- | --- |
@@ -641,19 +675,41 @@ HTTP 200：
 
 公共错误码仍适用。P02不是按来源查询“最新一单”，syncBatchId必须准确。三个查询字段均禁止控制字符及尖括号；查询入口不另校验来源常量、订单号格式或UUID格式，格式错误且无匹配时返回404 DRAFT_NOT_FOUND。
 
-## 八、P03 按121采购单ID查询草稿
+## P03 按121采购单ID查询草稿（GET）
 
-### 8.1 接口与参数
+### 请求方式与地址
 
-`GET /open-api/v1/purchase-drafts/{draftId}`，权限 `purchase-draft:read`。不接受查询参数，正文为空，不传幂等键。
+| 项目 | 内容 |
+| --- | --- |
+| 请求方法 | **GET** |
+| 请求路径 | `/open-api/v1/purchase-drafts/{draftId}` |
+| 权限 | `purchase-draft:read` |
+| 传参位置 | Path路径参数；无正文，不接受查询参数或幂等键 |
+| Content-Type | 无请求正文，无需设置 |
+
+### 请求参数
 
 | 参数名 | 名称 | 位置 | 类型 | 是否必填 | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `draftId` | 121采购单ID | Path | string | 是 | P01返回的正整数ID，只支持本接口同步来源单 |
 
-### 8.2 返回与示例
+### 返回字段
 
-响应外壳见3.1节，完整data字段见6.5节，全部status含义见3.3节。
+| 返回字段 | 类型 | 含义 |
+| --- | --- | --- |
+| `data.draftId` | string | 121采购主单ID，即现有apply_id |
+| `data.purchaseOrderNo` | string | 需求中的121采购单序号，即applyId（purchase_apply.apply_id），与draftId相同 |
+| `data.sourceSystem` | string | 来源系统，当前为INTELLIGENT_OFFICE |
+| `data.sourceOrderId` | string | 智能化来源订单号 |
+| `data.syncBatchId` | string | 本轮同步UUID，用于查询、重试和防止旧事件覆盖新批次 |
+| `data.status` | string | 当前采购状态；全部取值和含义见P01“采购单状态值” |
+| `data.details` | array | 来源明细与121明细ID的映射 |
+| `data.details[].sourceDetailId` | string | 创建时传入的来源明细号 |
+| `data.details[].detailId` | string | 121采购明细ID |
+
+### 请求与响应示例
+
+响应外壳见“统一响应字段”，完整data字段见P01“返回字段”，全部status含义见P01“采购单状态值”。
 
 ```http
 GET /open-api/v1/purchase-drafts/12345
@@ -674,7 +730,7 @@ HTTP 200，锁单示例：
 }
 ```
 
-### 8.3 业务返回码
+### 业务返回码
 
 | HTTP | errorCode | 含义 | 调用方处理 |
 | --- | --- | --- | --- |
@@ -684,11 +740,21 @@ HTTP 200，锁单示例：
 
 公共错误码仍适用。
 
-## 九、P04 取消同步并删除草稿
+## P04 取消同步并删除草稿（POST）
 
-### 9.1 接口说明与参数
+### 请求方式与地址
 
-`POST /open-api/v1/purchase-drafts/{draftId}/cancel`，权限 `purchase-draft:cancel`。不传查询参数和幂等键。取消等同软删除121对应采购草稿，并产生C01删除事件。
+| 项目 | 内容 |
+| --- | --- |
+| 请求方法 | **POST** |
+| 请求路径 | `/open-api/v1/purchase-drafts/{draftId}/cancel` |
+| 权限 | `purchase-draft:cancel` |
+| 传参位置 | Path路径参数 + Body JSON；不接受查询参数或幂等键 |
+| Content-Type | `application/json` |
+
+### 请求参数
+
+取消等同软删除121对应采购草稿，并产生C01删除事件。
 
 | 参数名 | 名称 | 位置 | 类型 | 是否必填 | 说明 |
 | --- | --- | --- | --- | --- | --- |
@@ -696,13 +762,27 @@ HTTP 200，锁单示例：
 | `operatorLoginAccount` | 操作人账号 | Body | string | 是 | 最长30，启用未删且属于该单部门 |
 | `reason` | 取消原因 | Body | string | 否 | 最长500；省略或仅空格使用CANCEL_SYNC，非空原因原样写入事件 |
 
-### 9.2 请求与响应示例
+### 返回字段
+
+| 返回字段 | 类型 | 含义 |
+| --- | --- | --- |
+| `data.draftId` | string | 121采购主单ID，即现有apply_id |
+| `data.purchaseOrderNo` | string | 需求中的121采购单序号，即applyId（purchase_apply.apply_id），与draftId相同 |
+| `data.sourceSystem` | string | 来源系统，当前为INTELLIGENT_OFFICE |
+| `data.sourceOrderId` | string | 智能化来源订单号 |
+| `data.syncBatchId` | string | 本轮同步UUID，用于查询、重试和防止旧事件覆盖新批次 |
+| `data.status` | string | 当前采购状态；全部取值和含义见P01“采购单状态值” |
+| `data.details` | array | 来源明细与121明细ID的映射 |
+| `data.details[].sourceDetailId` | string | 创建时传入的来源明细号 |
+| `data.details[].detailId` | string | 121采购明细ID |
+
+### 请求与响应示例
 
 ```json
 {"operatorLoginAccount":"zhangsan","reason":"智能化取消同步"}
 ```
 
-HTTP 200；data完整字段见6.5，成功取消返回DELETED：
+HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED：
 
 ```json
 {
@@ -728,7 +808,7 @@ HTTP 200；data完整字段见6.5，成功取消返回DELETED：
 }
 ```
 
-### 9.3 取消规则及返回码
+### 取消规则及返回码
 
 仅DRAFT可删除；已DELETED重复调用返回同样结果，不再生成重复事件。主单、所属明细、当前来源关联和删除事件在同一事务内处理；锁单与删除使用主单行锁协调。内部退单不等同本接口取消。
 
@@ -744,21 +824,22 @@ HTTP 200；data完整字段见6.5，成功取消返回DELETED：
 
 另见公共错误码。HTTP重试仍需更新Nonce和Request-Id。
 
-## 十、C01 采购草稿删除通知
+## C01 采购草稿删除通知（POST）
 
-### 10.1 智能化需要提供的接口
+### 请求方式与地址
 
 | 项目 | 内容 |
 | --- | --- |
 | 提供方 | 智能化后台 |
 | 调用方 | 121后台 |
-| 方法 | POST，JSON正文 |
-| 地址 | 智能化提供固定完整URL；正式HTTPS，测试HTTP需121对应目标显式配置allow-http: true（默认false）；不可带用户名密码、query或fragment |
+| 请求方法 | **POST** |
+| 传参位置 | Body JSON |
+| 地址 | 智能化提供固定完整URL；正式HTTPS，测试可约定HTTP；固定URL不可带用户名密码、查询参数或fragment |
 | 触发 | 121页面删除来源草稿，或P04成功取消 |
-| 鉴权 | 沿用第二节签名算法；使用单独反向clientId/keyId/secret，不与入口密钥混用 |
+| 鉴权 | 沿用“接入说明”的签名算法；使用单独反向clientId/keyId/secret，不与入口密钥混用 |
 | 幂等 | eventId业务幂等；不带Idempotency-Key，每次HTTP重试换新鉴权头 |
 
-### 10.2 通知正文参数
+### 通知正文参数
 
 | 参数名 | 名称 | 类型 | 是否必填 | 含义与取值 |
 | --- | --- | --- | --- | --- |
@@ -773,7 +854,7 @@ HTTP 200；data完整字段见6.5，成功取消返回DELETED：
 | `status` | 删除结果 | string | 是 | 固定DELETED |
 | `reason` | 删除原因 | string | 是 | USER_DELETE=121页面删除；CANCEL_SYNC=未提供原因的接口取消；其他非空文本=取消方自定义原因 |
 
-### 10.3 请求示例
+### 请求示例
 
 ```json
 {
@@ -790,9 +871,9 @@ HTTP 200；data完整字段见6.5，成功取消返回DELETED：
 }
 ```
 
-### 10.4 接收方响应与每个返回值含义
+### 接收方响应与每个返回值含义
 
-121以HTTP状态判断投递结果，**不读取回调响应的JSON业务码**。本节响应是智能化需要实现的约定，不是另一个已部署的121入口。
+121以HTTP状态判断投递结果，**不读取回调响应的JSON业务码**。接收方需按下表返回。
 
 | HTTP返回值 | 含义 | 121行为 |
 | --- | --- | --- |
@@ -804,7 +885,7 @@ HTTP 200；data完整字段见6.5，成功取消返回DELETED：
 
 推荐成功返回 `204 No Content`。若返回JSON，可自定内容，但不能用HTTP200加失败业务码表达失败，否则121会视为成功。必须先完成可靠落库/处理再回2xx；重复eventId也回2xx。
 
-### 10.5 重试、乱序与本地清理
+### 重试、乱序与本地清理
 
 - 至少一次投递。默认每10秒轮询，连接超时5秒、读取超时10秒；首次发送失败后按30秒、2分钟、10分钟、30分钟间隔重试，最多5次发送，随后转人工补偿队列。
 - 同一事件重试保持eventId和正文；时间戳、Nonce、Request-Id和签名每次更新。进程崩溃也可能导致重投。
@@ -812,9 +893,9 @@ HTTP 200；data完整字段见6.5，成功取消返回DELETED：
 - 旧批次通知不能清除重新同步的新单；即使不匹配当前关联，也应将该旧事件记为已处理并回2xx。
 - 通知可能早于P01响应到达。智能化需保留批次已删记录，迟到的创建响应不得把已删批次恢复成“已同步”。
 
-## 十一、完整返回码与处理建议
+## 返回码说明
 
-### 11.1 业务返回码总表
+### 业务返回码总表
 
 下表列出全部errorCode及对应HTTP/数字code。成功errorCode为null；错误行第一列同时是HTTP状态和响应体数字code。鉴权、限流和系统码适用于121入口；其余业务码按各接口业务校验产生。客户端按数字code及errorCode判断，不解析message。
 
@@ -830,7 +911,7 @@ HTTP 200；data完整字段见6.5，成功取消返回DELETED：
 | 403 | `OPERATOR_FORBIDDEN` | 业务操作越权 | 用户/部门超范围、无可用部门、用户不属部门、禁止代发或变更来源单部门 | 修正用户/部门并确认授权 |
 | 404 | `USER_NOT_FOUND` | 用户不存在 | 账号不存在或已删除 | 核对账号、重新绑定 |
 | 404 | `DRAFT_NOT_FOUND` | 同步采购单不可见 | 没有来源记录、主单不存在、其他客户或非授权部门 | 核对ID、来源、批次与授权 |
-| 404 | `NOT_FOUND` | 字典类型不存在 | D01 type不在支持列表 | 使用5.2节枚举 |
+| 404 | `NOT_FOUND` | 字典类型不存在 | D01 type不在支持列表 | 使用D01“字典类型及联动”枚举 |
 | 405 | `METHOD_NOT_ALLOWED` | 请求方法不支持 | 对已匹配路径使用不支持的HTTP方法 | 按接口约定使用GET/POST |
 | 409 | `IDEMPOTENCY_CONFLICT` | 幂等冲突 | 批次/键已绑定不一致请求，或并发复用唯一键 | 查询原请求，不覆盖、不随意换批次 |
 | 409 | `SOURCE_ALREADY_SYNCED` | 来源已同步 | 同来源订单已有有效采购单，含锁单及退单 | 查原单；确认DELETED后再用新批次 |
@@ -849,7 +930,7 @@ HTTP 200；data完整字段见6.5，成功取消返回DELETED：
 
 `SUPPLIER_IMMUTABLE` 是来源单的121编辑业务保护码；当前开放接口不提供修改供应商接口。未知URL还可能由网关/框架返回普通404，不能保证包含此JSON外壳。
 
-### 11.2 失败响应与重试分组
+### 失败响应与重试分组
 
 ```json
 {
@@ -868,9 +949,18 @@ HTTP 200；data完整字段见6.5，成功取消返回DELETED：
 
 不要把所有非200都解释为“参数错误”，也不要把所有200都解释为“仍然有效同步”：成功查询可能返回DELETED。
 
-## 十二、签名测试向量与联调
+## 附录
 
-### 12.1 公开离线测试向量
+### 文档下载
+
+- [完整OpenAPI 3.1 YAML](./downloads/openapi.yaml)
+- [完整OpenAPI 3.1 JSON](./downloads/openapi.json)
+- [U01独立OpenAPI YAML](./downloads/u01.openapi.yaml)
+- [本页Markdown](./downloads/api-reference.md)
+
+可导入支持OpenAPI 3.1的Apifox、Swagger等工具。导入或点击普通Authorize按钮不会自动完成HMAC签名，应由调用方脚本或请求钩子实现。
+
+### 签名校验示例
 
 本节密钥是**公开测试常量**，只用于离线核对，禁止用于真实环境。固定时间戳已非当前时间，直接发到在线接口会超时；真实请求需使用当前时间和正式凭据。
 
@@ -917,61 +1007,3 @@ assert body_hash == "aa6b77fa18f04ad64611d521f86e77117d861ad907d8ff85560a19c426a
 assert signature == "lbIOMwqPoysaiu2XwGpXrZgXN0pDRAC0pUd31Rn176g="
 print("签名向量校验通过")
 ```
-
-### 12.2 接入前交换信息
-
-| 121提供 | 智能化提供 |
-| --- | --- |
-| 测试/生产API基础地址、开放时间 | 后台固定出口IP |
-| 入口clientId/keyId及安全交换的签名密钥 | C01固定回调地址及独立反向凭据（正式HTTPS，测试可HTTP） |
-| scope、全部有效部门/白名单授权模式、限流配置 | 账号绑定流程、采购发起人对应规则 |
-| 实际可用字典、物料维护方式 | 默认项目/周期映射、必填销售及库存字段 |
-
-首次接入：121部署新后端、执行扩展表SQL并连接Redis → 配置本环境一套入口凭据、接口权限和部门 → 在原域名新增 `/open-api/` 转发 → 安装完成后先启用集成保护，再受控开启接口入口 → 智能化封装签名并联调。C01由智能化提供固定地址及独立反向凭据；测试若用HTTP，121仅为该目标设置 `allow-http: true`，正式保持false。无需改动原员工登录流程。
-
-### 12.3 建议联调顺序
-
-1. 离线验证签名向量；再使用真实凭据和当前时间验证U01。
-2. 验证不存在/停用/无部门用户，以及篡改、过期、重放和429错误。
-3. 查询字典，遍历分页，确认供应商项目和库位联动。
-4. P01创建草稿，保存主单与明细映射；同批次原文重试验证不重复创建。
-5. 模拟超时，按P02恢复结果；按P03验证锁单状态，P04应拒绝删除锁单单据。
-6. 分别测试121页面删除、P04取消、重复取消、C01超时及重复通知。
-7. 用新批次重建后投递旧通知，确认不会清除新关联；验证通知早于创建响应时不错误恢复。
-
-正式上线需真实MySQL、Redis、HTTPS网关及双方后台验证；网页发布不代表已完成业务联调。
-
-## 十三、下载、版本与规范参考
-
-### 13.1 下载
-
-- [完整OpenAPI 3.1 YAML](./downloads/openapi.yaml)
-- [完整OpenAPI 3.1 JSON](./downloads/openapi.json)
-- [U01独立OpenAPI YAML](./downloads/u01.openapi.yaml)
-- [本页Markdown](./downloads/api-reference.md)
-
-可导入支持OpenAPI 3.1的Apifox、Swagger等工具。导入或点击普通Authorize按钮不会自动完成HMAC签名，应由调用方脚本或请求钩子实现。
-
-### 13.2 版本记录
-
-| 日期 | 文档/契约版本 | 内容 |
-| --- | --- | --- |
-| 2026-11-19 | 1.1.5 | 全部开放接口code改为数字，成功200、失败与HTTP一致；原字符串错误原因迁移至errorCode，成功为null；调用方须同步修改判断逻辑 |
-| 2026-11-19 | 1.1.4 | U01补充phoneNumber完整手机号，未维护时为空字符串；明确姓名/昵称来源，保留多部门及授权规则 |
-| 2026-11-19 | 1.1.3 | 确认采购单序号为applyId；完善中文业务原因、结构化字段/明细定位、全部缺失物料扫描、重复同步原单返回及HTTP/业务码说明 |
-| 2026-11-18 | 1.1.2 | 新增显式全部有效部门授权模式；默认继续使用部门白名单，未配置不隐式授权；业务归属校验保持 |
-| 2026-11-17 | 1.1.1 | 测试允许HTTP、正式HTTPS；回调按目标显式允许HTTP；首次接入每环境一套凭据，不要求mTLS或轮换流程 |
-| 2026-11-17 | 1.1.0 | 审查修订：统一部门归属限制、供应商/物料缺失提示、U01失败响应和机器契约、字典与来源查询实际边界 |
-| 2026-11-17 | 1.1.0 | 整理公开网页，补齐逐字段响应含义、枚举、分接口返回码、回调确认规则与折叠示例；不改变接口行为 |
-| 2026-11-16 | 1.1.0 | 完整采购同步接口与代码实现对齐，确认现有取价、库存字段及省份ID规则 |
-
-URL主版本为v1。调用方忽略新增的未知响应字段；删除字段、改变类型或错误码含义需双方评审或升级版本。地址、凭据和授权范围以双方实际交付为准，不从示例推断。
-
-### 13.3 规范参考
-
-- [OpenAPI Specification 3.1](https://spec.openapis.org/oas/v3.1.0.html)
-- [RFC 9110：HTTP Semantics](https://www.rfc-editor.org/rfc/rfc9110)
-- [RFC 9111：HTTP Caching](https://www.rfc-editor.org/rfc/rfc9111)
-- [AWS请求签名规范化参考](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv-create-signed-request.html)
-
-本接口采用121自定义HMAC协议，不兼容AWS SigV4、OAuth或员工登录协议。

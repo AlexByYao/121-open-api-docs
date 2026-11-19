@@ -32,7 +32,7 @@ def build(output: Path):
                 sub_num += 1
                 anchor = f'section-{section_num}-{sub_num}'
                 token.attrSet('id', anchor)
-                headings.append((3, anchor, title))
+                # 章节内保留字段分组，只在侧栏展示主要章节，便于快速定位七个接口。
 
     def render_code(tokens, idx, options, env):
         token = tokens[idx]
@@ -76,7 +76,7 @@ def build(output: Path):
     sidebar = '\n'.join(toc_links)
     overview = ''.join(f'<li><a href="#{anchor}">{html.escape(title)}</a></li>' for level, anchor, title in headings if level == 2)
     template = (ROOT / 'template.html').read_text(encoding='utf-8')
-    page = template.replace('{{CONTENT}}', rendered).replace('{{SIDEBAR}}', sidebar).replace('{{OVERVIEW}}', overview)
+    page = template.replace('{{CONTENT}}', rendered).replace('{{SIDEBAR}}', sidebar).replace('{{OVERVIEW}}', overview).replace('{{SECTION_COUNT}}', str(section_num))
     output.mkdir(parents=True, exist_ok=True)
     (output / 'index.html').write_text(page, encoding='utf-8')
     (output / '.nojekyll').write_text('', encoding='utf-8')

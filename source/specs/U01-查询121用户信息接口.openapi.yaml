@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 121 User Verification API
-  version: 1.0.5
+  version: 1.0.6
   description: |
     查询121登录账号对应的有效用户和客户端授权部门。
     121客户端配置all-departments为true时覆盖全部启用未删除部门；默认false时按department-ids白名单。
@@ -10,9 +10,9 @@ info:
     HMAC签名由121应用独立安全链校验；正式网关提供HTTPS，测试允许HTTP；均保留原始路径和正文。首次每环境配置一套系统凭据，不要求mTLS或轮换流程。
 servers:
   - url: http://testfcst.chinaptac.com/open-api/v1
-    description: 测试拟用HTTP地址，新接口部署及转发待验收；已有抓包入口为http://testfcst.chinaptac.com/api，不能据此认定新接口已开放
+    description: 测试环境，允许HTTP联调；开放时间及测试凭据由121提供方交付
   - url: https://fcst.chinaptac.com/open-api/v1
-    description: 生产拟用地址，新接口部署及转发待验收，尚未开放；已有抓包入口为https://fcst.chinaptac.com/prod-api，保留既有路由
+    description: 正式环境，使用HTTPS；开放时间及正式凭据由121提供方交付
 tags:
   - name: Users
     description: 121用户查询

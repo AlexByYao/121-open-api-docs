@@ -39,7 +39,7 @@ search.addEventListener('input', () => {
     link.hidden = Boolean(target.closest('.doc-section')?.hidden);
   });
   document.querySelector('#no-results').hidden = shown !== 0;
-  status.textContent = terms.length ? `找到 ${shown} 个相关章节 · 清空搜索显示全部` : '13 个章节 · 7 项接口';
+  status.textContent = terms.length ? `找到 ${shown} 个相关章节 · 清空搜索显示全部` : `${sections.length} 个章节 · 7 项接口`;
 });
 
 links.forEach(link => link.addEventListener('click', closeMenu));
