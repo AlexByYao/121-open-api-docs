@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 121 User Verification API
-  version: 1.0.3
+  version: 1.0.4
   description: |
     查询121登录账号对应的有效用户和客户端授权部门。
     121客户端配置all-departments为true时覆盖全部启用未删除部门；默认false时按department-ids白名单。
@@ -68,6 +68,7 @@ paths:
                       userId: '10086'
                       loginAccount: zhangsan
                       userName: 张三
+                      phoneNumber: '13800000000'
                       status: ACTIVE
                       departments:
                         - id: '80001'
@@ -222,11 +223,12 @@ components:
     User:
       type: object
       additionalProperties: true
-      required: [userId, loginAccount, userName, status, departments]
+      required: [userId, loginAccount, userName, phoneNumber, status, departments]
       properties:
         userId: { type: string, minLength: 1, maxLength: 64 }
         loginAccount: { type: string, minLength: 1, maxLength: 30 }
         userName: { type: string, maxLength: 100, description: 姓名或昵称未维护时为空字符串 }
+        phoneNumber: { type: string, description: 121用户资料sys_user.phonenumber中维护的完整手机号；未维护时为空字符串，不影响账号校验 }
         status: { type: string, enum: [ACTIVE] }
         departments:
           type: array

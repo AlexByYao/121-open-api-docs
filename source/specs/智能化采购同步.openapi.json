@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "121 智能化采购同步开放接口",
-    "version": "1.1.3",
+    "version": "1.1.4",
     "description": "服务器对服务器；应用内HMAC-SHA256鉴权。代码已实现、默认关闭，部署后联调。测试允许HTTP、正式HTTPS；每环境初次配置一套系统凭据，无需mTLS或轮换流程。客户端可显式授权全部有效部门或使用部门白名单；默认空白名单不授权。完整签名算法与实际约束见配套Markdown。"
   },
   "servers": [
@@ -102,6 +102,7 @@
                         "userId": "10086",
                         "loginAccount": "zhangsan",
                         "userName": "张三",
+                        "phoneNumber": "13800000000",
                         "status": "ACTIVE",
                         "departments": [
                           {
@@ -1568,6 +1569,7 @@
           "userId",
           "loginAccount",
           "userName",
+          "phoneNumber",
           "status",
           "departments"
         ],
@@ -1586,6 +1588,10 @@
             "type": "string",
             "maxLength": 100,
             "description": "姓名或昵称未维护时为空字符串"
+          },
+          "phoneNumber": {
+            "type": "string",
+            "description": "121用户资料sys_user.phonenumber中维护的完整手机号；未维护时为空字符串，不影响账号校验"
           },
           "status": {
             "type": "string",
