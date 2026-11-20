@@ -95,6 +95,14 @@ def build(output: Path):
     }
     for original, public in specs.items():
         shutil.copy2(source_specs / original, downloads / public)
+    # 仅发布无凭据的外部联调材料；独立仓库从source/testing重建。
+    testing = ROOT / 'testing'
+    if not testing.exists():
+        testing = ROOT.parent / 'docs' / 'testing'
+    for name in ['121-open-api-external.postman_collection.json',
+                 '121-open-api-test.postman_environment.json',
+                 'postman-hmac-pre-request.js', 'external-testing.md']:
+        shutil.copy2(testing / name, downloads / name)
     (downloads / 'api-reference.md').write_text(source, encoding='utf-8')
     print(json.dumps({'output': str(output), 'sections': section_num, 'headings': len(headings),
                       'jsonExamples': sum(1 for t in tokens if t.type == 'fence' and t.info == 'json')}, ensure_ascii=False))

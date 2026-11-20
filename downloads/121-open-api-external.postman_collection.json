@@ -1,0 +1,444 @@
+{
+  "info": {
+    "name": "121 智能化开放接口 · 外部测试",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "配套接口文档1.1.7。先导入测试环境并填写121线下交付的凭据与专用测试数据；集合级发送前脚本自动HMAC签名。先逐项执行只读请求，再手动创建/查询/取消专用测试草稿。不要对整个集合运行Runner。C01由智能化提供接收地址，121发起投递验收，不在此集合中冒充121接口。接口地址是否可用以121验收通知为准。"
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://testfcst.chinaptac.com/open-api/v1",
+      "type": "string"
+    },
+    {
+      "key": "clientId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "keyId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "hmacSecret",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "loginAccount",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "departmentId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "sourceOrderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "syncBatchId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "idempotencyKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "draftId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "supplierId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "storeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "provinceId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "saleChannelId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "fundPlanId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "materialCode",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "budgetMonth",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "purchaseDate",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "projectId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Postman Collection v2.1 的集合级 Pre-request Script；只实现现有公开协议。",
+          "// 凭据从当前环境/集合变量读取，禁止在控制台输出密钥或签名原文。",
+          "const CryptoJS = require('crypto-js');",
+          "const resolve = value => pm.variables.replaceIn(String(value));",
+          "const required = name => {",
+          "    const value = resolve(pm.variables.get(name) || '').trim();",
+          "    if (!value || /\\{\\{[^}]+\\}\\}/.test(value)) {",
+          "        throw new Error('请先配置测试变量：' + name);",
+          "    }",
+          "    return value;",
+          "};",
+          "const clientId = required('clientId');",
+          "const keyId = required('keyId');",
+          "const secret = required('hmacSecret');",
+          "if (!/^[A-Za-z0-9+/]{43}=$/.test(secret)) {",
+          "    throw new Error('hmacSecret 必须是32字节随机数的标准Base64');",
+          "}",
+          "const key = CryptoJS.enc.Base64.parse(secret);",
+          "if (key.sigBytes !== 32 || CryptoJS.enc.Base64.stringify(key) !== secret) {",
+          "    throw new Error('hmacSecret 不是有效的32字节Base64密钥');",
+          "}",
+          "",
+          "// 先展开变量，再对最终发送的原始正文签名；不得签完再格式化JSON。",
+          "const url = resolve(pm.request.url.toString());",
+          "if (/\\{\\{[^}]+\\}\\}/.test(url)) throw new Error('URL中仍有未填写的变量');",
+          "const match = /^(https?:\\/\\/[^/?#]+)(\\/[^?#]*)?(?:\\?([^#]*))?$/.exec(url);",
+          "if (!match) throw new Error('请求URL格式无效');",
+          "const path = match[2] || '/';",
+          "const method = pm.request.method.toUpperCase();",
+          "const body = pm.request.body && pm.request.body.mode === 'raw'",
+          "    ? resolve(pm.request.body.raw || '') : '';",
+          "if (/\\{\\{[^}]+\\}\\}/.test(body)) throw new Error('正文中仍有未填写的变量');",
+          "if (method === 'GET' && body) throw new Error('GET请求正文必须为空');",
+          "if (pm.request.body && pm.request.body.mode === 'raw') {",
+          "    pm.request.body.update({ mode: 'raw', raw: body });",
+          "}",
+          "",
+          "const encode = value => encodeURIComponent(value).replace(/[!'()*]/g,",
+          "    char => '%' + char.charCodeAt(0).toString(16).toUpperCase());",
+          "const names = new Set();",
+          "const entries = (match[3] || '').split('&').filter(Boolean).map(item => {",
+          "    if (item.includes('+')) throw new Error('查询参数空格请使用%20，不能使用+');",
+          "    const at = item.indexOf('=');",
+          "    const name = decodeURIComponent(at < 0 ? item : item.slice(0, at));",
+          "    const value = decodeURIComponent(at < 0 ? '' : item.slice(at + 1));",
+          "    if (names.has(name)) throw new Error('重复查询参数：' + name);",
+          "    names.add(name);",
+          "    return [encode(name), encode(value)];",
+          "});",
+          "entries.sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1",
+          "    : a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0);",
+          "const query = entries.map(entry => entry.join('=')).join('&');",
+          "// 规范化查询同时用于实际发送，避免工具自动编码与签名内容不一致。",
+          "pm.request.url.update(match[1] + path + (query ? '?' + query : ''));",
+          "",
+          "let idempotencyKey = '';",
+          "if (method === 'POST' && path === '/open-api/v1/purchase-drafts') {",
+          "    idempotencyKey = required('idempotencyKey');",
+          "    if (!/^[A-Za-z0-9._:-]{16,160}$/.test(idempotencyKey)) {",
+          "        throw new Error('idempotencyKey须为16—160位字母/数字/._:-');",
+          "    }",
+          "    pm.request.headers.upsert({ key: 'Idempotency-Key', value: idempotencyKey });",
+          "} else {",
+          "    pm.request.headers.remove('Idempotency-Key');",
+          "}",
+          "const timestamp = Math.floor(Date.now() / 1000).toString();",
+          "const nonce = pm.variables.replaceIn('{{$guid}}');",
+          "const requestId = pm.variables.replaceIn('{{$guid}}');",
+          "const hash = CryptoJS.SHA256(CryptoJS.enc.Utf8.parse(body)).toString(CryptoJS.enc.Hex);",
+          "const canonical = [method, path, query, clientId, keyId, timestamp,",
+          "    nonce, requestId, idempotencyKey, hash].join('\\n');",
+          "const signature = CryptoJS.HmacSHA256(CryptoJS.enc.Utf8.parse(canonical), key)",
+          "    .toString(CryptoJS.enc.Base64);",
+          "const headers = {",
+          "    'X-Client-Id': clientId, 'X-Key-Id': keyId, 'X-Timestamp': timestamp,",
+          "    'X-Nonce': nonce, 'X-Request-Id': requestId, 'X-Content-SHA256': hash,",
+          "    'X-Signature': signature, 'Accept': 'application/json'",
+          "};",
+          "if (method === 'POST') headers['Content-Type'] = 'application/json; charset=utf-8';",
+          "Object.entries(headers).forEach(([key, value]) => pm.request.headers.upsert({ key, value }));"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 只读测试",
+      "item": [
+        {
+          "name": "U01 查询用户",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/users/verify",
+            "description": "预期HTTP200且响应code为数字200；必须是当前数据库存在且属于授权部门的登录账号。",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"loginAccount\": \"{{loginAccount}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "D01 部门",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dictionaries/departments?pageNum=1&pageSize=100",
+            "description": "查询部门，预期HTTP 200、数字code=200；按分页遍历全部结果。"
+          }
+        },
+        {
+          "name": "D01 供应商",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dictionaries/suppliers?deptId={{departmentId}}&pageNum=1&pageSize=100",
+            "description": "查询供应商，预期HTTP 200、数字code=200；按分页遍历全部结果。"
+          }
+        },
+        {
+          "name": "D01 项目",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dictionaries/projects?deptId={{departmentId}}&pageNum=1&pageSize=100",
+            "description": "查询项目，预期HTTP 200、数字code=200；按分页遍历全部结果。"
+          }
+        },
+        {
+          "name": "D01 库位",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dictionaries/stores?deptId={{departmentId}}&projectId={{projectId}}&pageNum=1&pageSize=100",
+            "description": "查询库位，预期HTTP 200、数字code=200；按分页遍历全部结果。 无项目筛选时，在Params中移除projectId；保留时填写正整数ID。"
+          }
+        },
+        {
+          "name": "D01 省份",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dictionaries/provinces?deptId={{departmentId}}&pageNum=1&pageSize=100",
+            "description": "查询省份，预期HTTP 200、数字code=200；按分页遍历全部结果。"
+          }
+        },
+        {
+          "name": "D01 销售渠道",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dictionaries/sale-channels?deptId={{departmentId}}&pageNum=1&pageSize=100",
+            "description": "查询销售渠道，预期HTTP 200、数字code=200；按分页遍历全部结果。"
+          }
+        },
+        {
+          "name": "D01 付款方式",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dictionaries/payment-methods?deptId={{departmentId}}&pageNum=1&pageSize=100",
+            "description": "查询付款方式，预期HTTP 200、数字code=200；按分页遍历全部结果。"
+          }
+        },
+        {
+          "name": "D01 资金计划",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dictionaries/fund-plans?deptId={{departmentId}}&pageNum=1&pageSize=100",
+            "description": "查询资金计划，预期HTTP 200、数字code=200；按分页遍历全部结果。"
+          }
+        },
+        {
+          "name": "D01 运费成本",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dictionaries/transport-costs?deptId={{departmentId}}&pageNum=1&pageSize=100",
+            "description": "查询运费成本，预期HTTP 200、数字code=200；按分页遍历全部结果。"
+          }
+        },
+        {
+          "name": "D01 税率",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dictionaries/tax-rates?deptId={{departmentId}}&pageNum=1&pageSize=100",
+            "description": "查询税率，预期HTTP 200、数字code=200；按分页遍历全部结果。"
+          }
+        },
+        {
+          "name": "D01 变现周期",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dictionaries/cash-cycles?deptId={{departmentId}}&pageNum=1&pageSize=100",
+            "description": "查询变现周期，预期HTTP 200、数字code=200；按分页遍历全部结果。"
+          }
+        },
+        {
+          "name": "D01 审批人员：产品经理",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{departmentId}}&roleCode=PRODUCT_MANAGER&pageNum=1&pageSize=100",
+            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。"
+          }
+        },
+        {
+          "name": "D01 审批人员：部门经理",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{departmentId}}&roleCode=DEPARTMENT_MANAGER&pageNum=1&pageSize=100",
+            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。"
+          }
+        },
+        {
+          "name": "D01 审批人员：分管领导",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{departmentId}}&roleCode=DEPARTMENT_LEADER&pageNum=1&pageSize=100",
+            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。"
+          }
+        },
+        {
+          "name": "D01 审批人员：业务审核",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{departmentId}}&roleCode=BUSINESS_REVIEWER&pageNum=1&pageSize=100",
+            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。"
+          }
+        },
+        {
+          "name": "D01 审批人员：预算审核",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{departmentId}}&roleCode=BUDGET_REVIEWER&pageNum=1&pageSize=100",
+            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。"
+          }
+        },
+        {
+          "name": "D01 审批人员：总会计师",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{departmentId}}&roleCode=CHIEF_ACCOUNTANT&pageNum=1&pageSize=100",
+            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。"
+          }
+        },
+        {
+          "name": "D01 审批人员：总经理",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{departmentId}}&roleCode=GENERAL_MANAGER&pageNum=1&pageSize=100",
+            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 采购草稿（手动逐项执行）",
+      "description": "创建和取消会修改测试环境数据。仅使用双方准备的专用测试数据，逐项Send，不要对整个文件夹运行Runner。",
+      "item": [
+        {
+          "name": "P01 创建草稿／原样重试",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/purchase-drafts",
+            "description": "首次预期DRAFT；同正文、同批次、同幂等键重试返回同一draftId。将返回draftId手动保存为环境变量。 供应商requiresProject=true时，在Body补projectId；cashCycle=30仅为当前协议示例，实际周期需双方确认，不能将附件月份或0值直接代入。",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceSystem\": \"INTELLIGENT_OFFICE\",\n  \"sourceOrderId\": \"{{sourceOrderId}}\",\n  \"syncBatchId\": \"{{syncBatchId}}\",\n  \"operatorLoginAccount\": \"{{loginAccount}}\",\n  \"initiatorLoginAccount\": \"{{loginAccount}}\",\n  \"departmentId\": \"{{departmentId}}\",\n  \"supplierId\": \"{{supplierId}}\",\n  \"authorized\": true,\n  \"storeId\": \"{{storeId}}\",\n  \"provinceId\": \"{{provinceId}}\",\n  \"saleChannelId\": \"{{saleChannelId}}\",\n  \"fundPlanId\": \"{{fundPlanId}}\",\n  \"transportCost\": 0,\n  \"taxRate\": 0.13,\n  \"cashCycle\": 30,\n  \"budgetMonth\": \"{{budgetMonth}}\",\n  \"purchaseDate\": \"{{purchaseDate}}\",\n  \"details\": [\n    {\n      \"sourceDetailId\": \"line-1\",\n      \"materialCode\": \"{{materialCode}}\",\n      \"quantity\": 10,\n      \"purchasePrice\": 100,\n      \"purchaseAmount\": 1000,\n      \"salesQuantity\": 10,\n      \"salesPrice\": 120,\n      \"inventoryQuantity\": 50\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "P02 按来源查询",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/purchase-drafts/by-source?sourceSystem=INTELLIGENT_OFFICE&sourceOrderId={{sourceOrderId}}&syncBatchId={{syncBatchId}}",
+            "description": "必须使用本次创建的sourceOrderId与syncBatchId；创建超时先查此接口，不自动选择最近批次。"
+          }
+        },
+        {
+          "name": "P03 按121 ID查询",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/purchase-drafts/{{draftId}}",
+            "description": "draftId填写P01返回的applyId；只返回状态和首次同步明细映射，不是当前完整明细。"
+          }
+        },
+        {
+          "name": "P04 取消本次测试草稿（选测）",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/purchase-drafts/{{draftId}}/cancel",
+            "description": "仅手动取消本次创建的未锁单测试草稿，预期DELETED；锁单等状态应409/DRAFT_NOT_EDITABLE。",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operatorLoginAccount\": \"{{loginAccount}}\",\n  \"reason\": \"双方联调测试取消\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # 121 智能化采购同步接口文档
 
-版本 **1.1.6** · 更新 **2026-11-19** · 服务提供方 **121系统** · 调用方 **智能化办公平台后台服务**
+版本 **1.1.7** · 更新 **2026-11-20** · 服务提供方 **121系统** · 调用方 **智能化办公平台后台服务**
 
 本文说明智能化后台与121后台之间的接口调用方式。示例账号、手机号、部门和订单均为虚构数据。实际开放时间及调用凭据由121提供方交付。
 
@@ -38,7 +38,7 @@
 - 数量使用整数，最大 `999999999`。税率传比例：`0.13` 表示13%，不能传 `13`。
 - `cashCycle` 单位是天；`budgetMonth` 为 `YYYY-MM`；`purchaseDate` 为 `yyyy-MM-dd`。回调 `eventTime` 为UTC ISO 8601，例如 `2026-11-17T02:00:00Z`。
 - 智能化必须提供预算月份、销售数量、销售单价和当日库存。121保存明细传入价格；预算、利润和导出继续沿用现有取价规则，同步接口不更新物料主数据价格。
-- 智能化维护供应商与默认项目、项目与默认变现周期的映射和页面默认值。121提供字典并在创建时再次校验。
+- 智能化维护供应商与采购项目、单位与销售渠道等映射和页面默认值。默认周期的匹配维度及多单位渠道选择仍需双方确认；121提供字典并在创建时再次校验。
 - 来源草稿创建后供应商不可修改；部门归属沿用121现有规则，不支持跨部门修改，其余业务字段按121现有草稿规则编辑。取消同步只允许删除草稿，已锁单及退单状态不能取消。
 
 所有接口均使用系统间HMAC-SHA256鉴权，请求头见下表。智能化后台使用121分配的clientId、keyId及密钥签名；员工无需登录。HMAC验证身份及正文完整性，正式环境通过HTTPS加密传输。
@@ -959,6 +959,35 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 - [本页Markdown](./downloads/api-reference.md)
 
 可导入支持OpenAPI 3.1的Apifox、Swagger等工具。导入或点击普通Authorize按钮不会自动完成HMAC签名，应由调用方脚本或请求钩子实现。
+
+### 外部测试接口与材料
+
+测试与正式使用相同的六个121接口，通过基础地址和凭据区分环境，无需单独新增测试专用接口。下表给出测试完整地址；每个请求仍需HMAC签名。
+
+| 编号 | 方法 | 测试接口地址 |
+| --- | --- | --- |
+| U01 | POST | `http://testfcst.chinaptac.com/open-api/v1/users/verify` |
+| D01 | GET | `http://testfcst.chinaptac.com/open-api/v1/dictionaries/{type}` |
+| P01 | POST | `http://testfcst.chinaptac.com/open-api/v1/purchase-drafts` |
+| P02 | GET | `http://testfcst.chinaptac.com/open-api/v1/purchase-drafts/by-source` |
+| P03 | GET | `http://testfcst.chinaptac.com/open-api/v1/purchase-drafts/{draftId}` |
+| P04 | POST | `http://testfcst.chinaptac.com/open-api/v1/purchase-drafts/{draftId}/cancel` |
+| C01 | POST | 由智能化提供固定测试接收URL，121主动调用 |
+
+- [外部测试操作说明](./downloads/external-testing.md)
+- [Postman测试集合（自动签名）](./downloads/121-open-api-external.postman_collection.json)
+- [Postman测试环境模板（无密钥）](./downloads/121-open-api-test.postman_environment.json)
+- [自动签名脚本](./downloads/postman-hmac-pre-request.js)
+
+导入集合和环境，选择测试环境，填写121线下交付的clientId、keyId、hmacSecret和测试账号。点击Send时由集合级发送前脚本自动签名；无需数据库账号、员工密码或登录Token。集合展开全部字典和审批角色，共23个测试请求；先读后写，采购创建和取消须逐项手动执行。
+
+地址可访问不代表已完成验收：2026-11-20无签名探测U01和部门字典时，返回HTTP 200及原登录格式msg/code=401，与新开放接口约定的HTTP 401及errorCode/message/requestId/data外壳不同。121需检查部署版本、安全链和转发，并以真实签名请求验收后通知对方；本次探测未执行采购写入。
+
+### 联调前业务边界
+
+当前实现与需求仍有待确认项：周期只支持1—36500整数且标注天，需求附件包含0和月份小数，现有资金成本另有月口径；周期匹配维度及多单位渠道选择未定；税率不支持截图的9%。这些涉及业务计算，未确认前不调整现有逻辑，也不能直接用不兼容数据验收。详见外部测试操作说明。
+
+P02/P03返回首次同步明细ID映射，不是121编辑后的完整实时明细；完整实时对账如需支持，应另行确认范围。C01测试必须由智能化提供真实接收地址及独立反向凭据。
 
 ### 签名校验示例
 
