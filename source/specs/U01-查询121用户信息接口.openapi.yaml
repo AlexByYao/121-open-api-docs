@@ -1,17 +1,12 @@
 openapi: 3.1.0
 info:
   title: 121 User Verification API
-  version: 1.0.6
-  description: |
-    查询121登录账号对应的有效用户和客户端授权部门。
-    121客户端配置all-departments为true时覆盖全部启用未删除部门；默认false时按department-ids白名单。
-    仅返回用户所属的有效授权部门；无有效成员部门仍返回403。该模式由121配置，不是请求参数。
-    这是系统对系统查询接口，不是网页登录接口，不接收用户密码，不返回Token。
-    HMAC签名由121应用独立安全链校验；正式网关提供HTTPS，测试允许HTTP；均保留原始路径和正文。首次每环境配置一套系统凭据，不要求mTLS或轮换流程。
+  version: 2.0.0
+  description: 智能化服务端使用固定App-Id、App-Secret查询有效121用户及授权部门，无需员工登录或Token。测试允许HTTP，正式HTTPS。需部署配套新Jar和配置；全部有效部门需由121显式授权。
 servers:
-  - url: http://testfcst.chinaptac.com/open-api/v1
+  - url: 'http://testfcst.chinaptac.com/open-api/v1'
     description: 测试环境，允许HTTP联调；开放时间及测试凭据由121提供方交付
-  - url: https://fcst.chinaptac.com/open-api/v1
+  - url: 'https://fcst.chinaptac.com/open-api/v1'
     description: 正式环境，使用HTTPS；开放时间及正式凭据由121提供方交付
 tags:
   - name: Users
@@ -19,24 +14,17 @@ tags:
 paths:
   /users/verify:
     post:
-      tags: [Users]
+      tags:
+        - Users
       operationId: verify121User
       summary: 查询121用户信息
-      description: |
-        按121登录账号精确查询用户。调用方为智能化后台服务器，浏览器不得直接调用。
-        请求体原始字节和以下请求头参与HMAC-SHA256签名：
-        X-Client-Id、X-Key-Id、X-Timestamp、X-Nonce、X-Request-Id、Idempotency-Key、X-Content-SHA256。
-        本接口无查询参数和Idempotency-Key，但签名原文保留对应空行。
+      description: 按登录账号精确查询，Body JSON；不接受query或Idempotency-Key。每次请求携带App-Id、App-Secret。
       security:
-        - HmacHeaders: []
+        - AppId: []
+          AppSecret: []
       parameters:
-        - $ref: '#/components/parameters/XClientId'
-        - $ref: '#/components/parameters/XKeyId'
-        - $ref: '#/components/parameters/XTimestamp'
-        - $ref: '#/components/parameters/XNonce'
-        - $ref: '#/components/parameters/XRequestId'
-        - $ref: '#/components/parameters/XContentSha256'
-        - $ref: '#/components/parameters/XSignature'
+        - $ref: '#/components/parameters/AppId'
+        - $ref: '#/components/parameters/AppSecret'
       requestBody:
         required: true
         content:
@@ -52,7 +40,9 @@ paths:
           description: 查询成功
           headers:
             Cache-Control:
-              schema: { type: string, const: 'no-store' }
+              schema:
+                type: string
+                const: no-store
               description: 用户查询结果不得被共享缓存保存
           content:
             application/json:
@@ -78,23 +68,22 @@ paths:
         '400':
           $ref: '#/components/responses/ParamInvalid'
         '401':
-          description: 客户端身份、签名、时间戳或防重放校验失败
+          description: App-Id/App-Secret缺失、重复、错误，应用停用或入口关闭
           headers:
             WWW-Authenticate:
-              schema: { type: string, const: 'HMAC realm="121-open-api"' }
-              description: 121自定义HMAC认证方案标识
+              schema:
+                type: string
+                const: AppKey realm="121-open-api"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                invalidSignature:
-                  value:
-                    code: 401
-                    errorCode: AUTH_SIGNATURE_INVALID
-                    message: 请求签名无效
-                    requestId: 7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41
-                    data: null
+              example:
+                code: 401
+                errorCode: AUTH_INVALID
+                message: App-Id或App-Secret错误、缺失，或应用已停用
+                requestId: 7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41
+                data: null
         '403':
           description: 客户端或用户无权限
           content:
@@ -119,14 +108,9 @@ paths:
           description: 请求方法不支持，code为405，errorCode为METHOD_NOT_ALLOWED
           headers:
             Allow:
-              schema: { type: string }
-              description: 支持的HTTP方法（POST）
-          content:
-            application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: 用户已停用
+                type: string
+              description: 支持的HTTP方法（POST）
           content:
             application/json:
               schema:
@@ -143,13 +127,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '429':
-          description: 超过调用频率
-          headers:
-            Retry-After:
-              schema:
-                type: integer
-              description: 建议等待的秒数
+        '422':
+          description: 用户已停用
           content:
             application/json:
               schema:
@@ -160,128 +139,209 @@ paths:
           $ref: '#/components/responses/SystemBusy'
 components:
   securitySchemes:
-    HmacHeaders:
+    AppId:
       type: apiKey
       in: header
-      name: X-Signature
-      description: |
-        HMAC-SHA256签名。实际校验还需要X-Client-Id、X-Key-Id、X-Timestamp、X-Nonce、X-Request-Id和X-Content-SHA256。
-        签名密钥不写入OpenAPI文件。
+      name: App-Id
+      description: 121交付的应用编号，与AppSecret同时使用
+    AppSecret:
+      type: apiKey
+      in: header
+      name: App-Secret
+      description: 固定密钥原样传入，仅服务端保存；与AppId同时使用
   parameters:
-    XClientId:
-      name: X-Client-Id
+    AppId:
+      name: App-Id
       in: header
       required: true
-      schema: { type: string, minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9._:-]+$' }
-    XKeyId:
-      name: X-Key-Id
+      description: 本环境固定值；不得重复或包含空格、换行
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 256
+        pattern: '^[!-~]{1,256}$'
+    AppSecret:
+      name: App-Secret
       in: header
       required: true
-      schema: { type: string, minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9._:-]+$' }
-    XTimestamp:
-      name: X-Timestamp
-      in: header
-      required: true
-      schema: { type: string, pattern: '^[0-9]{10}$' }
-    XNonce:
-      name: X-Nonce
-      in: header
-      required: true
-      schema: { type: string, minLength: 16, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' }
-    XRequestId:
-      name: X-Request-Id
-      in: header
-      required: true
-      schema: { type: string, minLength: 16, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$' }
-    XContentSha256:
-      name: X-Content-SHA256
-      in: header
-      required: true
-      schema: { type: string, minLength: 64, maxLength: 64, pattern: '^[0-9a-f]{64}$' }
-    XSignature:
-      name: X-Signature
-      in: header
-      required: true
-      schema: { type: string, minLength: 44, maxLength: 44, pattern: '^[A-Za-z0-9+/]{43}=$' }
+      description: 本环境固定值；不得重复或包含空格、换行
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 256
+        pattern: '^[!-~]{1,256}$'
   schemas:
     VerifyUserRequest:
       type: object
       additionalProperties: false
-      required: [loginAccount]
+      required:
+        - loginAccount
       maxProperties: 1
       properties:
         loginAccount:
           type: string
           minLength: 1
           maxLength: 128
-          description: 原始输入最长128个Unicode码点；验签后清理首尾U+0020空格，清理后须为1—30码点且无任何空白或控制字符，按121现有登录语义精确匹配
+          description: 原始输入最多128个Unicode码点，凭据校验后去首尾ASCII空格，结果1—30码点；禁止内部空白、控制和格式字符。按121现有语义匹配。
     Department:
       type: object
       additionalProperties: true
-      required: [id, code, name]
+      required:
+        - id
+        - code
+        - name
       properties:
-        id: { type: string, minLength: 1, maxLength: 64 }
-        code: { type: string, maxLength: 64, description: 无部门编码时返回空字符串 }
-        name: { type: string, minLength: 1, maxLength: 100 }
+        id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        code:
+          type: string
+          maxLength: 64
+          description: 无部门编码时返回空字符串
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
     User:
       type: object
       additionalProperties: true
-      required: [userId, loginAccount, userName, phoneNumber, status, departments]
+      required:
+        - userId
+        - loginAccount
+        - userName
+        - phoneNumber
+        - status
+        - departments
       properties:
-        userId: { type: string, minLength: 1, maxLength: 64 }
-        loginAccount: { type: string, minLength: 1, maxLength: 30 }
-        userName: { type: string, maxLength: 100, description: 姓名或昵称未维护时为空字符串 }
-        phoneNumber: { type: string, description: 121用户资料sys_user.phonenumber中维护的完整手机号；未维护时为空字符串，不影响账号校验 }
-        status: { type: string, enum: [ACTIVE] }
+        userId:
+          type: string
+          minLength: 1
+          maxLength: 64
+        loginAccount:
+          type: string
+          minLength: 1
+          maxLength: 30
+        userName:
+          type: string
+          maxLength: 100
+          description: 姓名或昵称未维护时为空字符串
+        phoneNumber:
+          type: string
+          description: 121用户资料sys_user.phonenumber中维护的完整手机号；未维护时为空字符串，不影响账号校验
+        status:
+          type: string
+          enum:
+            - ACTIVE
         departments:
           type: array
           minItems: 1
-          items: { $ref: '#/components/schemas/Department' }
+          items:
+            $ref: '#/components/schemas/Department'
           description: 当前客户端授权范围内的可操作部门
     SuccessResponse:
       type: object
       additionalProperties: true
-      required: [code, errorCode, message, requestId, data]
-      properties:
-        code: { type: integer, const: 200, description: 数字状态码；成功为200 }
-        errorCode: { type: 'null', description: 成功时固定为null }
-        message: { type: string }
-        requestId: { type: string, minLength: 16, maxLength: 128 }
-        data: { $ref: '#/components/schemas/User' }
-    ErrorResponse:
-      type: object
-      additionalProperties: true
-      required: [code, errorCode, message, requestId, data]
+      required:
+        - code
+        - errorCode
+        - message
+        - requestId
+        - data
       properties:
         code:
           type: integer
-          enum: [400, 401, 403, 404, 405, 413, 415, 422, 429, 500, 503]
+          const: 200
+          description: 数字状态码；成功为200
+        errorCode:
+          type: 'null'
+          description: 成功时固定为null
+        message:
+          type: string
+        requestId:
+          type: string
+          minLength: 16
+          maxLength: 128
+          description: 121自动生成的本次请求追踪编号
+        data:
+          $ref: '#/components/schemas/User'
+    ErrorResponse:
+      type: object
+      additionalProperties: true
+      required:
+        - code
+        - errorCode
+        - message
+        - requestId
+        - data
+      properties:
+        code:
+          type: integer
+          enum:
+            - 400
+            - 401
+            - 403
+            - 404
+            - 405
+            - 413
+            - 415
+            - 422
+            - 500
+            - 503
           description: 数字错误码，与本次HTTP状态相同；具体原因见errorCode
         errorCode:
           type: string
-          enum: [PARAM_INVALID, AUTH_CLIENT_NOT_FOUND, AUTH_SIGNATURE_INVALID, AUTH_TIMESTAMP_EXPIRED, AUTH_REPLAY_REQUEST, AUTH_FORBIDDEN, OPERATOR_FORBIDDEN, USER_NOT_FOUND, USER_DISABLED, METHOD_NOT_ALLOWED, RATE_LIMITED, PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, SYSTEM_ERROR, SYSTEM_BUSY]
-        message: { type: string }
-        requestId: { type: string, minLength: 16, maxLength: 128 }
+          enum:
+            - PARAM_INVALID
+            - AUTH_INVALID
+            - AUTH_FORBIDDEN
+            - OPERATOR_FORBIDDEN
+            - USER_NOT_FOUND
+            - USER_DISABLED
+            - METHOD_NOT_ALLOWED
+            - PAYLOAD_TOO_LARGE
+            - UNSUPPORTED_MEDIA_TYPE
+            - SYSTEM_ERROR
+            - SYSTEM_BUSY
+        message:
+          type: string
+        requestId:
+          type: string
+          minLength: 16
+          maxLength: 128
+          description: 121自动生成的本次请求追踪编号
         data:
-          type: [object, 'null']
+          type:
+            - object
+            - 'null'
           description: 无详情时为空；JSON类型或未知字段错误可返回field和reason，不回显正文
           additionalProperties: true
           properties:
-            field: { type: string, description: 出错字段路径 }
-            reason: { type: string, description: TYPE_INVALID表示类型错误；UNKNOWN_FIELD表示未定义字段 }
+            field:
+              type: string
+              description: 出错字段路径
+            reason:
+              type: string
+              description: TYPE_INVALID表示类型错误；UNKNOWN_FIELD表示未定义字段
   responses:
     ParamInvalid:
       description: 参数错误
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     SystemError:
       description: 121内部异常
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     SystemBusy:
       description: 121暂时不可用
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+security:
+  - AppId: []
+    AppSecret: []

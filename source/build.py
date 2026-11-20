@@ -101,7 +101,7 @@ def build(output: Path):
         testing = ROOT.parent / 'docs' / 'testing'
     for name in ['121-open-api-external.postman_collection.json',
                  '121-open-api-test.postman_environment.json',
-                 'postman-hmac-pre-request.js', 'external-testing.md', 'OpenApiSigningExample.java']:
+                 'external-testing.md', 'OpenApiExample.java']:
         shutil.copy2(testing / name, downloads / name)
     (downloads / 'api-reference.md').write_text(source, encoding='utf-8', newline='\n')
     print(json.dumps({'output': str(output), 'sections': section_num, 'headings': len(headings),

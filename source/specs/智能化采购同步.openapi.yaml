@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: 121 智能化采购同步开放接口
-  version: 1.2.0
+  version: 2.0.0
   description: >-
-    服务器对服务器；应用内HMAC-SHA256鉴权。代码已实现、默认关闭，部署后联调。测试允许HTTP、正式HTTPS；每环境初次配置一套系统凭据，无需mTLS或轮换流程。客户端可显式授权全部有效部门或使用部门白名单；默认空白名单不授权。完整签名算法与实际约束见配套Markdown。
+    服务器对服务器；每次请求携带固定App-Id、App-Secret。无需员工登录或Token。测试允许HTTP、正式HTTPS；本版本需部署新Jar及app-id/app-secret配置。业务幂等和部门权限保留。
 servers:
   - url: 'http://testfcst.chinaptac.com/open-api/v1'
     description: 测试环境，允许HTTP联调；开放时间及测试凭据由121提供方交付
@@ -19,21 +19,13 @@ paths:
         - Users
       operationId: verify121User
       summary: 查询121用户信息
-      description: |
-        按121登录账号精确查询用户。调用方为智能化后台服务器，浏览器不得直接调用。
-        请求体原始字节和以下请求头参与HMAC-SHA256签名：
-        X-Client-Id、X-Key-Id、X-Timestamp、X-Nonce、X-Request-Id、Idempotency-Key、X-Content-SHA256。
-        本接口无查询参数和Idempotency-Key，但签名原文保留对应空行。
+      description: 按登录账号精确查询，Body JSON；不接受query或Idempotency-Key。每次请求携带App-Id、App-Secret。
       security:
-        - HmacHeaders: []
+        - AppId: []
+          AppSecret: []
       parameters:
-        - $ref: '#/components/parameters/XClientId'
-        - $ref: '#/components/parameters/XKeyId'
-        - $ref: '#/components/parameters/XTimestamp'
-        - $ref: '#/components/parameters/XNonce'
-        - $ref: '#/components/parameters/XRequestId'
-        - $ref: '#/components/parameters/XContentSha256'
-        - $ref: '#/components/parameters/XSignature'
+        - $ref: '#/components/parameters/AppId'
+        - $ref: '#/components/parameters/AppSecret'
       requestBody:
         required: true
         content:
@@ -77,25 +69,22 @@ paths:
         '400':
           $ref: '#/components/responses/ParamInvalid'
         '401':
-          description: 客户端身份、签名、时间戳或防重放校验失败
+          description: App-Id/App-Secret缺失、重复、错误，应用停用或入口关闭
           headers:
             WWW-Authenticate:
               schema:
                 type: string
-                const: HMAC realm="121-open-api"
-              description: 121自定义HMAC认证方案标识
+                const: AppKey realm="121-open-api"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                invalidSignature:
-                  value:
-                    code: 401
-                    errorCode: AUTH_SIGNATURE_INVALID
-                    message: 请求签名无效
-                    requestId: 7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41
-                    data: null
+              example:
+                code: 401
+                errorCode: AUTH_INVALID
+                message: App-Id或App-Secret错误、缺失，或应用已停用
+                requestId: 7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41
+                data: null
         '403':
           description: 客户端或用户无权限
           content:
@@ -145,17 +134,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '429':
-          description: 超过调用频率
-          headers:
-            Retry-After:
-              schema:
-                type: integer
-              description: 建议等待的秒数
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '500':
           $ref: '#/components/responses/SystemError'
         '503':
@@ -165,13 +143,8 @@ paths:
       operationId: listDictionary
       summary: 查询字典；除departments外deptId必填
       parameters:
-        - $ref: '#/components/parameters/XClientId'
-        - $ref: '#/components/parameters/XKeyId'
-        - $ref: '#/components/parameters/XTimestamp'
-        - $ref: '#/components/parameters/XNonce'
-        - $ref: '#/components/parameters/XRequestId'
-        - $ref: '#/components/parameters/XContentSha256'
-        - $ref: '#/components/parameters/XSignature'
+        - $ref: '#/components/parameters/AppId'
+        - $ref: '#/components/parameters/AppSecret'
         - name: type
           in: path
           required: true
@@ -253,7 +226,8 @@ paths:
             maximum: 200
             default: 100
       security:
-        - HmacHeaders: []
+        - AppId: []
+          AppSecret: []
       responses:
         '200':
           description: 成功
@@ -341,12 +315,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '429':
-          description: 参见Markdown错误码表
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: 参见Markdown错误码表
           content:
@@ -364,13 +332,8 @@ paths:
       operationId: createPurchaseDraft
       summary: 原子创建采购草稿，最多2MiB；保留原有取价逻辑
       parameters:
-        - $ref: '#/components/parameters/XClientId'
-        - $ref: '#/components/parameters/XKeyId'
-        - $ref: '#/components/parameters/XTimestamp'
-        - $ref: '#/components/parameters/XNonce'
-        - $ref: '#/components/parameters/XRequestId'
-        - $ref: '#/components/parameters/XContentSha256'
-        - $ref: '#/components/parameters/XSignature'
+        - $ref: '#/components/parameters/AppId'
+        - $ref: '#/components/parameters/AppSecret'
         - name: Idempotency-Key
           in: header
           required: true
@@ -380,7 +343,8 @@ paths:
             maxLength: 160
             pattern: '^[A-Za-z0-9._:-]{16,160}$'
       security:
-        - HmacHeaders: []
+        - AppId: []
+          AppSecret: []
       responses:
         '200':
           description: 成功
@@ -463,12 +427,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: 参见Markdown错误码表
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '429':
           description: 参见Markdown错误码表
           content:
             application/json:
@@ -497,13 +455,8 @@ paths:
       operationId: getDraftBySource
       summary: 按来源及本轮批次查询
       parameters:
-        - $ref: '#/components/parameters/XClientId'
-        - $ref: '#/components/parameters/XKeyId'
-        - $ref: '#/components/parameters/XTimestamp'
-        - $ref: '#/components/parameters/XNonce'
-        - $ref: '#/components/parameters/XRequestId'
-        - $ref: '#/components/parameters/XContentSha256'
-        - $ref: '#/components/parameters/XSignature'
+        - $ref: '#/components/parameters/AppId'
+        - $ref: '#/components/parameters/AppSecret'
         - name: sourceSystem
           in: query
           required: true
@@ -529,7 +482,8 @@ paths:
             maxLength: 128
             description: 传创建时UUID；查询不另校验UUID格式，无匹配返回404
       security:
-        - HmacHeaders: []
+        - AppId: []
+          AppSecret: []
       responses:
         '200':
           description: 成功
@@ -612,12 +566,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: 参见Markdown错误码表
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '429':
           description: 参见Markdown错误码表
           content:
             application/json:
@@ -640,13 +588,8 @@ paths:
       operationId: getDraft
       summary: 按121采购ID查询
       parameters:
-        - $ref: '#/components/parameters/XClientId'
-        - $ref: '#/components/parameters/XKeyId'
-        - $ref: '#/components/parameters/XTimestamp'
-        - $ref: '#/components/parameters/XNonce'
-        - $ref: '#/components/parameters/XRequestId'
-        - $ref: '#/components/parameters/XContentSha256'
-        - $ref: '#/components/parameters/XSignature'
+        - $ref: '#/components/parameters/AppId'
+        - $ref: '#/components/parameters/AppSecret'
         - name: draftId
           in: path
           required: true
@@ -656,7 +599,8 @@ paths:
             maxLength: 19
             pattern: '^[1-9][0-9]{0,18}$'
       security:
-        - HmacHeaders: []
+        - AppId: []
+          AppSecret: []
       responses:
         '200':
           description: 成功
@@ -739,12 +683,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: 参见Markdown错误码表
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '429':
           description: 参见Markdown错误码表
           content:
             application/json:
@@ -767,13 +705,8 @@ paths:
       operationId: cancelDraft
       summary: 仅取消草稿；已删重复调用返回DELETED
       parameters:
-        - $ref: '#/components/parameters/XClientId'
-        - $ref: '#/components/parameters/XKeyId'
-        - $ref: '#/components/parameters/XTimestamp'
-        - $ref: '#/components/parameters/XNonce'
-        - $ref: '#/components/parameters/XRequestId'
-        - $ref: '#/components/parameters/XContentSha256'
-        - $ref: '#/components/parameters/XSignature'
+        - $ref: '#/components/parameters/AppId'
+        - $ref: '#/components/parameters/AppSecret'
         - name: draftId
           in: path
           required: true
@@ -783,7 +716,8 @@ paths:
             maxLength: 19
             pattern: '^[1-9][0-9]{0,18}$'
       security:
-        - HmacHeaders: []
+        - AppId: []
+          AppSecret: []
       responses:
         '200':
           description: 成功
@@ -866,12 +800,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: 参见Markdown错误码表
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '429':
           description: 参见Markdown错误码表
           content:
             application/json:
@@ -897,75 +825,37 @@ paths:
               $ref: '#/components/schemas/CancelRequest'
 components:
   securitySchemes:
-    HmacHeaders:
+    AppId:
       type: apiKey
       in: header
-      name: X-Signature
-      description: |
-        HMAC-SHA256签名。实际校验还需要X-Client-Id、X-Key-Id、X-Timestamp、X-Nonce、X-Request-Id和X-Content-SHA256。
-        签名密钥不写入OpenAPI文件。
+      name: App-Id
+      description: 121交付的应用编号，与AppSecret同时使用
+    AppSecret:
+      type: apiKey
+      in: header
+      name: App-Secret
+      description: 固定密钥原样传入，仅服务端保存；与AppId同时使用
   parameters:
-    XClientId:
-      name: X-Client-Id
+    AppId:
+      name: App-Id
       in: header
       required: true
+      description: 本环境固定值；不得重复或包含空格、换行
       schema:
         type: string
         minLength: 1
-        maxLength: 64
-        pattern: '^[A-Za-z0-9._:-]+$'
-    XKeyId:
-      name: X-Key-Id
+        maxLength: 256
+        pattern: '^[!-~]{1,256}$'
+    AppSecret:
+      name: App-Secret
       in: header
       required: true
+      description: 本环境固定值；不得重复或包含空格、换行
       schema:
         type: string
         minLength: 1
-        maxLength: 64
-        pattern: '^[A-Za-z0-9._:-]+$'
-    XTimestamp:
-      name: X-Timestamp
-      in: header
-      required: true
-      schema:
-        type: string
-        pattern: '^[0-9]{10}$'
-    XNonce:
-      name: X-Nonce
-      in: header
-      required: true
-      schema:
-        type: string
-        minLength: 16
-        maxLength: 128
-        pattern: '^[A-Za-z0-9._:-]+$'
-    XRequestId:
-      name: X-Request-Id
-      in: header
-      required: true
-      schema:
-        type: string
-        minLength: 16
-        maxLength: 128
-        pattern: '^[A-Za-z0-9._:-]+$'
-    XContentSha256:
-      name: X-Content-SHA256
-      in: header
-      required: true
-      schema:
-        type: string
-        minLength: 64
-        maxLength: 64
-        pattern: '^[0-9a-f]{64}$'
-    XSignature:
-      name: X-Signature
-      in: header
-      required: true
-      schema:
-        type: string
-        minLength: 44
-        maxLength: 44
-        pattern: '^[A-Za-z0-9+/]{43}=$'
+        maxLength: 256
+        pattern: '^[!-~]{1,256}$'
   schemas:
     VerifyUserRequest:
       type: object
@@ -978,7 +868,7 @@ components:
           type: string
           minLength: 1
           maxLength: 128
-          description: 原始输入最长128个Unicode码点；验签后清理首尾U+0020空格，清理后须为1—30码点且无任何空白或控制字符，按121现有登录语义精确匹配
+          description: 原始输入最多128个Unicode码点，凭据校验后去首尾ASCII空格，结果1—30码点；禁止内部空白、控制和格式字符。按121现有语义匹配。
     Department:
       type: object
       additionalProperties: true
@@ -1058,6 +948,7 @@ components:
           type: string
           minLength: 16
           maxLength: 128
+          description: 121自动生成的本次请求追踪编号
         data:
           $ref: '#/components/schemas/User'
     ErrorResponse:
@@ -1082,7 +973,6 @@ components:
             - 413
             - 415
             - 422
-            - 429
             - 500
             - 503
           description: 数字错误码，与HTTP状态相同；具体原因见errorCode
@@ -1090,10 +980,7 @@ components:
           type: string
           enum:
             - PARAM_INVALID
-            - AUTH_CLIENT_NOT_FOUND
-            - AUTH_SIGNATURE_INVALID
-            - AUTH_TIMESTAMP_EXPIRED
-            - AUTH_REPLAY_REQUEST
+            - AUTH_INVALID
             - AUTH_FORBIDDEN
             - OPERATOR_FORBIDDEN
             - USER_NOT_FOUND
@@ -1111,17 +998,17 @@ components:
             - MATERIAL_NOT_FOUND
             - MATERIAL_AMBIGUOUS
             - AMOUNT_MISMATCH
-            - RATE_LIMITED
             - SYSTEM_ERROR
             - SYSTEM_BUSY
           description: >-
-            PARAM_INVALID：请求参数错误；AUTH_CLIENT_NOT_FOUND：客户端或密钥不可用；AUTH_SIGNATURE_INVALID：签名或鉴权头无效；AUTH_TIMESTAMP_EXPIRED：请求时间过期；AUTH_REPLAY_REQUEST：请求重放；AUTH_FORBIDDEN：缺少接口scope；OPERATOR_FORBIDDEN：用户/部门越权、禁止代发或修改所属部门；USER_NOT_FOUND：用户不存在或已删；DRAFT_NOT_FOUND：同步采购单不存在或不可见；NOT_FOUND：字典类型不存在；METHOD_NOT_ALLOWED：HTTP方法不支持；IDEMPOTENCY_CONFLICT：幂等键或批次与原请求冲突；SOURCE_ALREADY_SYNCED：来源已有有效关联；DRAFT_NOT_EDITABLE：状态不允许删除/修改；SUPPLIER_IMMUTABLE：来源单供应商不可改；PAYLOAD_TOO_LARGE：请求体超过大小上限；UNSUPPORTED_MEDIA_TYPE：媒体类型或编码不支持；USER_DISABLED：用户已停用；REFERENCE_INVALID：供应商或其他引用数据无效；MATERIAL_NOT_FOUND：一个或多个物料不存在；MATERIAL_AMBIGUOUS：物料编码匹配不唯一；AMOUNT_MISMATCH：采购金额与数量乘单价不一致；RATE_LIMITED：超过客户端调用配额；SYSTEM_ERROR：内部处理失败；SYSTEM_BUSY：暂不可用
+            PARAM_INVALID：请求参数错误；AUTH_INVALID：App-Id或App-Secret缺失、重复、错误，应用停用或入口关闭；AUTH_FORBIDDEN：缺少接口scope；OPERATOR_FORBIDDEN：用户/部门越权、禁止代发或修改所属部门；USER_NOT_FOUND：用户不存在或已删；DRAFT_NOT_FOUND：同步采购单不存在或不可见；NOT_FOUND：字典类型不存在；METHOD_NOT_ALLOWED：HTTP方法不支持；IDEMPOTENCY_CONFLICT：幂等键或批次与原请求冲突；SOURCE_ALREADY_SYNCED：来源已有有效关联；DRAFT_NOT_EDITABLE：状态不允许删除/修改；SUPPLIER_IMMUTABLE：来源单供应商不可改；PAYLOAD_TOO_LARGE：请求体超过大小上限；UNSUPPORTED_MEDIA_TYPE：媒体类型或编码不支持；USER_DISABLED：用户已停用；REFERENCE_INVALID：供应商或其他引用数据无效；MATERIAL_NOT_FOUND：一个或多个物料不存在；MATERIAL_AMBIGUOUS：物料编码匹配不唯一；AMOUNT_MISMATCH：采购金额与数量乘单价不一致；SYSTEM_ERROR：内部处理失败；SYSTEM_BUSY：暂不可用
         message:
           type: string
         requestId:
           type: string
           minLength: 16
           maxLength: 128
+          description: 121自动生成的本次请求追踪编号
         data:
           description: >-
             无详情时为null；已知校验错误返回ErrorDetail；SOURCE_ALREADY_SYNCED返回经部门授权校验的原Draft（含原syncBatchId），不得当作本次创建成功。客户端兼容可选字段。
@@ -1633,24 +1520,21 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
 security:
-  - HmacHeaders: []
+  - AppId: []
+    AppSecret: []
 webhooks:
   purchaseDraftDeleted:
     post:
       summary: 智能化提供的删除事件接收接口；由121主动调用，独立反向密钥
       description: >-
         固定URL由121运维配置，不从请求获取；正式HTTPS；测试HTTP须对应目标allow-http:
-        true，默认false。URL不得带userinfo、query或fragment。签名算法不变；HTTP不加密正文，仅用于测试数据。
+        true，默认false。URL不得带userinfo、query或fragment。回调使用固定App-Id、App-Secret请求头；HTTP明文传输凭据和正文，仅用于测试。
       parameters:
-        - $ref: '#/components/parameters/XClientId'
-        - $ref: '#/components/parameters/XKeyId'
-        - $ref: '#/components/parameters/XTimestamp'
-        - $ref: '#/components/parameters/XNonce'
-        - $ref: '#/components/parameters/XRequestId'
-        - $ref: '#/components/parameters/XContentSha256'
-        - $ref: '#/components/parameters/XSignature'
+        - $ref: '#/components/parameters/AppId'
+        - $ref: '#/components/parameters/AppSecret'
       security:
-        - HmacHeaders: []
+        - AppId: []
+          AppSecret: []
       requestBody:
         required: true
         content:
