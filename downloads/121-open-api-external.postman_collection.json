@@ -2,7 +2,7 @@
   "info": {
     "name": "121 智能化开放接口 · 外部测试",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "配套接口文档2.0.0。先部署新版后端并填写appId、appSecret及测试业务数据；两个固定请求头直接调用，无需发送前脚本或Token。先只读，再手动创建、查询、取消专用测试草稿；禁止整集合Runner。"
+    "description": "配套接口文档2.1.0。每个121入口必须带App-Id、App-Secret、loginAccount；仅访问当前用户有效成员部门与应用授权交集。先填真实测试账号和凭据；只读请求后手动执行专用测试单创建和取消，不运行整集合Runner。"
   },
   "auth": {
     "type": "noauth"
@@ -117,13 +117,19 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/users/verify",
-            "description": "预期HTTP200且响应code为数字200；必须是当前数据库存在且属于授权部门的登录账号。",
+            "description": "预期HTTP200且响应code为数字200；必须是当前数据库存在且属于授权部门的登录账号。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"loginAccount\": \"{{loginAccount}}\"\n}",
+              "raw": "{}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -149,10 +155,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/departments?pageNum=1&pageSize=100",
-            "description": "查询部门，预期HTTP 200、数字code=200；按分页遍历全部结果。",
+            "description": "查询部门，预期HTTP 200、数字code=200；按分页遍历全部结果。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -172,10 +184,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/suppliers?deptId={{departmentId}}&pageNum=1&pageSize=100",
-            "description": "查询供应商，预期HTTP 200、数字code=200；按分页遍历全部结果。",
+            "description": "查询供应商，预期HTTP 200、数字code=200；按分页遍历全部结果。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -195,10 +213,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/projects?deptId={{departmentId}}&pageNum=1&pageSize=100",
-            "description": "查询项目，预期HTTP 200、数字code=200；按分页遍历全部结果。",
+            "description": "查询项目，预期HTTP 200、数字code=200；按分页遍历全部结果。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -218,10 +242,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/stores?deptId={{departmentId}}&projectId={{projectId}}&pageNum=1&pageSize=100",
-            "description": "查询库位，预期HTTP 200、数字code=200；按分页遍历全部结果。 无项目筛选时，在Params中移除projectId；保留时填写正整数ID。",
+            "description": "查询库位，预期HTTP 200、数字code=200；按分页遍历全部结果。 无项目筛选时，在Params中移除projectId；保留时填写正整数ID。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -241,10 +271,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/provinces?deptId={{departmentId}}&pageNum=1&pageSize=100",
-            "description": "查询省份，预期HTTP 200、数字code=200；按分页遍历全部结果。",
+            "description": "查询省份，预期HTTP 200、数字code=200；按分页遍历全部结果。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -264,10 +300,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/sale-channels?deptId={{departmentId}}&pageNum=1&pageSize=100",
-            "description": "查询销售渠道，预期HTTP 200、数字code=200；按分页遍历全部结果。",
+            "description": "查询销售渠道，预期HTTP 200、数字code=200；按分页遍历全部结果。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -287,10 +329,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/payment-methods?deptId={{departmentId}}&pageNum=1&pageSize=100",
-            "description": "查询付款方式，预期HTTP 200、数字code=200；按分页遍历全部结果。",
+            "description": "查询付款方式，预期HTTP 200、数字code=200；按分页遍历全部结果。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -310,10 +358,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/fund-plans?deptId={{departmentId}}&pageNum=1&pageSize=100",
-            "description": "查询资金计划，预期HTTP 200、数字code=200；按分页遍历全部结果。",
+            "description": "查询资金计划，预期HTTP 200、数字code=200；按分页遍历全部结果。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -333,10 +387,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/transport-costs?deptId={{departmentId}}&pageNum=1&pageSize=100",
-            "description": "查询运费成本，预期HTTP 200、数字code=200；按分页遍历全部结果。",
+            "description": "查询运费成本，预期HTTP 200、数字code=200；按分页遍历全部结果。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -356,10 +416,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/tax-rates?deptId={{departmentId}}&pageNum=1&pageSize=100",
-            "description": "查询税率，预期HTTP 200、数字code=200；按分页遍历全部结果。",
+            "description": "查询税率，预期HTTP 200、数字code=200；按分页遍历全部结果。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -379,10 +445,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/cash-cycles?deptId={{departmentId}}&pageNum=1&pageSize=100",
-            "description": "查询变现周期，预期HTTP 200、数字code=200；按分页遍历全部结果。",
+            "description": "查询变现周期，预期HTTP 200、数字code=200；按分页遍历全部结果。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -402,10 +474,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{departmentId}}&roleCode=PRODUCT_MANAGER&pageNum=1&pageSize=100",
-            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。",
+            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -425,10 +503,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{departmentId}}&roleCode=DEPARTMENT_MANAGER&pageNum=1&pageSize=100",
-            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。",
+            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -448,10 +532,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{departmentId}}&roleCode=DEPARTMENT_LEADER&pageNum=1&pageSize=100",
-            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。",
+            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -471,10 +561,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{departmentId}}&roleCode=BUSINESS_REVIEWER&pageNum=1&pageSize=100",
-            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。",
+            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -494,10 +590,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{departmentId}}&roleCode=BUDGET_REVIEWER&pageNum=1&pageSize=100",
-            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。",
+            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -517,10 +619,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{departmentId}}&roleCode=CHIEF_ACCOUNTANT&pageNum=1&pageSize=100",
-            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。",
+            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -540,10 +648,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{departmentId}}&roleCode=GENERAL_MANAGER&pageNum=1&pageSize=100",
-            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。",
+            "description": "产品经理须在当前部门；其他有效审批角色可跨部门。预期HTTP 200、数字code=200。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -574,13 +688,19 @@
                 "key": "Idempotency-Key",
                 "value": "{{idempotencyKey}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/purchase-drafts",
-            "description": "首次预期DRAFT；同正文、同批次、同幂等键重试返回同一draftId。将返回draftId手动保存为环境变量。 供应商requiresProject=true时，在Body补projectId；cashCycle=30仅为模板示例，实际值沿用121原有业务规则，接口不自动换算单位。",
+            "description": "首次预期DRAFT；同正文、同批次、同幂等键重试返回同一draftId。将返回draftId手动保存为环境变量。 供应商requiresProject=true时，在Body补projectId；cashCycle=30仅为模板示例，实际值沿用121原有业务规则，接口不自动换算单位。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"sourceSystem\": \"INTELLIGENT_OFFICE\",\n  \"sourceOrderId\": \"{{sourceOrderId}}\",\n  \"syncBatchId\": \"{{syncBatchId}}\",\n  \"operatorLoginAccount\": \"{{loginAccount}}\",\n  \"initiatorLoginAccount\": \"{{loginAccount}}\",\n  \"departmentId\": \"{{departmentId}}\",\n  \"supplierId\": \"{{supplierId}}\",\n  \"authorized\": true,\n  \"storeId\": \"{{storeId}}\",\n  \"provinceId\": \"{{provinceId}}\",\n  \"saleChannelId\": \"{{saleChannelId}}\",\n  \"fundPlanId\": \"{{fundPlanId}}\",\n  \"transportCost\": 0,\n  \"taxRate\": 0.13,\n  \"cashCycle\": 30,\n  \"budgetMonth\": \"{{budgetMonth}}\",\n  \"purchaseDate\": \"{{purchaseDate}}\",\n  \"details\": [\n    {\n      \"sourceDetailId\": \"line-1\",\n      \"materialCode\": \"{{materialCode}}\",\n      \"quantity\": 10,\n      \"purchasePrice\": 100,\n      \"purchaseAmount\": 1000,\n      \"salesQuantity\": 10,\n      \"salesPrice\": 120,\n      \"inventoryQuantity\": 50\n    }\n  ]\n}",
+              "raw": "{\n  \"sourceSystem\": \"INTELLIGENT_OFFICE\",\n  \"sourceOrderId\": \"{{sourceOrderId}}\",\n  \"syncBatchId\": \"{{syncBatchId}}\",\n  \"departmentId\": \"{{departmentId}}\",\n  \"supplierId\": \"{{supplierId}}\",\n  \"authorized\": true,\n  \"storeId\": \"{{storeId}}\",\n  \"provinceId\": \"{{provinceId}}\",\n  \"saleChannelId\": \"{{saleChannelId}}\",\n  \"fundPlanId\": \"{{fundPlanId}}\",\n  \"transportCost\": 0,\n  \"taxRate\": 0.13,\n  \"cashCycle\": 30,\n  \"budgetMonth\": \"{{budgetMonth}}\",\n  \"purchaseDate\": \"{{purchaseDate}}\",\n  \"details\": [\n    {\n      \"sourceDetailId\": \"line-1\",\n      \"materialCode\": \"{{materialCode}}\",\n      \"quantity\": 10,\n      \"purchasePrice\": 100,\n      \"purchaseAmount\": 1000,\n      \"salesQuantity\": 10,\n      \"salesPrice\": 120,\n      \"inventoryQuantity\": 50\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -606,10 +726,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/purchase-drafts/by-source?sourceSystem=INTELLIGENT_OFFICE&sourceOrderId={{sourceOrderId}}&syncBatchId={{syncBatchId}}",
-            "description": "必须使用本次创建的sourceOrderId与syncBatchId；创建超时先查此接口，不自动选择最近批次。",
+            "description": "必须使用本次创建的sourceOrderId与syncBatchId；创建超时先查此接口，不自动选择最近批次。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -629,10 +755,16 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/purchase-drafts/{{draftId}}",
-            "description": "draftId填写P01返回的applyId；只返回状态和首次同步明细映射，不是当前完整明细。",
+            "description": "draftId填写P01返回的applyId；只返回状态和首次同步明细映射，不是当前完整明细。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "auth": {
               "type": "noauth"
             }
@@ -652,13 +784,19 @@
                 "key": "App-Secret",
                 "value": "{{appSecret}}",
                 "type": "text"
+              },
+              {
+                "key": "loginAccount",
+                "value": "{{loginAccount}}",
+                "type": "text",
+                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/purchase-drafts/{{draftId}}/cancel",
-            "description": "仅手动取消本次创建的未锁单测试草稿，预期DELETED；锁单等状态应409/DRAFT_NOT_EDITABLE。",
+            "description": "仅手动取消本次创建的未锁单测试草稿，预期DELETED；锁单等状态应409/DRAFT_NOT_EDITABLE。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"operatorLoginAccount\": \"{{loginAccount}}\",\n  \"reason\": \"双方联调测试取消\"\n}",
+              "raw": "{\n  \"reason\": \"双方联调测试取消\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

@@ -1,8 +1,9 @@
 openapi: 3.1.0
 info:
   title: 121 User Verification API
-  version: 2.0.0
-  description: 智能化服务端使用固定App-Id、App-Secret查询有效121用户及授权部门，无需员工登录或Token。测试允许HTTP，正式HTTPS。需部署配套新Jar和配置；全部有效部门需由121显式授权。
+  version: 2.1.0
+  description: >-
+    智能化服务端携带固定App-Id、App-Secret和必填loginAccount公共请求头。每次校验用户有效且至少有一个授权成员部门；范围为该用户有效成员部门与应用授权交集。无需员工密码或Token，测试HTTP正式HTTPS；须升级Jar和调用方请求头，表结构不变。
 servers:
   - url: 'http://testfcst.chinaptac.com/open-api/v1'
     description: 测试环境，允许HTTP联调；开放时间及测试凭据由121提供方交付
@@ -18,23 +19,24 @@ paths:
         - Users
       operationId: verify121User
       summary: 查询121用户信息
-      description: 按登录账号精确查询，Body JSON；不接受query或Idempotency-Key。每次请求携带App-Id、App-Secret。
+      description: '返回公共loginAccount对应用户。POST正文可空或{}，不接受query或Idempotency-Key；兼容正文loginAccount非null时须与公共账号规范化后相同，否则403。'
       security:
         - AppId: []
           AppSecret: []
       parameters:
         - $ref: '#/components/parameters/AppId'
         - $ref: '#/components/parameters/AppSecret'
+        - $ref: '#/components/parameters/LoginAccount'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/VerifyUserRequest'
             examples:
-              valid:
-                value:
-                  loginAccount: zhangsan
+              empty:
+                summary: 推荐，账号在公共Header
+                value: {}
       responses:
         '200':
           description: 查询成功
@@ -85,13 +87,13 @@ paths:
                 requestId: 7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41
                 data: null
         '403':
-          description: 客户端或用户无权限
+          description: 应用缺接口scope，用户无可用授权部门，或正文兼容账号与公共账号不一致
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: 用户不存在或已删除
+          description: 公共loginAccount对应账号不存在或已删除，errorCode=USER_NOT_FOUND
           content:
             application/json:
               schema:
@@ -128,7 +130,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: 用户已停用
+          description: 公共loginAccount对应账号已停用，errorCode=USER_DISABLED
           content:
             application/json:
               schema:
@@ -170,19 +172,31 @@ components:
         minLength: 1
         maxLength: 256
         pattern: '^[!-~]{1,256}$'
+    LoginAccount:
+      name: loginAccount
+      in: header
+      required: true
+      description: >-
+        当前已绑定的121账号，存在且启用；非ASCII或%先UTF-8百分号编码，如张三为%E5%BC%A0%E4%B8%89。严格解码一次，+不作空格，不接受重复头、非法UTF-8或换行。解码后原始输入最多128码点，清理首尾ASCII空格后1—30码点，无内部空白、控制和格式字符。此项是操作人声明，不是独立登录凭据。
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 1536
+        pattern: '^[ -~]{1,1536}$'
+      example: zhangsan
   schemas:
     VerifyUserRequest:
       type: object
       additionalProperties: false
-      required:
-        - loginAccount
       maxProperties: 1
       properties:
         loginAccount:
-          type: string
-          minLength: 1
+          type:
+            - string
+            - 'null'
           maxLength: 128
-          description: 原始输入最多128个Unicode码点，凭据校验后去首尾ASCII空格，结果1—30码点；禁止内部空白、控制和格式字符。按121现有语义匹配。
+          deprecated: true
+          description: 可选旧版兼容字段，建议省略。非null时按原账号规则规范化后须与公共账号相同，否则403 OPERATOR_FORBIDDEN；不是查询其他用户的参数
     Department:
       type: object
       additionalProperties: true
@@ -238,7 +252,7 @@ components:
           minItems: 1
           items:
             $ref: '#/components/schemas/Department'
-          description: 当前客户端授权范围内的可操作部门
+          description: 公共用户所属有效部门与应用授权部门的交集，至少1项。all-departments=true也不授予其他用户部门权限
     SuccessResponse:
       type: object
       additionalProperties: true
@@ -325,7 +339,7 @@ components:
               description: TYPE_INVALID表示类型错误；UNKNOWN_FIELD表示未定义字段
   responses:
     ParamInvalid:
-      description: 参数错误
+      description: 公共loginAccount缺失、重复、非法编码/格式，或正文及参数不符合定义
       content:
         application/json:
           schema:

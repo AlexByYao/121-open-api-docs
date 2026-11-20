@@ -1,4 +1,6 @@
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -27,17 +29,11 @@ public final class OpenApiExample {
                 .timeout(Duration.ofSeconds(10))
                 .header("App-Id", required("OPEN_API_APP_ID"))
                 .header("App-Secret", required("OPEN_API_APP_SECRET"))
+                .header("loginAccount", URLEncoder.encode(required("OPEN_API_LOGIN_ACCOUNT"), StandardCharsets.UTF_8).replace("+", "%20"))
                 .header("Accept", "application/json");
         if (user) {
-            String account = required("OPEN_API_LOGIN_ACCOUNT");
-            StringBuilder escaped = new StringBuilder();
-            for (char character : account.toCharArray()) {
-                if (character < 0x20) throw new IllegalArgumentException("Invalid login account");
-                if (character == '"' || character == '\\') escaped.append('\\');
-                escaped.append(character);
-            }
             builder.header("Content-Type", "application/json; charset=utf-8")
-                    .POST(HttpRequest.BodyPublishers.ofString("{\"loginAccount\":\"" + escaped + "\"}"));
+                    .POST(HttpRequest.BodyPublishers.ofString("{}"));
         } else {
             builder.GET();
         }

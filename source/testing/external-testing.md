@@ -1,6 +1,6 @@
 # 121开放接口：外部测试说明
 
-配套接口文档2.0.0，整理日期2026-11-20。
+配套接口文档2.1.0，整理日期2026-11-20。
 
 测试基础地址：`http://testfcst.chinaptac.com/open-api/v1`。测试和正式使用相同路径、字段和凭据规则，凭据分别交付。GitHub Pages只提供文档及文件下载，不处理业务请求。
 
@@ -20,14 +20,16 @@
 
 1. 下载并导入同目录的`121-open-api-external.postman_collection.json`和`121-open-api-test.postman_environment.json`。
 2. 在Postman右上角选择导入的测试环境；填写appId、appSecret和loginAccount，baseUrl保持测试地址。环境变量优先于集合变量，避免填写后仍被空环境变量覆盖。
-3. 先对U01点击Send。集合已使用变量填写App-Id、App-Secret请求头，直接发送；无需发送前脚本、Bearer Token或数据库账号。
+3. 先对U01点击Send。集合全部请求已填写App-Id、App-Secret、loginAccount三个公共请求头，直接发送；无需发送前脚本、Bearer Token或数据库账号。
 4. 成功后，从U01的departments选定departmentId；填写测试环境变量，再逐项调用字典。库位请求带projectId筛选，不需要筛选时删除该Query参数；审批人请求已列出全部七种角色。
+
+loginAccount环境变量用于所有请求头，普通ASCII账号直接填写；中文、百分号等先用UTF-8百分号编码，例如张三填写`%E5%BC%A0%E4%B8%89`，`a%b`填写`a%25b`。集合没有自动编码脚本，不要重复编码。U01正文使用`{}`，查询当前公共账号。所有查询、创建及取消范围均为该用户有效成员部门与应用授权部门的交集；只有审批人选项保留原121跨部门规则。智能化服务端须验证当前用户与121账号的绑定关系，不能允许前端任意指定他人账号。
 
 集合共23个请求：用户查询1个、普通字典11个、审批角色字典7个、采购接口4个。D01是一个接口，按字典及角色展开多个测试请求，不是新增18个业务接口。
 
 ## 3. 测试接口清单
 
-下表路径均接在测试基础地址之后；各请求都需App-Id、App-Secret。
+下表路径均接在测试基础地址之后；各121入口请求都需App-Id、App-Secret和loginAccount。
 
 | 编号 | 方法 | 路径 | 测试目的 |
 |---|---|---|---|
@@ -42,9 +44,9 @@
 ## 4. 采购测试顺序
 
 1. 先查询字典，填入真实测试ID和物料编码；主单必填项、供应商项目要求以接口文档为准。可选ID不填时省略，不能传空字符串。
-2. 使用专用测试订单号sourceOrderId、新UUID syncBatchId、16—160字符idempotencyKey；填写budgetMonth（YYYY-MM）与purchaseDate（yyyy-MM-dd）。测试用户同时作为操作人与发起人。
+2. 使用专用测试订单号sourceOrderId、新UUID syncBatchId、16—160字符idempotencyKey；填写budgetMonth（YYYY-MM）与purchaseDate（yyyy-MM-dd）。测试用户同时作为操作人与发起人；同轮重试不能切换loginAccount。
 3. **手动**发送P01，核对HTTP 200、code=200、errorCode=null、status=DRAFT。将返回draftId手动填入测试环境；purchaseOrderNo和draftId均为121的applyId。
-4. 原样重发P01，保持正文、批次和幂等键不变，应返回同一ID。凭据保持不变。若超时，先执行P02，不能立刻换新批次。
+4. 原样重发P01，保持正文、批次和幂等键不变，应返回同一ID。凭据和公共账号保持不变。若超时，先执行P02，不能立刻换新批次。
 5. 用P02、P03查询同一张单。details为首次同步映射，不包含121后续新增明细及编辑后的完整数据，不用于完整实时对账。
 6. 仅对本次未锁单测试草稿手动执行P04，预期DELETED。锁单后预期409/DRAFT_NOT_EDITABLE；不要用真实业务单测试。未调用P04不会影响创建或查询，但不能完成智能化主动取消。
 
