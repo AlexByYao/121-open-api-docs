@@ -2,7 +2,7 @@
   "info": {
     "name": "121 智能化开放接口 · 外部测试",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "配套接口文档1.1.7。先导入测试环境并填写121线下交付的凭据与专用测试数据；集合级发送前脚本自动HMAC签名。先逐项执行只读请求，再手动创建/查询/取消专用测试草稿。不要对整个集合运行Runner。C01由智能化提供接收地址，121发起投递验收，不在此集合中冒充121接口。接口地址是否可用以121验收通知为准。"
+    "description": "配套接口文档1.1.8。先导入测试环境并填写121线下交付的凭据与专用测试数据；集合级发送前脚本自动HMAC签名。先逐项执行只读请求，再手动创建/查询/取消专用测试草稿。不要对整个集合运行Runner。C01由智能化提供接收地址，121发起投递验收，不在此集合中冒充121接口。接口地址是否可用以121验收通知为准。"
   },
   "auth": {
     "type": "noauth"
@@ -390,7 +390,7 @@
             "method": "POST",
             "header": [],
             "url": "{{baseUrl}}/purchase-drafts",
-            "description": "首次预期DRAFT；同正文、同批次、同幂等键重试返回同一draftId。将返回draftId手动保存为环境变量。 供应商requiresProject=true时，在Body补projectId；cashCycle=30仅为当前协议示例，实际周期需双方确认，不能将附件月份或0值直接代入。",
+            "description": "首次预期DRAFT；同正文、同批次、同幂等键重试返回同一draftId。将返回draftId手动保存为环境变量。 供应商requiresProject=true时，在Body补projectId；cashCycle=30仅为模板示例，实际值沿用121原有业务规则，接口不自动换算单位。",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"sourceSystem\": \"INTELLIGENT_OFFICE\",\n  \"sourceOrderId\": \"{{sourceOrderId}}\",\n  \"syncBatchId\": \"{{syncBatchId}}\",\n  \"operatorLoginAccount\": \"{{loginAccount}}\",\n  \"initiatorLoginAccount\": \"{{loginAccount}}\",\n  \"departmentId\": \"{{departmentId}}\",\n  \"supplierId\": \"{{supplierId}}\",\n  \"authorized\": true,\n  \"storeId\": \"{{storeId}}\",\n  \"provinceId\": \"{{provinceId}}\",\n  \"saleChannelId\": \"{{saleChannelId}}\",\n  \"fundPlanId\": \"{{fundPlanId}}\",\n  \"transportCost\": 0,\n  \"taxRate\": 0.13,\n  \"cashCycle\": 30,\n  \"budgetMonth\": \"{{budgetMonth}}\",\n  \"purchaseDate\": \"{{purchaseDate}}\",\n  \"details\": [\n    {\n      \"sourceDetailId\": \"line-1\",\n      \"materialCode\": \"{{materialCode}}\",\n      \"quantity\": 10,\n      \"purchasePrice\": 100,\n      \"purchaseAmount\": 1000,\n      \"salesQuantity\": 10,\n      \"salesPrice\": 120,\n      \"inventoryQuantity\": 50\n    }\n  ]\n}",
