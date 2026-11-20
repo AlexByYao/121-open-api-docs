@@ -1,10 +1,65 @@
 # 121 智能化采购同步接口文档
 
-版本 **1.1.9** · 更新 **2026-11-20** · 服务提供方 **121系统** · 调用方 **智能化办公平台后台服务**
+版本 **1.2.0** · 更新 **2026-11-20** · 服务提供方 **121系统** · 调用方 **智能化办公平台后台服务**
 
 本文说明智能化后台与121后台之间的接口调用方式。示例账号、手机号、部门和订单均为虚构数据。实际开放时间及调用凭据由121提供方交付。
 
 ## 接入说明
+
+### 前后端职责与阅读顺序
+
+调用链：智能化前端 → 智能化服务端 → 121开放接口。删除通知方向为121服务端 → 智能化服务端。
+
+| 阅读者 | 负责内容 | 重点阅读 |
+| --- | --- | --- |
+| 智能化前端 | 账号输入、部门选择、下拉联动、同步状态与逐行错误展示 | 接入步骤、前端交互规则、U01/D01/P01/P04字段与返回码 |
+| 智能化服务端 | 账号绑定校验、121请求签名、业务批次持久化、超时恢复、回调验签及幂等 | 全部接口、编号规则、返回码、附录签名算法及Java示例 |
+| 121提供方 | 开通接口、交付各环境系统凭据和有效测试数据、确认授权、排查requestId | 接入条件、联调验收、C01配置 |
+
+前端只调用智能化自己的服务端，不直接调用121，不保存密钥、不生成签名。下文URL、GET/POST和签名头都是“智能化服务端调用121”的约定；智能化自己的前后端接口由其团队定义。U01只是查询121账号有效性，不证明账号属于当前智能化用户；绑定权限由智能化服务端校验。
+
+### 接入步骤
+
+1. 121确认测试接口已启用，线下交付clientId、keyId、Base64密钥，以及有效测试账号和主数据；文档示例值不能直接作为测试数据。
+2. 智能化服务端先运行附录Java示例的离线校验，核对POST与GET签名向量；再使用Postman或代码调用U01、D01。
+3. 前端绑定账号时，经智能化服务端调用U01。保存规范loginAccount、userId；从返回的departments中确定本次业务部门，不能仅用部门名称或默认取第一项。
+4. 经智能化服务端查询D01，前端完成部门、供应商、项目、库位和审批人联动；服务端保存并提交121的ID，不拿显示名称代替。
+5. 用户发起同步后，智能化服务端先持久化本轮syncBatchId、Idempotency-Key和最终请求正文，再调用P01。成功保存applyId及初始明细ID映射；超时先P02确认结果。
+6. 取消时经服务端调用P04；只有确认DELETED才清除本轮关联。C01接收地址后续交付，配置完成后单独验收；当前可先完成六个121入口联调。
+
+### 编号、幂等与重试
+
+| 字段 | 产生方与用途 | 何时变化 |
+| --- | --- | --- |
+| sourceOrderId | 智能化采购单稳定标识 | 同一来源采购单不变，删除后再同步也不改 |
+| syncBatchId | 智能化服务端生成UUID，标识一轮同步 | 本轮查询、重试不变；确认旧轮DELETED后再同步才新建 |
+| Idempotency-Key | 智能化服务端生成的P01业务幂等键 | 同轮同正文不变；新轮换新键，只有P01提交该Header |
+| X-Timestamp | 本次HTTP请求的Unix秒时间 | 每次请求/重试重新取当前时间 |
+| X-Nonce、X-Request-Id | 本次HTTP鉴权随机数和追踪编号 | 每次请求/重试重新生成，不能拿业务批次号重复使用 |
+| draftId、purchaseOrderNo | 121返回的采购单applyId，两字段相同 | 创建后保存，不能自行生成；重新同步可能得到新ID |
+| sourceDetailId、detailId | 来源明细ID与121初始明细ID | 发送前固定来源行ID，成功后保存两者映射 |
+| eventId | 121生成的C01事件去重键 | 同一事件重试不变；接收方按eventId幂等处理 |
+
+智能化服务端收到同一轮用户重复点击，应复用已保存的业务批次和原正文；不能为每次点击都生成新批次。结果未知时显示“确认同步结果中”，先P02查询；查询404也可能是客户端/部门不可见，先核对原参数及授权，再以原批次、原键、原正文重试。
+
+### 前端交互规则
+
+以下是智能化界面的建议行为，由智能化服务端封装调用121。
+
+| 场景 | 前端行为 | 服务端处理 |
+| --- | --- | --- |
+| 绑定121账号 | 展示U01返回的姓名、规范账号、部门；手机号为空不当作失败 | 校验绑定权限，失败区分不存在/停用与网络故障 |
+| 用户有多个部门 | 展示可选部门；单部门可预选；不能只按名称识别 | 本次创建须使用用户所属且已授权的有效departmentId |
+| 切换部门 | 清空库位、省份、渠道、资金计划、付款方式、部门字典默认值与审批人选择，再重新加载；全局供应商/项目重新核对联动 | 部门字典按新deptId查询；审批人按roleCode查询，只有产品经理限制本部门 |
+| 切换供应商或项目 | requiresProject=true时项目必填；项目变化后重新选库位 | 使用库位relation检查关联，按需传projectId查询库位；不凭名称匹配 |
+| 提交同步 | 提交中禁用重复点击；服务器超时不显示“肯定失败” | 固定本轮批次/幂等键/正文；恢复时先查P02 |
+| 物料缺失或字段错误 | 按sourceDetailId定位来源行，展示message；错误明细数组逐条展示 | 保留errorCode、field、sourceDetailId、errors和requestId；不能只返回一个笼统失败提示 |
+| 返回SOURCE_ALREADY_SYNCED | 提示已有121关联并展示可访问原单信息；不能算本次新建成功 | 用返回draftId查询P03，按原syncBatchId核对关联 |
+| 状态为LOCKED或退单状态 | 禁用主动取消；退单通过不等于删除 | P03/P04返回状态为准，P04校验失败时刷新状态 |
+| 取消超时或409 | 保留原关联，显示确认中或不可取消原因 | 查询同一draftId；仅确认DELETED才清除本轮关联 |
+| 401/403/429/503 | 业务页给可理解提示，保留requestId供排查 | 服务端处理签名/授权、Retry-After和退避；不把全部HTTP错误显示为“账号不存在” |
+
+前端显示的“未同步、提交中、结果确认中、已同步”等是智能化自己的界面状态，不是121新增status枚举。121真实status全部见P01，尤其RETURNED不能当作DELETED。可选ID未选择时省略，不发空字符串；金额用十进制方式传递，避免浏览器浮点计算产生多余小数。
 
 ### 调用地址
 
@@ -60,32 +115,7 @@
 
 Header名称不区分大小写。鉴权头不能重复，值不得带额外空格或换行。签名密钥为32字节随机数的标准Base64，双方通过安全渠道交换，计算前先Base64解码；不会出现在网页、浏览器脚本或业务正文里。
 
-### 签名原文与算法
-
-按以下10行拼接，以单个LF（`\n`）连接，最后一行后没有LF；无查询参数或幂等键时，仍保留对应空行。
-
-```text
-HTTP_METHOD
-REQUEST_PATH
-CANONICAL_QUERY_STRING
-X-Client-Id
-X-Key-Id
-X-Timestamp
-X-Nonce
-X-Request-Id
-Idempotency-Key
-X-Content-SHA256
-```
-
-| 项目 | 计算规则 |
-| --- | --- |
-| `HTTP_METHOD` | 大写，例如 `POST`、`GET` |
-| `REQUEST_PATH` | 完整路径，例如 `/open-api/v1/users/verify`；不含域名、查询参数 |
-| `CANONICAL_QUERY_STRING` | 参数名和值各按UTF-8 RFC 3986编码，编码后按参数名升序，使用 `name=value` 和 `&` 连接；空格编码 `%20`，不能用 `+`；重复参数拒绝 |
-| `X-Content-SHA256` | `lowercase(hex(SHA256(rawBodyBytes)))` |
-| `X-Signature` | `Base64(HMAC_SHA256(Base64Decode(secret), UTF8(canonicalString)))` |
-
-例如 `?pageSize=100&deptId=80001&pageNum=1` 的规范查询串为 `deptId=80001&pageNum=1&pageSize=100`。签名后必须发送相同正文原始字节；再次序列化、重排属性或改空格都可能导致验签失败。
+签名细节供服务端阅读，见附录“签名原文与算法”“签名校验示例”和“Java服务端完整示例”。前端无需实现签名。Postman集合已内置发送前签名脚本。
 
 ### 正文、限流与重试
 
@@ -991,6 +1021,52 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 
 本期对账只保留121采购单ID（applyId）及首次同步明细ID映射，P02/P03现有查询范围满足该约定，不增加完整实时明细查询。C01协议保留，接收地址及反向凭据后续补充，当前先测试U01、D01和P01—P04；回调配置完成后另行验收。
 
+### 签名原文与算法（服务端）
+
+按以下10行拼接，以单个LF（`\n`）连接，最后一行后没有LF；无查询参数或幂等键时，仍保留对应空行。
+
+```text
+HTTP_METHOD
+REQUEST_PATH
+CANONICAL_QUERY_STRING
+X-Client-Id
+X-Key-Id
+X-Timestamp
+X-Nonce
+X-Request-Id
+Idempotency-Key
+X-Content-SHA256
+```
+
+| 项目 | 计算规则 |
+| --- | --- |
+| `HTTP_METHOD` | 大写，例如 `POST`、`GET` |
+| `REQUEST_PATH` | 完整路径，例如 `/open-api/v1/users/verify`；不含域名、查询参数 |
+| `CANONICAL_QUERY_STRING` | 参数名和值各按UTF-8 RFC 3986编码，编码后按参数名升序，使用 `name=value` 和 `&` 连接；空格编码 `%20`，不能用 `+`；重复参数拒绝 |
+| `X-Content-SHA256` | `lowercase(hex(SHA256(rawBodyBytes)))` |
+| `X-Signature` | `Base64(HMAC_SHA256(Base64Decode(secret), UTF8(canonicalString)))` |
+
+例如 `?pageSize=100&deptId=80001&pageNum=1` 的规范查询串为 `deptId=80001&pageNum=1&pageSize=100`。签名后必须发送相同正文原始字节；再次序列化、重排属性或改空格都可能导致验签失败。
+
+服务端每次请求按以下顺序执行：
+
+1. 固定HTTP方法、完整路径和查询参数；参数名和值先按UTF-8解码再按RFC3986重编码，按编码后的名称排序。签名查询串不包含开头的`?`；空格为`%20`，原始加号须编码为`%2B`；百分号转义统一使用大写十六进制，`!'()*`必须编码，`~`保持不编码。参数名不重复，缺值参数按`name=`处理；不要发送空参数片段或末尾多余`&`。
+2. POST使用JSON库序列化一次，得到最终UTF-8字节；GET使用长度为0的字节数组，不是`{}`、`null`或字符串`""`。POST中文可直接UTF-8或使用JSON转义，只要摘要和发送正文使用同一份字节。
+3. SHA-256计算这份正文，得到64位小写十六进制；先Base64解码密钥得到32字节，再对10行原文做HMAC-SHA256。结果用标准Base64（保留`=`），不能用Base64URL或十六进制代替。
+4. 添加鉴权Header并发送原字节，不再格式化、重排JSON或追加换行。路径使用`/open-api/v1/...`，不拼接原页面`/api`或`/prod-api`前缀；域名不参与签名。
+5. 发生HTTP重试时重新生成时间戳、Nonce、Request-Id和签名。P01的业务批次、幂等键与正文保持不变，先查询本轮结果。
+
+POST用户查询的10个元素（用数组展示空元素，数组本身不是待签名字符串）：
+
+```text
+["POST", "/open-api/v1/users/verify", "", "intelligent-office-test",
+ "test-key-01", "1794787200", "550e8400-e29b-41d4-a716-446655440000",
+ "7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41", "",
+ "aa6b77fa18f04ad64611d521f86e77117d861ad907d8ff85560a19c426ad3a65"]
+```
+
+用`String.join("\n", elements)`拼接：第3和第9个元素为空也保留。操作系统是Windows时也使用LF，不使用CRLF；正文不能多出文件末尾换行。签名原文中的`X-Client-Id`等表示Header的值，不是字面Header名称。
+
 ### 签名校验示例
 
 本节密钥是**公开测试常量**，只用于离线核对，禁止用于真实环境。固定时间戳已非当前时间，直接发到在线接口会超时；真实请求需使用当前时间和正式凭据。
@@ -1038,3 +1114,66 @@ assert body_hash == "aa6b77fa18f04ad64611d521f86e77117d861ad907d8ff85560a19c426a
 assert signature == "lbIOMwqPoysaiu2XwGpXrZgXN0pDRAC0pUd31Rn176g="
 print("签名向量校验通过")
 ```
+
+### GET签名校验向量（含中文和空格）
+
+沿用上节固定的公开测试密钥、ClientId、KeyId、Timestamp、Nonce和RequestId；不同离线向量可复用这些常量，真实请求不能复用Nonce/RequestId。GET不带Idempotency-Key，正文长度为0。查询内容是虚构示例，不保证在线字典存在对应项。
+
+| 项目 | 固定值 |
+| --- | --- |
+| Method | GET |
+| Path | `/open-api/v1/dictionaries/sale-channels` |
+| 未编码参数 | pageSize=100，keyword=华北 销售，deptId=80001，pageNum=1 |
+| 规范查询串 | `deptId=80001&keyword=%E5%8D%8E%E5%8C%97%20%E9%94%80%E5%94%AE&pageNum=1&pageSize=100` |
+| 空正文SHA-256 | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| 预期签名 | `lFOnAJJ/m7QW2ox4ZeyjsEX7LU7elmfxDJkcDJz6hfk=` |
+
+真实发送URL使用相同规范查询串：`https://fcst.chinaptac.com/open-api/v1/dictionaries/sale-channels?deptId=80001&keyword=%E5%8D%8E%E5%8C%97%20%E9%94%80%E5%94%AE&pageNum=1&pageSize=100`。该固定过期时间戳用于离线核对，不可复制为线上调用凭据。
+
+### Java服务端完整示例（JDK 11及以上）
+
+- [下载OpenApiSigningExample.java](./downloads/OpenApiSigningExample.java)
+- 只用JDK标准库，包含RFC3986查询编码、10行签名、POST与GET固定向量、生成请求头和HTTP发送。不依赖121项目源码。
+- 默认不发网络请求。运行`java -Dfile.encoding=UTF-8 OpenApiSigningExample.java`会校验POST和GET向量；源码为UTF-8。也可运行`javac -encoding UTF-8 OpenApiSigningExample.java`后执行`java OpenApiSigningExample`。
+- 需要真实联调时，在智能化服务端环境配置下表变量。不要把真实凭据写进网页、前端代码或公开源码。
+
+| 示例环境变量 | 内容 |
+| --- | --- |
+| OPEN_API_ORIGIN | 仅协议和域名，例如测试`http://testfcst.chinaptac.com`，不带/api、/prod-api或/open-api/v1 |
+| OPEN_API_CLIENT_ID | 121交付的clientId |
+| OPEN_API_KEY_ID | 121交付的keyId |
+| OPEN_API_HMAC_SECRET | 121交付的32字节密钥的标准Base64文本 |
+| OPEN_API_LOGIN_ACCOUNT | 专用测试账号，仅send-user使用 |
+
+显式运行`java -Dfile.encoding=UTF-8 OpenApiSigningExample.java send-user`发送U01，或`java -Dfile.encoding=UTF-8 OpenApiSigningExample.java send-dictionary`查询部门。示例不会创建或取消采购单；默认不跟随重定向，只打印HTTP状态和requestId，不打印用户响应正文。示例为避免手写JSON转义，仅允许ASCII字母数字及`._@-`账号；正式集成应使用自己的JSON库，接口账号规则以U01为准。
+
+核心调用顺序如下，完整可编译代码以下载文件为准：
+
+```java
+// body由JSON库只序列化一次；相同byte[]同时用于签名和HTTP发送。
+byte[] body = jsonText.getBytes(StandardCharsets.UTF_8);
+String query = OpenApiSigningExample.canonicalQuery(decodedQueryParams);
+Map<String, String> headers = OpenApiSigningExample.headers(
+    "POST", "/open-api/v1/users/verify", query, body,
+    clientId, keyId, secretBase64,
+    String.valueOf(Instant.now().getEpochSecond()),
+    UUID.randomUUID().toString(), UUID.randomUUID().toString(), "");
+headers.forEach(requestBuilder::header);
+requestBuilder.POST(HttpRequest.BodyPublishers.ofByteArray(body));
+```
+
+U01实际不接受查询参数，上例decodedQueryParams须为空；GET按下载文件的空正文示例使用。P01需要把已持久化的幂等键传入最后一个参数；发生超时先P02确认，不能把通用HTTP重试直接套到采购创建。响应处理须同时检查HTTP状态、数字code和errorCode，再读取data。
+
+### 验签失败排查顺序
+
+| 现象 | 服务端检查项 |
+| --- | --- |
+| 离线POST向量不一致 | 密钥是否先Base64解码、HMAC结果是否标准Base64、十行顺序、LF/空行/末尾换行 |
+| POST成功而GET失败 | 空正文摘要、中文UTF-8、%20与+、编码后排序、是否重复编码% |
+| Postman成功而业务代码失败 | 两边最终路径、规范查询串、原始正文SHA-256是否一致；排查序列化和代理路径重写 |
+| AUTH_TIMESTAMP_EXPIRED | 秒/毫秒混用或服务器时钟偏差；当前允许正负300秒 |
+| AUTH_REPLAY_REQUEST | HTTP重试是否复用了Nonce或Request-Id；新请求更新鉴权头，业务键保持 |
+| AUTH_CLIENT_NOT_FOUND | 测试/正式凭据是否混用、clientId/keyId是否一致、接口或客户端是否启用 |
+| AUTH_SIGNATURE_INVALID | 是否缺头/多空格/重复头、摘要是否对应实际字节、path是否含完整/open-api/v1 |
+
+内部排查优先比较方法、路径、规范查询串、正文摘要和requestId；不要在共享日志记录密钥、完整业务正文、手机号或完整签名原文。向121反馈时提供环境、接口、HTTP状态、errorCode、requestId和时间。

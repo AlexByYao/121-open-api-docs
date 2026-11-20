@@ -76,7 +76,7 @@ def build(output: Path):
     sidebar = '\n'.join(toc_links)
     overview = ''.join(f'<li><a href="#{anchor}">{html.escape(title)}</a></li>' for level, anchor, title in headings if level == 2)
     template = (ROOT / 'template.html').read_text(encoding='utf-8')
-    page = template.replace('{{CONTENT}}', rendered).replace('{{SIDEBAR}}', sidebar).replace('{{OVERVIEW}}', overview).replace('{{SECTION_COUNT}}', str(section_num))
+    page = template.replace('{{VERSION}}', re.search(r'版本 \*\*([^*]+)\*\*', source).group(1)).replace('{{CONTENT}}', rendered).replace('{{SIDEBAR}}', sidebar).replace('{{OVERVIEW}}', overview).replace('{{SECTION_COUNT}}', str(section_num))
     output.mkdir(parents=True, exist_ok=True)
     (output / 'index.html').write_text(page, encoding='utf-8', newline='\n')
     (output / '.nojekyll').write_text('', encoding='utf-8')
@@ -101,7 +101,7 @@ def build(output: Path):
         testing = ROOT.parent / 'docs' / 'testing'
     for name in ['121-open-api-external.postman_collection.json',
                  '121-open-api-test.postman_environment.json',
-                 'postman-hmac-pre-request.js', 'external-testing.md']:
+                 'postman-hmac-pre-request.js', 'external-testing.md', 'OpenApiSigningExample.java']:
         shutil.copy2(testing / name, downloads / name)
     (downloads / 'api-reference.md').write_text(source, encoding='utf-8', newline='\n')
     print(json.dumps({'output': str(output), 'sections': section_num, 'headings': len(headings),

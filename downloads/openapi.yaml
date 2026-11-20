@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 121 智能化采购同步开放接口
-  version: 1.1.9
+  version: 1.2.0
   description: >-
     服务器对服务器；应用内HMAC-SHA256鉴权。代码已实现、默认关闭，部署后联调。测试允许HTTP、正式HTTPS；每环境初次配置一套系统凭据，无需mTLS或轮换流程。客户端可显式授权全部有效部门或使用部门白名单；默认空白名单不授权。完整签名算法与实际约束见配套Markdown。
 servers:
