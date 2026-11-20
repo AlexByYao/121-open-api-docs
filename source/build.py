@@ -78,7 +78,7 @@ def build(output: Path):
     template = (ROOT / 'template.html').read_text(encoding='utf-8')
     page = template.replace('{{CONTENT}}', rendered).replace('{{SIDEBAR}}', sidebar).replace('{{OVERVIEW}}', overview).replace('{{SECTION_COUNT}}', str(section_num))
     output.mkdir(parents=True, exist_ok=True)
-    (output / 'index.html').write_text(page, encoding='utf-8')
+    (output / 'index.html').write_text(page, encoding='utf-8', newline='\n')
     (output / '.nojekyll').write_text('', encoding='utf-8')
     (output / 'robots.txt').write_text('User-agent: *\nAllow: /\n', encoding='utf-8')
     for asset in ['styles.css', 'app.js']:
@@ -103,7 +103,7 @@ def build(output: Path):
                  '121-open-api-test.postman_environment.json',
                  'postman-hmac-pre-request.js', 'external-testing.md']:
         shutil.copy2(testing / name, downloads / name)
-    (downloads / 'api-reference.md').write_text(source, encoding='utf-8')
+    (downloads / 'api-reference.md').write_text(source, encoding='utf-8', newline='\n')
     print(json.dumps({'output': str(output), 'sections': section_num, 'headings': len(headings),
                       'jsonExamples': sum(1 for t in tokens if t.type == 'fence' and t.info == 'json')}, ensure_ascii=False))
 
