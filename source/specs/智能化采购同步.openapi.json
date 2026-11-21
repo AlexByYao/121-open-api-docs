@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "121 智能化采购同步开放接口",
+    "title": "121 开放接口",
     "version": "2.1.0",
     "description": "服务器对服务器；每个121入口携带App-Id、App-Secret和loginAccount，校验有效用户并限制在用户有效成员部门与应用授权交集。无需员工登录或Token。测试允许HTTP、正式HTTPS；本版本需部署新Jar及app-id/app-secret配置。业务幂等和部门权限保留。"
   },
@@ -2247,7 +2247,7 @@
   "webhooks": {
     "purchaseDraftDeleted": {
       "post": {
-        "summary": "智能化提供的删除事件接收接口；由121主动调用，独立反向密钥",
+        "summary": "121采购草稿删除通知；发送至配置的接收地址，使用独立反向密钥",
         "description": "固定URL由121运维配置，不从请求获取；正式HTTPS；测试HTTP须对应目标allow-http: true，默认false。URL不得带userinfo、query或fragment。回调使用固定App-Id、App-Secret请求头；HTTP明文传输凭据和正文，仅用于测试。",
         "parameters": [
           {

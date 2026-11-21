@@ -1,6 +1,6 @@
 {
   "info": {
-    "name": "121 智能化开放接口 · 外部测试",
+    "name": "121 开放接口 · 外部测试",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "description": "配套接口文档2.1.0。每个121入口必须带App-Id、App-Secret、loginAccount；仅访问当前用户有效成员部门与应用授权交集。先填真实测试账号和凭据；只读请求后手动执行专用测试单创建和取消，不运行整集合Runner。"
   },
