@@ -15,7 +15,7 @@
   <a class="skip-link" href="#content">跳到文档正文</a>
   <header class="site-header">
     <a class="brand" href="#top"><span class="brand-mark">121</span><span>接口交接文档<small>用户、字典与采购草稿</small></span></a>
-    <div class="header-actions"><span class="version">v2.4.0</span><a href="./downloads/openapi.yaml" download>下载 OpenAPI</a><button id="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">目录</button></div>
+    <div class="header-actions"><span class="version">v2.5.0</span><a href="./downloads/openapi.yaml" download>下载 OpenAPI</a><button id="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">目录</button></div>
   </header>
   <aside id="sidebar" class="sidebar" aria-label="文档目录">
     <label class="search-label" for="doc-search">查找文档</label>
@@ -38,7 +38,7 @@
     <div class="overview"><details><summary>展开完整章节目录</summary><ol><li><a href="#section-1">接入说明</a></li><li><a href="#section-2">U01 查询121用户信息（POST）</a></li><li><a href="#section-3">D01 查询基础字典（GET）</a></li><li><a href="#section-4">P01 创建采购草稿（POST）</a></li><li><a href="#section-5">P02 按来源和批次查询草稿（GET）</a></li><li><a href="#section-6">P03 按121采购单ID查询草稿（GET）</a></li><li><a href="#section-7">P04 取消同步并删除草稿（POST）</a></li><li><a href="#section-8">C01 采购草稿删除通知（POST）</a></li><li><a href="#section-9">返回码说明</a></li><li><a href="#section-10">附录</a></li></ol></details></div>
     <div id="no-results" hidden>未找到匹配内容。请尝试接口编号（如 P01）、参数名或错误码。</div>
     <div class="document-intro"><h1 id="top">121 接口交接文档</h1>
-<p>版本 <strong>2.4.0</strong> · 文档更新 <strong>2026-11-21</strong> · 服务提供方 <strong>121系统</strong></p>
+<p>版本 <strong>2.5.0</strong> · 文档更新 <strong>2026-11-21</strong> · 服务提供方 <strong>121系统</strong></p>
 <p>本文交付121开放接口的调用地址、鉴权方式、请求字段、响应字段、状态、错误码及联调示例。示例账号、手机号、部门和订单均为虚构数据；实际开放时间、调用凭据及有效测试数据由121提供方交付。</p>
 </div><section class="doc-section" data-section="section-1"><h2 id="section-1">接入说明</h2>
 <h3 id="section-1-1">联调顺序</h3>
@@ -130,7 +130,6 @@
 <th>接口名称</th>
 <th>方法</th>
 <th>路径</th>
-<th>必需scope</th>
 </tr>
 </thead>
 <tbody>
@@ -139,53 +138,46 @@
 <td>查询121用户信息</td>
 <td>POST</td>
 <td><code>/users/verify</code></td>
-<td><code>user:verify</code></td>
 </tr>
 <tr>
 <td>D01</td>
 <td>查询基础字典</td>
 <td>GET</td>
 <td><code>/dictionaries/{type}</code></td>
-<td><code>dictionary:read</code></td>
 </tr>
 <tr>
 <td>P01</td>
 <td>创建采购草稿</td>
 <td>POST</td>
 <td><code>/purchase-drafts</code></td>
-<td><code>purchase-draft:create</code></td>
 </tr>
 <tr>
 <td>P02</td>
 <td>按来源和批次查询草稿</td>
 <td>GET</td>
 <td><code>/purchase-drafts/by-source</code></td>
-<td><code>purchase-draft:read</code></td>
 </tr>
 <tr>
 <td>P03</td>
 <td>按121采购单ID查询草稿</td>
 <td>GET</td>
 <td><code>/purchase-drafts/{draftId}</code></td>
-<td><code>purchase-draft:read</code></td>
 </tr>
 <tr>
 <td>P04</td>
 <td>取消同步并删除草稿</td>
 <td>POST</td>
 <td><code>/purchase-drafts/{draftId}/cancel</code></td>
-<td><code>purchase-draft:cancel</code></td>
 </tr>
 <tr>
 <td>C01</td>
 <td>采购草稿删除通知</td>
 <td>POST</td>
 <td>接收方提供的固定回调地址</td>
-<td>独立反向凭据</td>
 </tr>
 </tbody>
 </table></div>
-<p><code>scope</code>是由121配置的系统调用权限，不需要作为请求参数提交。六个121入口统一校验公共loginAccount，查询和操作范围为“该用户所属有效部门 ∩ 应用授权部门”。创建deptId须在上述交集中。U01只查询账号有效性，不提供账号归属认证。本版本操作人、发起人均取公共loginAccount，不支持代发。</p>
+<p>六个121入口无需配置或校验逐接口权限（scope），不要求121网页菜单、按钮权限；应用凭据有效且应用已启用即可进入账号和部门校验。旧配置中的scopes可删除，保留也不生效。六个121入口统一校验公共loginAccount，查询和操作范围为“该用户所属有效部门 ∩ 应用授权部门”。创建deptId须在上述交集中。U01只查询账号有效性，不提供账号归属认证。本版本操作人、发起人均取公共loginAccount，不支持代发。</p>
 <h3 id="section-1-5">部门参数与权限规则</h3>
 <p>同一含义的部门ID统一命名为<code>deptId</code>，部门ID列表命名为<code>deptIds</code>。字段名统一不改变传参位置或必填条件，也不新增公共部门请求头。</p>
 <div class="table-scroll" tabindex="0"><table>
@@ -544,10 +536,6 @@
 <td><code>/open-api/v1/users/verify</code></td>
 </tr>
 <tr>
-<td>权限</td>
-<td><code>user:verify</code></td>
-</tr>
-<tr>
 <td>用途</td>
 <td>查询公共loginAccount对应的基本信息及有效授权成员部门</td>
 </tr>
@@ -738,10 +726,6 @@
 <tr>
 <td>请求路径</td>
 <td><code>/open-api/v1/dictionaries/{type}</code></td>
-</tr>
-<tr>
-<td>权限</td>
-<td><code>dictionary:read</code></td>
 </tr>
 <tr>
 <td>传参位置</td>
@@ -1158,10 +1142,6 @@
 <tr>
 <td>请求路径</td>
 <td><code>/open-api/v1/purchase-drafts</code></td>
-</tr>
-<tr>
-<td>权限</td>
-<td><code>purchase-draft:create</code></td>
 </tr>
 <tr>
 <td>传参位置</td>
@@ -1902,10 +1882,6 @@
 <td><code>/open-api/v1/purchase-drafts/by-source</code></td>
 </tr>
 <tr>
-<td>权限</td>
-<td><code>purchase-draft:read</code></td>
-</tr>
-<tr>
 <td>传参位置</td>
 <td>Query查询参数；无正文，不传幂等键</td>
 </tr>
@@ -2078,10 +2054,6 @@
 <td><code>/open-api/v1/purchase-drafts/{draftId}</code></td>
 </tr>
 <tr>
-<td>权限</td>
-<td><code>purchase-draft:read</code></td>
-</tr>
-<tr>
 <td>传参位置</td>
 <td>Path路径参数；无正文，不接受查询参数或幂等键</td>
 </tr>
@@ -2234,10 +2206,6 @@
 <tr>
 <td>请求路径</td>
 <td><code>/open-api/v1/purchase-drafts/{draftId}/cancel</code></td>
-</tr>
-<tr>
-<td>权限</td>
-<td><code>purchase-draft:cancel</code></td>
 </tr>
 <tr>
 <td>传参位置</td>
@@ -2649,13 +2617,6 @@
 </tr>
 <tr>
 <td>403</td>
-<td><code>AUTH_FORBIDDEN</code></td>
-<td>缺接口权限</td>
-<td>客户端未配置当前接口scope</td>
-<td>联系121开通最小权限</td>
-</tr>
-<tr>
-<td>403</td>
 <td><code>OPERATOR_FORBIDDEN</code></td>
 <td>业务操作越权</td>
 <td>公共用户无可用部门，deptId越权，兼容正文账号与公共账号不一致，禁止代发或变更来源单部门</td>
@@ -2894,7 +2855,7 @@
 <li><a href="./downloads/121-open-api-test.postman_environment.json">Postman测试环境模板（无密钥）</a></li>
 </ul>
 <p>导入集合和环境，选择测试环境，填写121线下交付的appId、appSecret和测试账号，直接点击Send；无需数据库账号、员工密码或登录Token。集合展开全部字典和审批角色，共23个测试请求；先读后写，采购创建和取消须逐项手动执行。</p>
-<p>发布文档不代表测试后端已更新。2.4.0明确同步只保存采购草稿和明细，移除2.3.0的预算生成拦截；主单或明细保存失败仍整体回滚。121须部署配套后端，调用方以成功保存的DRAFT确认同步，不再把超预算作为同步失败条件；App-Id、App-Secret、loginAccount公共请求头及部门授权规则保持。两项应用凭据配置可沿用，无需调整数据库表结构或服务端department-ids授权配置。旧版创建正文departmentId将返回400 PARAM_INVALID。部署后先以U01和D01只读请求验收，再使用专用测试单验证采购接口。</p>
+<p>发布文档不代表测试后端已更新。2.5.0取消新增开放接口的逐接口scope校验；有效App-Id、App-Secret、公共loginAccount和部门范围校验保持。同步仍只保存草稿和明细，保存失败整体回滚。121须部署配套后端，调用方以成功保存的DRAFT确认同步，不再把超预算作为同步失败条件，且无需配置接口权限；App-Id、App-Secret、loginAccount公共请求头及部门授权规则保持。两项应用凭据配置可沿用，无需调整数据库表结构或服务端department-ids授权配置。旧版创建正文departmentId将返回400 PARAM_INVALID。部署后先以U01和D01只读请求验收，再使用专用测试单验证采购接口。</p>
 <h3 id="section-10-3">联调前业务边界</h3>
 <p>已确认：导入的数据类型、精度、有效值及计算方式以121原有线上业务为准；变现周期沿用原有规则，接口不另定单位或自动换算，不因附件示例修改现有计算。一张采购单只有一个销售渠道，创建时提交一个saleChannelId。变现周期已移除接入层新增的36500上限；明细税率已按原DECIMAL(15,2)字段适配，不再套用主单0/6%/13%枚举。主单下拉及原预算、利润、导出取价与计算规则保持。</p>
 <p>本期对账只保留121采购单ID（applyId）及首次同步明细ID映射，P02/P03现有查询范围满足该约定，不增加完整实时明细查询。C01协议保留，接收地址及反向凭据后续补充，当前先测试U01、D01和P01—P04；回调配置完成后另行验收。</p>
@@ -2958,10 +2919,6 @@
 <td>本环境appId、appSecret与121配置是否完全一致；后端是否已部署本版本并开启入口；请求头是否缺失或重复</td>
 </tr>
 <tr>
-<td>403 / AUTH_FORBIDDEN</td>
-<td>121是否开通该接口scope</td>
-</tr>
-<tr>
 <td>400 / PARAM_INVALID</td>
 <td>loginAccount头是否缺失、重复、非法编码，或业务字段是否错误</td>
 </tr>
@@ -2985,7 +2942,7 @@
 </table></div>
 <p>向121反馈时提供环境、接口、HTTP状态、errorCode、requestId和时间，勿发送密钥、数据库密码或完整人员数据。</p>
 </section>
-    <footer class="document-footer"><span>121系统 · 开放接口 v2.4.0</span><a href="#top">返回顶部 ↑</a></footer>
+    <footer class="document-footer"><span>121系统 · 开放接口 v2.5.0</span><a href="#top">返回顶部 ↑</a></footer>
   </main>
 </body>
 </html>

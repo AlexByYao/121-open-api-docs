@@ -2,7 +2,7 @@
   "info": {
     "name": "121 开放接口 · 外部测试",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "配套接口文档2.4.0。每个121入口必须带App-Id、App-Secret、loginAccount；仅访问当前用户有效成员部门与应用授权交集。先填真实测试账号和凭据；只读请求后手动执行专用测试单创建和取消，不运行整集合Runner。 同步仅保存主单和明细为DRAFT，不以超预算、超预算说明或生成条件拒绝保存。"
+    "description": "配套接口文档2.5.0。每个121入口必须带App-Id、App-Secret、loginAccount；仅访问当前用户有效成员部门与应用授权交集。先填真实测试账号和凭据；只读请求后手动执行专用测试单创建和取消，不运行整集合Runner。 同步仅保存主单和明细为DRAFT，不以超预算、超预算说明或生成条件拒绝保存。 新增开放接口不要求逐接口scope，保留应用凭据、账号及部门校验。"
   },
   "auth": {
     "type": "noauth"

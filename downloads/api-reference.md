@@ -1,6 +1,6 @@
 # 121 接口交接文档
 
-版本 **2.4.0** · 文档更新 **2026-11-21** · 服务提供方 **121系统**
+版本 **2.5.0** · 文档更新 **2026-11-21** · 服务提供方 **121系统**
 
 本文交付121开放接口的调用地址、鉴权方式、请求字段、响应字段、状态、错误码及联调示例。示例账号、手机号、部门和订单均为虚构数据；实际开放时间、调用凭据及有效测试数据由121提供方交付。
 
@@ -42,17 +42,17 @@
 
 以下路径相对于基础地址 `/open-api/v1`。C01是121主动发送的删除通知。
 
-| 编号 | 接口名称 | 方法 | 路径 | 必需scope |
-| --- | --- | --- | --- | --- |
-| U01 | 查询121用户信息 | POST | `/users/verify` | `user:verify` |
-| D01 | 查询基础字典 | GET | `/dictionaries/{type}` | `dictionary:read` |
-| P01 | 创建采购草稿 | POST | `/purchase-drafts` | `purchase-draft:create` |
-| P02 | 按来源和批次查询草稿 | GET | `/purchase-drafts/by-source` | `purchase-draft:read` |
-| P03 | 按121采购单ID查询草稿 | GET | `/purchase-drafts/{draftId}` | `purchase-draft:read` |
-| P04 | 取消同步并删除草稿 | POST | `/purchase-drafts/{draftId}/cancel` | `purchase-draft:cancel` |
-| C01 | 采购草稿删除通知 | POST | 接收方提供的固定回调地址 | 独立反向凭据 |
+| 编号 | 接口名称 | 方法 | 路径 |
+| --- | --- | --- | --- |
+| U01 | 查询121用户信息 | POST | `/users/verify` |
+| D01 | 查询基础字典 | GET | `/dictionaries/{type}` |
+| P01 | 创建采购草稿 | POST | `/purchase-drafts` |
+| P02 | 按来源和批次查询草稿 | GET | `/purchase-drafts/by-source` |
+| P03 | 按121采购单ID查询草稿 | GET | `/purchase-drafts/{draftId}` |
+| P04 | 取消同步并删除草稿 | POST | `/purchase-drafts/{draftId}/cancel` |
+| C01 | 采购草稿删除通知 | POST | 接收方提供的固定回调地址 |
 
-`scope`是由121配置的系统调用权限，不需要作为请求参数提交。六个121入口统一校验公共loginAccount，查询和操作范围为“该用户所属有效部门 ∩ 应用授权部门”。创建deptId须在上述交集中。U01只查询账号有效性，不提供账号归属认证。本版本操作人、发起人均取公共loginAccount，不支持代发。
+六个121入口无需配置或校验逐接口权限（scope），不要求121网页菜单、按钮权限；应用凭据有效且应用已启用即可进入账号和部门校验。旧配置中的scopes可删除，保留也不生效。六个121入口统一校验公共loginAccount，查询和操作范围为“该用户所属有效部门 ∩ 应用授权部门”。创建deptId须在上述交集中。U01只查询账号有效性，不提供账号归属认证。本版本操作人、发起人均取公共loginAccount，不支持代发。
 
 ### 部门参数与权限规则
 
@@ -178,7 +178,6 @@ loginAccount按121原账号规则匹配，清理首尾ASCII空格后1—30个Uni
 | --- | --- |
 | 请求方法 | **POST** |
 | 请求路径 | `/open-api/v1/users/verify` |
-| 权限 | `user:verify` |
 | 用途 | 查询公共loginAccount对应的基本信息及有效授权成员部门 |
 | 传参位置 | loginAccount位于公共Header；Body可不传或传`{}`，不接受查询参数、幂等键 |
 | Content-Type | `application/json` |
@@ -268,7 +267,6 @@ loginAccount按121原账号规则匹配，清理首尾ASCII空格后1—30个Uni
 | --- | --- |
 | 请求方法 | **GET** |
 | 请求路径 | `/open-api/v1/dictionaries/{type}` |
-| 权限 | `dictionary:read` |
 | 传参位置 | Path路径参数 + Query查询参数；无正文，不传幂等键 |
 | Content-Type | 无请求正文，无需设置 |
 
@@ -393,7 +391,6 @@ HTTP 200，省份示例：
 | --- | --- |
 | 请求方法 | **POST** |
 | 请求路径 | `/open-api/v1/purchase-drafts` |
-| 权限 | `purchase-draft:create` |
 | 传参位置 | Body JSON；不接受查询参数；Header必须带Idempotency-Key |
 | Content-Type | `application/json` |
 
@@ -664,7 +661,6 @@ P01、P02、P03和P04使用相同业务对象。
 | --- | --- |
 | 请求方法 | **GET** |
 | 请求路径 | `/open-api/v1/purchase-drafts/by-source` |
-| 权限 | `purchase-draft:read` |
 | 传参位置 | Query查询参数；无正文，不传幂等键 |
 | Content-Type | 无请求正文，无需设置 |
 
@@ -733,7 +729,6 @@ HTTP 200：
 | --- | --- |
 | 请求方法 | **GET** |
 | 请求路径 | `/open-api/v1/purchase-drafts/{draftId}` |
-| 权限 | `purchase-draft:read` |
 | 传参位置 | Path路径参数；无正文，不接受查询参数或幂等键 |
 | Content-Type | 无请求正文，无需设置 |
 
@@ -798,7 +793,6 @@ HTTP 200，锁单示例：
 | --- | --- |
 | 请求方法 | **POST** |
 | 请求路径 | `/open-api/v1/purchase-drafts/{draftId}/cancel` |
-| 权限 | `purchase-draft:cancel` |
 | 传参位置 | Path路径参数 + Body JSON；不接受查询参数或幂等键 |
 | Content-Type | `application/json` |
 
@@ -956,7 +950,6 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 | 200 | `null` | 成功 | 查询、创建或取消已处理；公共账号已校验；P01可能是幂等返回 | 读取data；按status确认业务状态 |
 | 400 | `PARAM_INVALID` | 请求参数错误 | 缺少/重复/非法公共loginAccount，非法账号编码，必填项或字段格式、类型、长度、精度/范围错误，未知/重复JSON字段，错误query/幂等键 | 修正请求，不原样自动重试 |
 | 401 | `AUTH_INVALID` | 系统凭据无效 | App-Id/App-Secret缺失、重复、错误，应用停用或入口关闭 | 核对本环境两项凭据及部署配置 |
-| 403 | `AUTH_FORBIDDEN` | 缺接口权限 | 客户端未配置当前接口scope | 联系121开通最小权限 |
 | 403 | `OPERATOR_FORBIDDEN` | 业务操作越权 | 公共用户无可用部门，deptId越权，兼容正文账号与公共账号不一致，禁止代发或变更来源单部门 | 修正用户/部门并确认授权 |
 | 404 | `USER_NOT_FOUND` | 用户不存在 | 账号不存在或已删除 | 核对loginAccount并使用有效账号 |
 | 404 | `DRAFT_NOT_FOUND` | 同步采购单不可见 | 没有来源记录、主单不存在、其他客户或非授权部门 | 核对ID、来源、批次与授权 |
@@ -1030,7 +1023,7 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 
 导入集合和环境，选择测试环境，填写121线下交付的appId、appSecret和测试账号，直接点击Send；无需数据库账号、员工密码或登录Token。集合展开全部字典和审批角色，共23个测试请求；先读后写，采购创建和取消须逐项手动执行。
 
-发布文档不代表测试后端已更新。2.4.0明确同步只保存采购草稿和明细，移除2.3.0的预算生成拦截；主单或明细保存失败仍整体回滚。121须部署配套后端，调用方以成功保存的DRAFT确认同步，不再把超预算作为同步失败条件；App-Id、App-Secret、loginAccount公共请求头及部门授权规则保持。两项应用凭据配置可沿用，无需调整数据库表结构或服务端department-ids授权配置。旧版创建正文departmentId将返回400 PARAM_INVALID。部署后先以U01和D01只读请求验收，再使用专用测试单验证采购接口。
+发布文档不代表测试后端已更新。2.5.0取消新增开放接口的逐接口scope校验；有效App-Id、App-Secret、公共loginAccount和部门范围校验保持。同步仍只保存草稿和明细，保存失败整体回滚。121须部署配套后端，调用方以成功保存的DRAFT确认同步，不再把超预算作为同步失败条件，且无需配置接口权限；App-Id、App-Secret、loginAccount公共请求头及部门授权规则保持。两项应用凭据配置可沿用，无需调整数据库表结构或服务端department-ids授权配置。旧版创建正文departmentId将返回400 PARAM_INVALID。部署后先以U01和D01只读请求验收，再使用专用测试单验证采购接口。
 
 ### 联调前业务边界
 
@@ -1083,7 +1076,6 @@ java OpenApiExample.java departments
 | 情况 | 核对内容 |
 | --- | --- |
 | 401 / AUTH_INVALID | 本环境appId、appSecret与121配置是否完全一致；后端是否已部署本版本并开启入口；请求头是否缺失或重复 |
-| 403 / AUTH_FORBIDDEN | 121是否开通该接口scope |
 | 400 / PARAM_INVALID | loginAccount头是否缺失、重复、非法编码，或业务字段是否错误 |
 | 403 / OPERATOR_FORBIDDEN | 用户有效部门交集是否包含业务部门；兼容正文账号是否与公共账号一致 |
 | 422 / 业务错误码 | 按errorCode及data定位供应商、物料、字段或金额错误 |
