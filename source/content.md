@@ -1,6 +1,6 @@
 # 121 接口交接文档
 
-版本 **2.5.0** · 文档更新 **2026-11-21** · 服务提供方 **121系统**
+版本 **2.6.0** · 文档更新 **2026-11-21** · 服务提供方 **121系统**
 
 本文定义121开放接口的请求方式、鉴权规则、参数、响应、状态及错误码。示例数据仅用于说明报文格式；接入凭据和测试数据由121服务提供方提供。
 
@@ -205,6 +205,8 @@ loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode�
 | `departments[].id` | string | 部门唯一ID，创建草稿时作为deptId |
 | `departments[].code` | string | 业务部门编码，缺失时为空字符串 |
 | `departments[].name` | string | 部门名称 |
+| `departments[].companyId` | string | 所属公司ID；未关联有效公司时为空字符串 |
+| `departments[].companyName` | string | 所属公司名称；未关联有效公司时为空字符串 |
 
 上述字段每次成功均返回，手机号未维护时保留字段并返回`""`。用户可能有多个部门，部门对象含ID、编码和名称；不能假定其上次登录所选部门就是本次采购部门。
 
@@ -229,7 +231,7 @@ loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode�
     "userName": "张三",
     "phoneNumber": "13800000000",
     "status": "ACTIVE",
-    "departments": [{"id":"80001","code":"","name":"示例业务部"}]
+    "departments": [{"id":"80001","code":"","name":"示例业务部","companyId":"80000","companyName":"示例公司"}]
   }
 }
 ```
@@ -327,6 +329,8 @@ loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode�
 | `items[].name` | string | 所有字典 | 显示名称 |
 | `items[].status` | string | 所有字典 | 固定 `ACTIVE`，表示本次返回的有效项 |
 | `items[].parentId` | string | 部门 | 父部门ID；根层级可能为 `"0"` |
+| `items[].companyId` | string | 部门 | 所属公司ID；未关联有效公司时为空字符串 |
+| `items[].companyName` | string | 部门 | 所属公司名称；未关联有效公司时为空字符串 |
 | `items[].requiresProject` | boolean | 供应商 | true：创建必须带projectId；false：项目可选 |
 | `items[].relation.deptId` | string | 库位 | 库位所属部门ID |
 | `items[].relation.projectId` | string | 库位且存在值 | 关联项目ID；`"0"` 表示未绑定具体项目 |
@@ -359,8 +363,11 @@ HTTP 200，省份示例：
 
 以下仅展示不同字典的 `items[]` 结构；仍使用同样的分页响应外壳。
 
+部门的所属公司为其有效直属上级公司；返回项本身为公司时，companyId和companyName为该公司自身信息。公司字段用于标识部门归属，不代表调用方取得该公司下其他部门的访问权限。
+
 ```json
 {
+  "departmentItem": {"id":"80001","code":"D001","name":"示例业务部","status":"ACTIVE","parentId":"80000","companyId":"80000","companyName":"示例公司"},
   "supplierItem": {"id":"1001","code":"","name":"示例供应商","status":"ACTIVE","requiresProject":true},
   "storeItem": {"id":"3001","code":"","name":"示例直运库","status":"ACTIVE","relation":{"deptId":"80001","projectId":"2001"}},
   "taxRateItem": {"id":"0.13","code":"","name":"13%","status":"ACTIVE","value":0.13,"unit":"RATIO"},

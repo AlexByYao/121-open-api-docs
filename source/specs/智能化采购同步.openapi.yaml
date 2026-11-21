@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 121 开放接口
-  version: 2.5.0
+  version: 2.6.0
   description: 121开放接口，提供用户及字典查询、采购草稿创建与查询、取消及删除通知。请求使用App-Id、App-Secret和loginAccount；数据访问受账号所属部门及应用授权范围约束。
 servers:
   - url: 'http://testfcst.chinaptac.com/open-api/v1'
@@ -67,6 +67,8 @@ paths:
                         - id: '80001'
                           code: EXAMPLE_DEPT_80001
                           name: 示例业务部
+                          companyId: '80000'
+                          companyName: 示例公司
         '400':
           $ref: '#/components/responses/ParamInvalid'
         '401':
@@ -894,6 +896,8 @@ components:
         - id
         - code
         - name
+        - companyId
+        - companyName
       properties:
         id:
           type: string
@@ -907,6 +911,12 @@ components:
           type: string
           minLength: 1
           maxLength: 100
+        companyId:
+          type: string
+          description: 所属公司ID；未关联有效公司时为空字符串
+        companyName:
+          type: string
+          description: 所属公司名称；未关联有效公司时为空字符串
     User:
       type: object
       additionalProperties: true
@@ -1464,6 +1474,12 @@ components:
             maxLength: 19
             pattern: '^[1-9][0-9]{0,18}$'
           description: 审批用户成员部门与调用用户本次有效授权交集；跨部门审批人可能为空数组，不代表不可选
+        companyId:
+          type: string
+          description: 所属公司ID；仅部门字典返回，未关联有效公司时为空字符串
+        companyName:
+          type: string
+          description: 所属公司名称；仅部门字典返回，未关联有效公司时为空字符串
     DictionaryPage:
       type: object
       required:
