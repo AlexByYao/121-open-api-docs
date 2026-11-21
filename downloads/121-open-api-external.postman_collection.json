@@ -2,7 +2,7 @@
   "info": {
     "name": "121 开放接口 · 外部测试",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "配套接口文档2.3.0。每个121入口必须带App-Id、App-Secret、loginAccount；仅访问当前用户有效成员部门与应用授权交集。先填真实测试账号和凭据；只读请求后手动执行专用测试单创建和取消，不运行整集合Runner。"
+    "description": "配套接口文档2.4.0。每个121入口必须带App-Id、App-Secret、loginAccount；仅访问当前用户有效成员部门与应用授权交集。先填真实测试账号和凭据；只读请求后手动执行专用测试单创建和取消，不运行整集合Runner。 同步仅保存主单和明细为DRAFT，不以超预算、超预算说明或生成条件拒绝保存。"
   },
   "auth": {
     "type": "noauth"
@@ -700,7 +700,7 @@
             "description": "首次预期DRAFT；同正文、同批次、同幂等键重试返回同一draftId。将返回draftId手动保存为环境变量。 供应商requiresProject=true时，在Body补projectId；cashCycle=30仅为模板示例，实际值沿用121原有业务规则，接口不自动换算单位。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"sourceSystem\": \"INTELLIGENT_OFFICE\",\n  \"sourceOrderId\": \"{{sourceOrderId}}\",\n  \"syncBatchId\": \"{{syncBatchId}}\",\n  \"deptId\": \"{{deptId}}\",\n  \"supplierId\": \"{{supplierId}}\",\n  \"authorized\": true,\n  \"storeId\": \"{{storeId}}\",\n  \"provinceId\": \"{{provinceId}}\",\n  \"saleChannelId\": \"{{saleChannelId}}\",\n  \"fundPlanId\": \"{{fundPlanId}}\",\n  \"transportCost\": 0,\n  \"taxRate\": 0.13,\n  \"cashCycle\": 30,\n  \"budgetMonth\": \"{{budgetMonth}}\",\n  \"purchaseDate\": \"{{purchaseDate}}\",\n  \"details\": [\n    {\n      \"sourceDetailId\": \"line-1\",\n      \"materialCode\": \"{{materialCode}}\",\n      \"quantity\": 10,\n      \"purchasePrice\": 100,\n      \"purchaseAmount\": 1000,\n      \"salesQuantity\": 10,\n      \"salesPrice\": 120,\n      \"inventoryQuantity\": 50\n    }\n  ],\n  \"budgetExplanation\": \"联调测试超预算说明\",\n  \"discount\": 0,\n  \"advance\": 0\n}",
+              "raw": "{\n  \"sourceSystem\": \"INTELLIGENT_OFFICE\",\n  \"sourceOrderId\": \"{{sourceOrderId}}\",\n  \"syncBatchId\": \"{{syncBatchId}}\",\n  \"deptId\": \"{{deptId}}\",\n  \"supplierId\": \"{{supplierId}}\",\n  \"authorized\": true,\n  \"storeId\": \"{{storeId}}\",\n  \"provinceId\": \"{{provinceId}}\",\n  \"saleChannelId\": \"{{saleChannelId}}\",\n  \"fundPlanId\": \"{{fundPlanId}}\",\n  \"transportCost\": 0,\n  \"taxRate\": 0.13,\n  \"cashCycle\": 30,\n  \"budgetMonth\": \"{{budgetMonth}}\",\n  \"purchaseDate\": \"{{purchaseDate}}\",\n  \"details\": [\n    {\n      \"sourceDetailId\": \"line-1\",\n      \"materialCode\": \"{{materialCode}}\",\n      \"quantity\": 10,\n      \"purchasePrice\": 100,\n      \"purchaseAmount\": 1000,\n      \"salesQuantity\": 10,\n      \"salesPrice\": 120,\n      \"inventoryQuantity\": 50\n    }\n  ],\n  \"discount\": 0,\n  \"advance\": 0\n}",
               "options": {
                 "raw": {
                   "language": "json"

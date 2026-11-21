@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 121 开放接口
-  version: 2.3.0
+  version: 2.4.0
   description: >-
     服务器对服务器；每个121入口携带App-Id、App-Secret和loginAccount，校验有效用户并限制在用户有效成员部门与应用授权交集。无需员工登录或Token。测试允许HTTP、正式HTTPS；本版本需部署新Jar及app-id/app-secret配置。业务幂等和部门权限保留。
 servers:
@@ -332,7 +332,7 @@ paths:
   /purchase-drafts:
     post:
       operationId: createPurchaseDraft
-      summary: 创建主单和明细并执行121原预算生成校验；任一步失败全部回滚
+      summary: 创建采购草稿和全部明细；保存失败全部回滚，不以预算或生成校验拦截
       parameters:
         - $ref: '#/components/parameters/AppId'
         - $ref: '#/components/parameters/AppSecret'
@@ -1018,13 +1018,10 @@ components:
             - AMOUNT_MISMATCH
             - ORDER_CREATE_FAILED
             - DETAIL_CREATE_FAILED
-            - ORDER_GENERATION_FAILED
-            - BUDGET_EXPLANATION_REQUIRED
-            - PAYMENT_INVALID
             - SYSTEM_ERROR
             - SYSTEM_BUSY
           description: >-
-            PARAM_INVALID：请求参数错误；AUTH_INVALID：App-Id或App-Secret缺失、重复、错误，应用停用或入口关闭；AUTH_FORBIDDEN：缺少接口scope；OPERATOR_FORBIDDEN：用户/部门越权、禁止代发或修改所属部门；USER_NOT_FOUND：用户不存在或已删；DRAFT_NOT_FOUND：同步采购单不存在或不可见；NOT_FOUND：字典类型不存在；METHOD_NOT_ALLOWED：HTTP方法不支持；IDEMPOTENCY_CONFLICT：幂等键或批次与原请求冲突；SOURCE_ALREADY_SYNCED：来源已有有效关联；DRAFT_NOT_EDITABLE：状态不允许删除/修改；SUPPLIER_IMMUTABLE：来源单供应商不可改；PAYLOAD_TOO_LARGE：请求体超过大小上限；UNSUPPORTED_MEDIA_TYPE：媒体类型或编码不支持；USER_DISABLED：用户已停用；REFERENCE_INVALID：供应商或其他引用数据无效；MATERIAL_NOT_FOUND：一个或多个物料不存在；MATERIAL_AMBIGUOUS：物料编码匹配不唯一；AMOUNT_MISMATCH：采购金额与数量乘单价不一致；ORDER_CREATE_FAILED：采购主单未成功保存；DETAIL_CREATE_FAILED：采购明细添加失败；ORDER_GENERATION_FAILED：121原有生成规则不通过，具体原因见message；BUDGET_EXPLANATION_REQUIRED：缺少超预算说明；PAYMENT_INVALID：实付金额为负数；SYSTEM_ERROR：内部处理失败；SYSTEM_BUSY：暂不可用
+            PARAM_INVALID：请求参数错误；AUTH_INVALID：App-Id或App-Secret缺失、重复、错误，应用停用或入口关闭；AUTH_FORBIDDEN：缺少接口scope；OPERATOR_FORBIDDEN：用户/部门越权、禁止代发或修改所属部门；USER_NOT_FOUND：用户不存在或已删；DRAFT_NOT_FOUND：同步采购单不存在或不可见；NOT_FOUND：字典类型不存在；METHOD_NOT_ALLOWED：HTTP方法不支持；IDEMPOTENCY_CONFLICT：幂等键或批次与原请求冲突；SOURCE_ALREADY_SYNCED：来源已有有效关联；DRAFT_NOT_EDITABLE：状态不允许删除/修改；SUPPLIER_IMMUTABLE：来源单供应商不可改；PAYLOAD_TOO_LARGE：请求体超过大小上限；UNSUPPORTED_MEDIA_TYPE：媒体类型或编码不支持；USER_DISABLED：用户已停用；REFERENCE_INVALID：供应商或其他引用数据无效；MATERIAL_NOT_FOUND：一个或多个物料不存在；MATERIAL_AMBIGUOUS：物料编码匹配不唯一；AMOUNT_MISMATCH：采购金额与数量乘单价不一致；ORDER_CREATE_FAILED：采购主单未成功保存；DETAIL_CREATE_FAILED：采购明细添加失败；SYSTEM_ERROR：内部处理失败；SYSTEM_BUSY：暂不可用
         message:
           type: string
         requestId:
@@ -1098,26 +1095,11 @@ components:
         stage:
           type: string
           enum:
+            - ORDER_CREATE
             - DETAIL_CREATE
-            - ORDER_GENERATION
         rolledBack:
           type: boolean
-        generationMessage:
-          type:
-            - string
-            - 'null'
-        purchaseAmount:
-          type:
-            - number
-            - 'null'
-        overBudgetAmount:
-          type:
-            - number
-            - 'null'
-        payableAmount:
-          type:
-            - number
-            - 'null'
+          description: true表示本次主单和全部明细、同步关联一起回滚
     DraftDetail:
       type: object
       additionalProperties: false
@@ -1317,7 +1299,7 @@ components:
         budgetExplanation:
           type: string
           maxLength: 500
-          description: 超预算说明；原121规则允许超预算采购时必填
+          description: 可选超预算说明，仅保存到草稿；不作为同步成功条件
         discount:
           type: number
           minimum: 0
