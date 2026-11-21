@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 121 开放接口
-  version: 2.1.0
+  version: 2.2.0
   description: >-
     服务器对服务器；每个121入口携带App-Id、App-Secret和loginAccount，校验有效用户并限制在用户有效成员部门与应用授权交集。无需员工登录或Token。测试允许HTTP、正式HTTPS；本版本需部署新Jar及app-id/app-secret配置。业务幂等和部门权限保留。
 servers:
@@ -1063,7 +1063,7 @@ components:
           type:
             - string
             - 'null'
-        departmentId:
+        deptId:
           type: string
           minLength: 1
           maxLength: 19
@@ -1164,7 +1164,7 @@ components:
         - sourceSystem
         - sourceOrderId
         - syncBatchId
-        - departmentId
+        - deptId
         - supplierId
         - authorized
         - storeId
@@ -1203,7 +1203,7 @@ components:
           maxLength: 128
           deprecated: true
           description: 兼容字段，非null时须等于公共账号，不支持代发
-        departmentId:
+        deptId:
           type: string
           minLength: 1
           maxLength: 19
@@ -1410,7 +1410,7 @@ components:
         relation:
           type: object
           properties:
-            departmentId:
+            deptId:
               type: string
               minLength: 1
               maxLength: 19
@@ -1433,7 +1433,7 @@ components:
           type: string
           minLength: 1
           maxLength: 30
-        departmentIds:
+        deptIds:
           type: array
           items:
             type: string

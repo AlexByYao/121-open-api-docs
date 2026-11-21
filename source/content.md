@@ -1,6 +1,6 @@
 # 121 接口交接文档
 
-版本 **2.1.0** · 文档更新 **2026-11-21** · 服务提供方 **121系统**
+版本 **2.2.0** · 文档更新 **2026-11-21** · 服务提供方 **121系统**
 
 本文交付121开放接口的调用地址、鉴权方式、请求字段、响应字段、状态、错误码及联调示例。示例账号、手机号、部门和订单均为虚构数据；实际开放时间、调用凭据及有效测试数据由121提供方交付。
 
@@ -10,7 +10,7 @@
 
 1. 121确认测试接口已启用，线下交付appId、appSecret，以及有效测试账号和主数据；文档示例值不能直接作为测试数据。
 2. 在请求头填写App-Id、App-Secret和loginAccount，调用U01查询账号及可用部门。
-3. 从U01返回的departments确定departmentId，再调用D01获取供应商、项目、库位及审批人等字典；提交121的ID，不以名称代替。
+3. 从U01返回的departments确定deptId，再调用D01获取供应商、项目、库位及审批人等字典；提交121的ID，不以名称代替。
 4. 准备P01所需字段，固定本轮syncBatchId、Idempotency-Key和请求正文，再创建采购草稿；保存返回的applyId及首次明细ID映射。
 5. 调用P02或P03查询结果与状态；创建超时先用P02确认，再决定是否按原批次、原幂等键、原正文重试。
 6. 仅对未锁单草稿调用P04取消；以DELETED确认删除。C01为121主动发送的删除通知，接收地址及反向凭据配置完成后单独验收。
@@ -52,7 +52,24 @@
 | P04 | 取消同步并删除草稿 | POST | `/purchase-drafts/{draftId}/cancel` | `purchase-draft:cancel` |
 | C01 | 采购草稿删除通知 | POST | 接收方提供的固定回调地址 | 独立反向凭据 |
 
-`scope`是由121配置的系统调用权限，不需要作为请求参数提交。六个121入口统一校验公共loginAccount，查询和操作范围为“该用户所属有效部门 ∩ 应用授权部门”。创建departmentId须在上述交集中。U01只查询账号有效性，不提供账号归属认证。本版本操作人、发起人均取公共loginAccount，不支持代发。
+`scope`是由121配置的系统调用权限，不需要作为请求参数提交。六个121入口统一校验公共loginAccount，查询和操作范围为“该用户所属有效部门 ∩ 应用授权部门”。创建deptId须在上述交集中。U01只查询账号有效性，不提供账号归属认证。本版本操作人、发起人均取公共loginAccount，不支持代发。
+
+### 部门参数与权限规则
+
+同一含义的部门ID统一命名为`deptId`，部门ID列表命名为`deptIds`。字段名统一不改变传参位置或必填条件，也不新增公共部门请求头。
+
+| 接口或字段 | 部门参数规则 |
+| --- | --- |
+| U01用户查询 | 不传deptId；返回departments数组，部门对象自身仍使用id |
+| D01部门字典 | 不要求deptId，返回当前账号可用部门 |
+| D01其他字典 | Query必填deptId；库位返回relation.deptId，审批人员返回deptIds |
+| P01创建草稿 | Body必填deptId，确定本单所属部门 |
+| P02/P03查询、P04取消 | 不额外传deptId；121根据来源记录确定部门并校验权限 |
+| 错误详情 | 返回部门上下文时使用data.deptId |
+
+业务部门须处于“账号有效所属部门 ∩ 应用授权部门”范围；多部门账号创建时须明确提交一个deptId。查询、取消均校验原单所属部门，不能通过传入其他部门改变单据归属。
+
+2.2.0将旧版departmentId、departmentIds统一为deptId、deptIds；旧版创建正文departmentId不再接受，返回400 PARAM_INVALID，data.reason为UNKNOWN_FIELD。调用方须同步更新请求、响应解析及Postman环境变量；不要同时传入新旧字段。同轮请求的原始正文参与幂等校验，升级前应确认在途批次结果，不改名后重放旧批次。
 
 ### 数据约定
 
@@ -128,7 +145,7 @@ loginAccount按121原账号规则匹配，清理首尾ASCII空格后1—30个Uni
 | `reason` | string | 具体原因，全部取值见下表 |
 | `referenceType` | string | 引用类型，例如`sale-channels`、`supplier`或`approver` |
 | `referenceId` | string / null | 请求中提交的引用ID；缺失时可为null |
-| `departmentId` | string | 引用校验使用的部门ID |
+| `deptId` | string | 引用校验使用的部门ID |
 | `roleCode` | string | 审批角色，取值见D01“审批角色枚举” |
 | `missingMaterialCodes` | string[] | 本次扫描的全部缺失物料编码，去重并保留顺序 |
 | `materialCode` | string | 存在重复匹配或未匹配的物料编码 |
@@ -186,7 +203,7 @@ loginAccount按121原账号规则匹配，清理首尾ASCII空格后1—30个Uni
 | `phoneNumber` | string | 121用户资料维护的完整手机号（sys_user.phonenumber），未维护时为空字符串，不影响账号校验 |
 | `status` | string | 成功时固定 `ACTIVE`，表示启用；停用账号返回错误，不返回DISABLED对象 |
 | `departments` | array | 有效用户成员部门与客户端授权部门的交集；全部模式返回用户所属的全部有效部门，成功至少1项 |
-| `departments[].id` | string | 部门唯一ID，创建草稿时作为departmentId |
+| `departments[].id` | string | 部门唯一ID，创建草稿时作为deptId |
 | `departments[].code` | string | 业务部门编码，缺失时为空字符串 |
 | `departments[].name` | string | 部门名称 |
 
@@ -272,7 +289,7 @@ loginAccount按121原账号规则匹配，清理首尾ASCII空格后1—30个Uni
 
 | type | 名称 | 返回/联动规则 | 创建时使用 |
 | --- | --- | --- | --- |
-| `departments` | 部门 | 本次公共用户可用交集内的有效部门；可按parentId筛选 | `departmentId = id` |
+| `departments` | 部门 | 本次公共用户可用交集内的有效部门；可按parentId筛选 | `deptId = id` |
 | `suppliers` | 供应商 | 现有全局供应商/双角色合作商；额外返回requiresProject | `supplierId = id` |
 | `projects` | 项目 | 现有全局项目字典 | `projectId = id` |
 | `stores` | 库位 | 按deptId，可选按projectId筛选；返回relation | `storeId = id` |
@@ -313,12 +330,12 @@ loginAccount按121原账号规则匹配，清理首尾ASCII空格后1—30个Uni
 | `items[].status` | string | 所有字典 | 固定 `ACTIVE`，表示本次返回的有效项 |
 | `items[].parentId` | string | 部门 | 父部门ID；根层级可能为 `"0"` |
 | `items[].requiresProject` | boolean | 供应商 | true：创建必须带projectId；false：项目可选 |
-| `items[].relation.departmentId` | string | 库位 | 库位所属部门ID |
+| `items[].relation.deptId` | string | 库位 | 库位所属部门ID |
 | `items[].relation.projectId` | string | 库位且存在值 | 关联项目ID；`"0"` 表示未绑定具体项目 |
 | `items[].value` | number / string | 运费、税率、变现周期 | 实际业务值，创建时传value；不能把字典项ID当金额/天数 |
 | `items[].unit` | string | 同上 | `CNY`=人民币元；`RATIO`=比例；`DAY`=天 |
 | `items[].loginAccount` | string | 审批人员 | 人员的121登录账号 |
-| `items[].departmentIds` | array of string | 审批人员 | 人员成员部门与客户本次部门范围交集中的ID；跨部门审批人可为空数组，不代表不可选 |
+| `items[].deptIds` | array of string | 审批人员 | 人员成员部门与客户本次部门范围交集中的ID；跨部门审批人可为空数组，不代表不可选 |
 
 ### 请求与响应示例
 
@@ -347,10 +364,10 @@ HTTP 200，省份示例：
 ```json
 {
   "supplierItem": {"id":"1001","code":"","name":"示例供应商","status":"ACTIVE","requiresProject":true},
-  "storeItem": {"id":"3001","code":"","name":"示例直运库","status":"ACTIVE","relation":{"departmentId":"80001","projectId":"2001"}},
+  "storeItem": {"id":"3001","code":"","name":"示例直运库","status":"ACTIVE","relation":{"deptId":"80001","projectId":"2001"}},
   "taxRateItem": {"id":"0.13","code":"","name":"13%","status":"ACTIVE","value":0.13,"unit":"RATIO"},
   "cashCycleItem": {"id":"7","code":"","name":"30","status":"ACTIVE","value":30,"unit":"DAY"},
-  "approvalUserItem": {"id":"101","code":"","name":"张三","status":"ACTIVE","loginAccount":"zhangsan","departmentIds":["80001"]}
+  "approvalUserItem": {"id":"101","code":"","name":"张三","status":"ACTIVE","loginAccount":"zhangsan","deptIds":["80001"]}
 }
 ```
 
@@ -389,12 +406,12 @@ HTTP 200，省份示例：
 | `syncBatchId` | 本轮同步批次 | string | 是 | UUID；同轮重试不变，确认删除后重新同步用新UUID |
 | `operatorLoginAccount` | 旧版兼容操作人 | string / null | 否 | 建议省略，由公共loginAccount取得；非null时须与公共账号规范化后相同，否则403 OPERATOR_FORBIDDEN |
 | `initiatorLoginAccount` | 旧版兼容发起人 | string / null | 否 | 建议省略，由公共loginAccount取得；非null时须与公共账号相同，不支持代发 |
-| `departmentId` | 业务部门 | string | 是 | 用户所属、客户端授权且启用的121部门ID |
+| `deptId` | 业务部门 | string | 是 | 用户所属、客户端授权且启用的121部门ID |
 | `supplierId` | 供应商 | string | 是 | D01 suppliers返回的ID；同步后不可改供应商 |
 | `supplierName` | 供应商名称 | string | 否 | 最长100，不用于查找、不更新主数据；ID不存在时用于错误信息，未提供名称则使用ID；有效时以ID对应名称为准 |
 | `authorized` | 是否授权 | boolean | 是 | true=授权；false=未授权，false是合法值，不等同未填 |
 | `projectId` | 项目 | string | 条件 | 供应商requiresProject=true时必填；提供时必须有效 |
-| `storeId` | 库位 | string | 是 | 属departmentId；存在非零项目关联时与提交项目一致 |
+| `storeId` | 库位 | string | 是 | 属deptId；存在非零项目关联时与提交项目一致 |
 | `provinceId` | 省份 | string | 是 | 当前部门省份字典ID，不是行政区划编码 |
 | `saleChannelId` | 销售渠道 | string | 是 | 当前部门渠道字典ID |
 | `paymentMethodId` | 付款方式 | string | 否 | 提供时为当前部门有效付款方式ID |
@@ -413,7 +430,7 @@ HTTP 200，省份示例：
 
 ### 可选审批人员
 
-以下都是string类型、可选、正整数用户ID；提供时用户须启用未删且具有相应有效角色。仅产品经理须属于当前部门，其他审批角色允许跨部门。通过D01的approval-users取得ID，不能直接传姓名；departmentIds可能为空数组，不代表该跨部门审批人无效。121按现有业务字段保存人员姓名。
+以下都是string类型、可选、正整数用户ID；提供时用户须启用未删且具有相应有效角色。仅产品经理须属于当前部门，其他审批角色允许跨部门。通过D01的approval-users取得ID，不能直接传姓名；deptIds可能为空数组，不代表该跨部门审批人无效。121按现有业务字段保存人员姓名。
 
 审批人字段须符合上述角色与有效性条件；没有匹配人员时应先补齐121人员配置，121不按姓名匹配或自动新增人员。
 
@@ -491,7 +508,7 @@ P01、P02、P03和P04使用相同业务对象。
   "sourceSystem": "INTELLIGENT_OFFICE",
   "sourceOrderId": "PC202611170001",
   "syncBatchId": "550e8400-e29b-41d4-a716-446655440001",
-  "departmentId": "80001",
+  "deptId": "80001",
   "supplierId": "1001",
   "authorized": true,
   "projectId": "2001",
@@ -900,7 +917,7 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 | 400 | `PARAM_INVALID` | 请求参数错误 | 缺少/重复/非法公共loginAccount，非法账号编码，必填项或字段格式、类型、长度、精度/范围错误，未知/重复JSON字段，错误query/幂等键 | 修正请求，不原样自动重试 |
 | 401 | `AUTH_INVALID` | 系统凭据无效 | App-Id/App-Secret缺失、重复、错误，应用停用或入口关闭 | 核对本环境两项凭据及部署配置 |
 | 403 | `AUTH_FORBIDDEN` | 缺接口权限 | 客户端未配置当前接口scope | 联系121开通最小权限 |
-| 403 | `OPERATOR_FORBIDDEN` | 业务操作越权 | 公共用户无可用部门，deptId/departmentId越权，兼容正文账号与公共账号不一致，禁止代发或变更来源单部门 | 修正用户/部门并确认授权 |
+| 403 | `OPERATOR_FORBIDDEN` | 业务操作越权 | 公共用户无可用部门，deptId越权，兼容正文账号与公共账号不一致，禁止代发或变更来源单部门 | 修正用户/部门并确认授权 |
 | 404 | `USER_NOT_FOUND` | 用户不存在 | 账号不存在或已删除 | 核对loginAccount并使用有效账号 |
 | 404 | `DRAFT_NOT_FOUND` | 同步采购单不可见 | 没有来源记录、主单不存在、其他客户或非授权部门 | 核对ID、来源、批次与授权 |
 | 404 | `NOT_FOUND` | 字典类型不存在 | D01 type不在支持列表 | 使用D01“字典类型及联动”枚举 |
@@ -971,7 +988,7 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 
 导入集合和环境，选择测试环境，填写121线下交付的appId、appSecret和测试账号，直接点击Send；无需数据库账号、员工密码或登录Token。集合展开全部字典和审批角色，共23个测试请求；先读后写，采购创建和取消须逐项手动执行。
 
-发布文档不代表测试后端已更新。本版本新增公共账号及按用户部门授权，121须部署配套2.1.0后端，调用方须携带本版公共请求头；两项应用凭据配置可沿用，无需新增数据库字段。旧版请求缺少公共账号将返回400。部署后以U01和D01只读请求验收，再使用专用测试单验证采购接口。
+发布文档不代表测试后端已更新。2.2.0统一部门字段名称，121须部署配套后端，调用方须更新创建正文、返回解析及Postman变量；App-Id、App-Secret、loginAccount公共请求头及部门授权规则保持。两项应用凭据配置可沿用，无需调整数据库表结构或服务端department-ids授权配置。旧版创建正文departmentId将返回400 PARAM_INVALID。部署后先以U01和D01只读请求验收，再使用专用测试单验证采购接口。
 
 ### 联调前业务边界
 

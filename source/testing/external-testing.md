@@ -1,6 +1,6 @@
 # 121开放接口：外部测试说明
 
-配套接口文档2.1.0，文档更新2026-11-21。
+配套接口文档2.2.0，文档更新2026-11-21。
 
 测试基础地址：`http://testfcst.chinaptac.com/open-api/v1`。测试和正式使用相同路径、字段和凭据规则，凭据分别交付。GitHub Pages只提供文档及文件下载，不处理业务请求。
 
@@ -21,7 +21,7 @@
 1. 下载并导入同目录的`121-open-api-external.postman_collection.json`和`121-open-api-test.postman_environment.json`。
 2. 在Postman右上角选择导入的测试环境；填写appId、appSecret和loginAccount，baseUrl保持测试地址。环境变量优先于集合变量，避免填写后仍被空环境变量覆盖。
 3. 先对U01点击Send。集合全部请求已填写App-Id、App-Secret、loginAccount三个公共请求头，直接发送；无需发送前脚本、Bearer Token或数据库账号。
-4. 成功后，从U01的departments选定departmentId；填写测试环境变量，再逐项调用字典。库位请求带projectId筛选，不需要筛选时删除该Query参数；审批人请求已列出全部七种角色。
+4. 成功后，从U01的departments选定deptId；填写测试环境变量，再逐项调用字典。库位请求带projectId筛选，不需要筛选时删除该Query参数；审批人请求已列出全部七种角色。
 
 loginAccount环境变量用于所有请求头，普通ASCII账号直接填写；中文、百分号等先用UTF-8百分号编码，例如张三填写`%E5%BC%A0%E4%B8%89`，`a%b`填写`a%25b`。集合没有自动编码脚本，不要重复编码。U01正文使用`{}`，查询当前公共账号。所有查询、创建及取消范围均为该用户有效成员部门与应用授权部门的交集；只有审批人选项保留原121跨部门规则。U01仅查询账号有效性，不提供账号归属认证；调用方须验证账号使用权限。
 

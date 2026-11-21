@@ -15,7 +15,7 @@
   <a class="skip-link" href="#content">跳到文档正文</a>
   <header class="site-header">
     <a class="brand" href="#top"><span class="brand-mark">121</span><span>接口交接文档<small>用户、字典与采购草稿</small></span></a>
-    <div class="header-actions"><span class="version">v2.1.0</span><a href="./downloads/openapi.yaml" download>下载 OpenAPI</a><button id="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">目录</button></div>
+    <div class="header-actions"><span class="version">v2.2.0</span><a href="./downloads/openapi.yaml" download>下载 OpenAPI</a><button id="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">目录</button></div>
   </header>
   <aside id="sidebar" class="sidebar" aria-label="文档目录">
     <label class="search-label" for="doc-search">查找文档</label>
@@ -38,14 +38,14 @@
     <div class="overview"><details><summary>展开完整章节目录</summary><ol><li><a href="#section-1">接入说明</a></li><li><a href="#section-2">U01 查询121用户信息（POST）</a></li><li><a href="#section-3">D01 查询基础字典（GET）</a></li><li><a href="#section-4">P01 创建采购草稿（POST）</a></li><li><a href="#section-5">P02 按来源和批次查询草稿（GET）</a></li><li><a href="#section-6">P03 按121采购单ID查询草稿（GET）</a></li><li><a href="#section-7">P04 取消同步并删除草稿（POST）</a></li><li><a href="#section-8">C01 采购草稿删除通知（POST）</a></li><li><a href="#section-9">返回码说明</a></li><li><a href="#section-10">附录</a></li></ol></details></div>
     <div id="no-results" hidden>未找到匹配内容。请尝试接口编号（如 P01）、参数名或错误码。</div>
     <div class="document-intro"><h1 id="top">121 接口交接文档</h1>
-<p>版本 <strong>2.1.0</strong> · 文档更新 <strong>2026-11-21</strong> · 服务提供方 <strong>121系统</strong></p>
+<p>版本 <strong>2.2.0</strong> · 文档更新 <strong>2026-11-21</strong> · 服务提供方 <strong>121系统</strong></p>
 <p>本文交付121开放接口的调用地址、鉴权方式、请求字段、响应字段、状态、错误码及联调示例。示例账号、手机号、部门和订单均为虚构数据；实际开放时间、调用凭据及有效测试数据由121提供方交付。</p>
 </div><section class="doc-section" data-section="section-1"><h2 id="section-1">接入说明</h2>
 <h3 id="section-1-1">联调顺序</h3>
 <ol>
 <li>121确认测试接口已启用，线下交付appId、appSecret，以及有效测试账号和主数据；文档示例值不能直接作为测试数据。</li>
 <li>在请求头填写App-Id、App-Secret和loginAccount，调用U01查询账号及可用部门。</li>
-<li>从U01返回的departments确定departmentId，再调用D01获取供应商、项目、库位及审批人等字典；提交121的ID，不以名称代替。</li>
+<li>从U01返回的departments确定deptId，再调用D01获取供应商、项目、库位及审批人等字典；提交121的ID，不以名称代替。</li>
 <li>准备P01所需字段，固定本轮syncBatchId、Idempotency-Key和请求正文，再创建采购草稿；保存返回的applyId及首次明细ID映射。</li>
 <li>调用P02或P03查询结果与状态；创建超时先用P02确认，再决定是否按原批次、原幂等键、原正文重试。</li>
 <li>仅对未锁单草稿调用P04取消；以DELETED确认删除。C01为121主动发送的删除通知，接收地址及反向凭据配置完成后单独验收。</li>
@@ -185,8 +185,46 @@
 </tr>
 </tbody>
 </table></div>
-<p><code>scope</code>是由121配置的系统调用权限，不需要作为请求参数提交。六个121入口统一校验公共loginAccount，查询和操作范围为“该用户所属有效部门 ∩ 应用授权部门”。创建departmentId须在上述交集中。U01只查询账号有效性，不提供账号归属认证。本版本操作人、发起人均取公共loginAccount，不支持代发。</p>
-<h3 id="section-1-5">数据约定</h3>
+<p><code>scope</code>是由121配置的系统调用权限，不需要作为请求参数提交。六个121入口统一校验公共loginAccount，查询和操作范围为“该用户所属有效部门 ∩ 应用授权部门”。创建deptId须在上述交集中。U01只查询账号有效性，不提供账号归属认证。本版本操作人、发起人均取公共loginAccount，不支持代发。</p>
+<h3 id="section-1-5">部门参数与权限规则</h3>
+<p>同一含义的部门ID统一命名为<code>deptId</code>，部门ID列表命名为<code>deptIds</code>。字段名统一不改变传参位置或必填条件，也不新增公共部门请求头。</p>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>接口或字段</th>
+<th>部门参数规则</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>U01用户查询</td>
+<td>不传deptId；返回departments数组，部门对象自身仍使用id</td>
+</tr>
+<tr>
+<td>D01部门字典</td>
+<td>不要求deptId，返回当前账号可用部门</td>
+</tr>
+<tr>
+<td>D01其他字典</td>
+<td>Query必填deptId；库位返回relation.deptId，审批人员返回deptIds</td>
+</tr>
+<tr>
+<td>P01创建草稿</td>
+<td>Body必填deptId，确定本单所属部门</td>
+</tr>
+<tr>
+<td>P02/P03查询、P04取消</td>
+<td>不额外传deptId；121根据来源记录确定部门并校验权限</td>
+</tr>
+<tr>
+<td>错误详情</td>
+<td>返回部门上下文时使用data.deptId</td>
+</tr>
+</tbody>
+</table></div>
+<p>业务部门须处于“账号有效所属部门 ∩ 应用授权部门”范围；多部门账号创建时须明确提交一个deptId。查询、取消均校验原单所属部门，不能通过传入其他部门改变单据归属。</p>
+<p>2.2.0将旧版departmentId、departmentIds统一为deptId、deptIds；旧版创建正文departmentId不再接受，返回400 PARAM_INVALID，data.reason为UNKNOWN_FIELD。调用方须同步更新请求、响应解析及Postman环境变量；不要同时传入新旧字段。同轮请求的原始正文参与幂等校验，升级前应确认在途批次结果，不改名后重放旧批次。</p>
+<h3 id="section-1-6">数据约定</h3>
 <ul>
 <li>ID使用JSON字符串，避免大整数丢精度；必填ID为正整数形式。字典中的 <code>code</code> 是业务编码，不能替代 <code>id</code>。</li>
 <li>所有金额以人民币元计，使用十进制数，非负、最多两位小数；单价、金额及采购合计最大 <code>9999999999999.99</code>。</li>
@@ -197,7 +235,7 @@
 <li>来源草稿创建后供应商不可修改；单据所属部门不可修改；退款审核、结果金额保存沿用原入口权限，不额外按操作人部门限制，其余业务字段按121现有草稿规则编辑。取消同步只允许删除草稿，已锁单及退单状态不能取消。</li>
 </ul>
 <p>六个121入口均使用App-Id、App-Secret和公共loginAccount。每次请求携带121交付的两项固定凭据及当前操作人账号，无需员工密码或Token。应用密钥仅在服务器端保存。正式环境使用HTTPS，测试允许HTTP；HTTP会明文传输凭据和正文，仅使用测试凭据与测试数据。</p>
-<h3 id="section-1-6">公共请求头参数</h3>
+<h3 id="section-1-7">公共请求头参数</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -256,7 +294,7 @@
 <p>Header名称不区分大小写，两项凭据的值区分大小写。凭据为1—256个可打印ASCII字符（不含空格），不得重复传头或附加空格、换行；不放在URL、正文、前端代码或日志中。Postman直接使用变量，无发送前鉴权脚本。</p>
 <p>loginAccount按121原账号规则匹配，清理首尾ASCII空格后1—30个Unicode码点，禁止内部空白、控制及格式字符；解码前输入最长1536字符，解码后原输入最多128码点。普通ASCII账号直接传；含中文、百分号等字符时先做UTF-8百分号编码（JavaScript用<code>encodeURIComponent(account)</code>）。例如张三传<code>%E5%BC%A0%E4%B8%89</code>，<code>a%b</code>传<code>a%25b</code>，<code>a+b</code>可传<code>a%2Bb</code>。121严格解码一次，加号不当空格，不接受非法UTF-8或重复loginAccount请求头。</p>
 <p>每次先校验应用凭据，再查验账号与有效部门交集，最后执行接口业务。loginAccount用于声明本次操作人，不能单独作为登录凭据；账号使用权限由调用方验证。公共校验失败时不会进入业务处理。</p>
-<h3 id="section-1-7">正文与重试</h3>
+<h3 id="section-1-8">正文与重试</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -291,7 +329,7 @@
 </tr>
 </tbody>
 </table></div>
-<h3 id="section-1-8">统一响应字段</h3>
+<h3 id="section-1-9">统一响应字段</h3>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
 <span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-literal">200</span>, <span class="token-key">&quot;errorCode&quot;</span>: <span class="token-literal">null</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;message&quot;</span>: <span class="token-string">&quot;success&quot;</span>,</span>
@@ -342,7 +380,7 @@
 </table></div>
 <p>成功HTTP为200；失败使用实际HTTP状态码。所有应用响应带 <code>Cache-Control: no-store</code>；401额外带 <code>WWW-Authenticate: AppKey realm=&quot;121-open-api&quot;</code>。网关502/504可能没有JSON正文，应按HTTP失败处理。</p>
 <p>响应体<code>code</code>采用数字，与121现有接口成功码200保持一致。成功为<code>HTTP 200 + code=200 + errorCode=null</code>；缺失物料为<code>HTTP 422 + code=422 + errorCode=MATERIAL_NOT_FOUND</code>。详细原因仍放在message及data，不能解析message编写业务分支。HTTP状态继续按实际结果返回，不将失败统一转成HTTP200。部门和字典对象内部的code仍是原业务编码字符串。</p>
-<h3 id="section-1-9">错误详情字段与取值</h3>
+<h3 id="section-1-10">错误详情字段与取值</h3>
 <p>以下字段按错误场景选择返回，不保证每次失败都有详情。明细下标从0开始，<code>sourceDetailId</code>便于调用方定位自己的明细。未知异常、鉴权错误等仍可能<code>data=null</code>，通过requestId排查，不返回SQL或堆栈。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -379,7 +417,7 @@
 <td>请求中提交的引用ID；缺失时可为null</td>
 </tr>
 <tr>
-<td><code>departmentId</code></td>
+<td><code>deptId</code></td>
 <td>string</td>
 <td>引用校验使用的部门ID</td>
 </tr>
@@ -590,7 +628,7 @@
 <tr>
 <td><code>departments[].id</code></td>
 <td>string</td>
-<td>部门唯一ID，创建草稿时作为departmentId</td>
+<td>部门唯一ID，创建草稿时作为deptId</td>
 </tr>
 <tr>
 <td><code>departments[].code</code></td>
@@ -800,7 +838,7 @@
 <td><code>departments</code></td>
 <td>部门</td>
 <td>本次公共用户可用交集内的有效部门；可按parentId筛选</td>
-<td><code>departmentId = id</code></td>
+<td><code>deptId = id</code></td>
 </tr>
 <tr>
 <td><code>suppliers</code></td>
@@ -990,7 +1028,7 @@
 <td>true：创建必须带projectId；false：项目可选</td>
 </tr>
 <tr>
-<td><code>items[].relation.departmentId</code></td>
+<td><code>items[].relation.deptId</code></td>
 <td>string</td>
 <td>库位</td>
 <td>库位所属部门ID</td>
@@ -1020,7 +1058,7 @@
 <td>人员的121登录账号</td>
 </tr>
 <tr>
-<td><code>items[].departmentIds</code></td>
+<td><code>items[].deptIds</code></td>
 <td>array of string</td>
 <td>审批人员</td>
 <td>人员成员部门与客户本次部门范围交集中的ID；跨部门审批人可为空数组，不代表不可选</td>
@@ -1044,10 +1082,10 @@
 <p>以下仅展示不同字典的 <code>items[]</code> 结构；仍使用同样的分页响应外壳。</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
 <span class="code-line">  <span class="token-key">&quot;supplierItem&quot;</span>: {<span class="token-key">&quot;id&quot;</span>:<span class="token-string">&quot;1001&quot;</span>,<span class="token-key">&quot;code&quot;</span>:<span class="token-string">&quot;&quot;</span>,<span class="token-key">&quot;name&quot;</span>:<span class="token-string">&quot;示例供应商&quot;</span>,<span class="token-key">&quot;status&quot;</span>:<span class="token-string">&quot;ACTIVE&quot;</span>,<span class="token-key">&quot;requiresProject&quot;</span>:<span class="token-literal">true</span>},</span>
-<span class="code-line">  <span class="token-key">&quot;storeItem&quot;</span>: {<span class="token-key">&quot;id&quot;</span>:<span class="token-string">&quot;3001&quot;</span>,<span class="token-key">&quot;code&quot;</span>:<span class="token-string">&quot;&quot;</span>,<span class="token-key">&quot;name&quot;</span>:<span class="token-string">&quot;示例直运库&quot;</span>,<span class="token-key">&quot;status&quot;</span>:<span class="token-string">&quot;ACTIVE&quot;</span>,<span class="token-key">&quot;relation&quot;</span>:{<span class="token-key">&quot;departmentId&quot;</span>:<span class="token-string">&quot;80001&quot;</span>,<span class="token-key">&quot;projectId&quot;</span>:<span class="token-string">&quot;2001&quot;</span>}},</span>
+<span class="code-line">  <span class="token-key">&quot;storeItem&quot;</span>: {<span class="token-key">&quot;id&quot;</span>:<span class="token-string">&quot;3001&quot;</span>,<span class="token-key">&quot;code&quot;</span>:<span class="token-string">&quot;&quot;</span>,<span class="token-key">&quot;name&quot;</span>:<span class="token-string">&quot;示例直运库&quot;</span>,<span class="token-key">&quot;status&quot;</span>:<span class="token-string">&quot;ACTIVE&quot;</span>,<span class="token-key">&quot;relation&quot;</span>:{<span class="token-key">&quot;deptId&quot;</span>:<span class="token-string">&quot;80001&quot;</span>,<span class="token-key">&quot;projectId&quot;</span>:<span class="token-string">&quot;2001&quot;</span>}},</span>
 <span class="code-line">  <span class="token-key">&quot;taxRateItem&quot;</span>: {<span class="token-key">&quot;id&quot;</span>:<span class="token-string">&quot;0.13&quot;</span>,<span class="token-key">&quot;code&quot;</span>:<span class="token-string">&quot;&quot;</span>,<span class="token-key">&quot;name&quot;</span>:<span class="token-string">&quot;13%&quot;</span>,<span class="token-key">&quot;status&quot;</span>:<span class="token-string">&quot;ACTIVE&quot;</span>,<span class="token-key">&quot;value&quot;</span>:<span class="token-literal">0.13</span>,<span class="token-key">&quot;unit&quot;</span>:<span class="token-string">&quot;RATIO&quot;</span>},</span>
 <span class="code-line">  <span class="token-key">&quot;cashCycleItem&quot;</span>: {<span class="token-key">&quot;id&quot;</span>:<span class="token-string">&quot;7&quot;</span>,<span class="token-key">&quot;code&quot;</span>:<span class="token-string">&quot;&quot;</span>,<span class="token-key">&quot;name&quot;</span>:<span class="token-string">&quot;30&quot;</span>,<span class="token-key">&quot;status&quot;</span>:<span class="token-string">&quot;ACTIVE&quot;</span>,<span class="token-key">&quot;value&quot;</span>:<span class="token-literal">30</span>,<span class="token-key">&quot;unit&quot;</span>:<span class="token-string">&quot;DAY&quot;</span>},</span>
-<span class="code-line">  <span class="token-key">&quot;approvalUserItem&quot;</span>: {<span class="token-key">&quot;id&quot;</span>:<span class="token-string">&quot;101&quot;</span>,<span class="token-key">&quot;code&quot;</span>:<span class="token-string">&quot;&quot;</span>,<span class="token-key">&quot;name&quot;</span>:<span class="token-string">&quot;张三&quot;</span>,<span class="token-key">&quot;status&quot;</span>:<span class="token-string">&quot;ACTIVE&quot;</span>,<span class="token-key">&quot;loginAccount&quot;</span>:<span class="token-string">&quot;zhangsan&quot;</span>,<span class="token-key">&quot;departmentIds&quot;</span>:[<span class="token-string">&quot;80001&quot;</span>]}</span>
+<span class="code-line">  <span class="token-key">&quot;approvalUserItem&quot;</span>: {<span class="token-key">&quot;id&quot;</span>:<span class="token-string">&quot;101&quot;</span>,<span class="token-key">&quot;code&quot;</span>:<span class="token-string">&quot;&quot;</span>,<span class="token-key">&quot;name&quot;</span>:<span class="token-string">&quot;张三&quot;</span>,<span class="token-key">&quot;status&quot;</span>:<span class="token-string">&quot;ACTIVE&quot;</span>,<span class="token-key">&quot;loginAccount&quot;</span>:<span class="token-string">&quot;zhangsan&quot;</span>,<span class="token-key">&quot;deptIds&quot;</span>:[<span class="token-string">&quot;80001&quot;</span>]}</span>
 <span class="code-line">}</span></code></pre></div></details>
 <h3 id="section-3-7">业务返回码</h3>
 <div class="table-scroll" tabindex="0"><table>
@@ -1174,7 +1212,7 @@
 <td>建议省略，由公共loginAccount取得；非null时须与公共账号相同，不支持代发</td>
 </tr>
 <tr>
-<td><code>departmentId</code></td>
+<td><code>deptId</code></td>
 <td>业务部门</td>
 <td>string</td>
 <td>是</td>
@@ -1213,7 +1251,7 @@
 <td>库位</td>
 <td>string</td>
 <td>是</td>
-<td>属departmentId；存在非零项目关联时与提交项目一致</td>
+<td>属deptId；存在非零项目关联时与提交项目一致</td>
 </tr>
 <tr>
 <td><code>provinceId</code></td>
@@ -1310,7 +1348,7 @@
 </table></div>
 <p>不要提交状态、创建人、121主单ID等额外字段。字符串拒绝控制字符和尖括号。未填写的可选ID应省略，不传空字符串。</p>
 <h3 id="section-4-3">可选审批人员</h3>
-<p>以下都是string类型、可选、正整数用户ID；提供时用户须启用未删且具有相应有效角色。仅产品经理须属于当前部门，其他审批角色允许跨部门。通过D01的approval-users取得ID，不能直接传姓名；departmentIds可能为空数组，不代表该跨部门审批人无效。121按现有业务字段保存人员姓名。</p>
+<p>以下都是string类型、可选、正整数用户ID；提供时用户须启用未删且具有相应有效角色。仅产品经理须属于当前部门，其他审批角色允许跨部门。通过D01的approval-users取得ID，不能直接传姓名；deptIds可能为空数组，不代表该跨部门审批人无效。121按现有业务字段保存人员姓名。</p>
 <p>审批人字段须符合上述角色与有效性条件；没有匹配人员时应先补齐121人员配置，121不按姓名匹配或自动新增人员。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1581,7 +1619,7 @@
 <span class="code-line">  <span class="token-key">&quot;sourceSystem&quot;</span>: <span class="token-string">&quot;INTELLIGENT_OFFICE&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;PC202611170001&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;syncBatchId&quot;</span>: <span class="token-string">&quot;550e8400-e29b-41d4-a716-446655440001&quot;</span>,</span>
-<span class="code-line">  <span class="token-key">&quot;departmentId&quot;</span>: <span class="token-string">&quot;80001&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;deptId&quot;</span>: <span class="token-string">&quot;80001&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;supplierId&quot;</span>: <span class="token-string">&quot;1001&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;authorized&quot;</span>: <span class="token-literal">true</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;projectId&quot;</span>: <span class="token-string">&quot;2001&quot;</span>,</span>
@@ -2540,7 +2578,7 @@
 <td>403</td>
 <td><code>OPERATOR_FORBIDDEN</code></td>
 <td>业务操作越权</td>
-<td>公共用户无可用部门，deptId/departmentId越权，兼容正文账号与公共账号不一致，禁止代发或变更来源单部门</td>
+<td>公共用户无可用部门，deptId越权，兼容正文账号与公共账号不一致，禁止代发或变更来源单部门</td>
 <td>修正用户/部门并确认授权</td>
 </tr>
 <tr>
@@ -2762,7 +2800,7 @@
 <li><a href="./downloads/121-open-api-test.postman_environment.json">Postman测试环境模板（无密钥）</a></li>
 </ul>
 <p>导入集合和环境，选择测试环境，填写121线下交付的appId、appSecret和测试账号，直接点击Send；无需数据库账号、员工密码或登录Token。集合展开全部字典和审批角色，共23个测试请求；先读后写，采购创建和取消须逐项手动执行。</p>
-<p>发布文档不代表测试后端已更新。本版本新增公共账号及按用户部门授权，121须部署配套2.1.0后端，调用方须携带本版公共请求头；两项应用凭据配置可沿用，无需新增数据库字段。旧版请求缺少公共账号将返回400。部署后以U01和D01只读请求验收，再使用专用测试单验证采购接口。</p>
+<p>发布文档不代表测试后端已更新。2.2.0统一部门字段名称，121须部署配套后端，调用方须更新创建正文、返回解析及Postman变量；App-Id、App-Secret、loginAccount公共请求头及部门授权规则保持。两项应用凭据配置可沿用，无需调整数据库表结构或服务端department-ids授权配置。旧版创建正文departmentId将返回400 PARAM_INVALID。部署后先以U01和D01只读请求验收，再使用专用测试单验证采购接口。</p>
 <h3 id="section-10-3">联调前业务边界</h3>
 <p>已确认：导入的数据类型、精度、有效值及计算方式以121原有线上业务为准；变现周期沿用原有规则，接口不另定单位或自动换算，不因附件示例修改现有计算。一张采购单只有一个销售渠道，创建时提交一个saleChannelId。变现周期已移除接入层新增的36500上限；明细税率已按原DECIMAL(15,2)字段适配，不再套用主单0/6%/13%枚举。主单下拉及原预算、利润、导出取价与计算规则保持。</p>
 <p>本期对账只保留121采购单ID（applyId）及首次同步明细ID映射，P02/P03现有查询范围满足该约定，不增加完整实时明细查询。C01协议保留，接收地址及反向凭据后续补充，当前先测试U01、D01和P01—P04；回调配置完成后另行验收。</p>
@@ -2853,7 +2891,7 @@
 </table></div>
 <p>向121反馈时提供环境、接口、HTTP状态、errorCode、requestId和时间，勿发送密钥、数据库密码或完整人员数据。</p>
 </section>
-    <footer class="document-footer"><span>121系统 · 开放接口 v2.1.0</span><a href="#top">返回顶部 ↑</a></footer>
+    <footer class="document-footer"><span>121系统 · 开放接口 v2.2.0</span><a href="#top">返回顶部 ↑</a></footer>
   </main>
 </body>
 </html>
