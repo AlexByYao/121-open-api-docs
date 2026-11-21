@@ -3,7 +3,7 @@ info:
   title: 121 User Verification API
   version: 2.5.0
   description: >-
-    调用方携带固定App-Id、App-Secret和必填loginAccount公共请求头。每次校验用户有效且至少有一个授权成员部门；范围为该用户有效成员部门与应用授权交集。无需员工密码或Token，测试HTTP正式HTTPS；须升级Jar和调用方请求头，表结构不变。
+    查询请求头loginAccount对应的121用户信息及可用部门。请求须携带有效的App-Id、App-Secret和loginAccount；返回部门为账号所属有效部门与应用授权部门的交集。
 servers:
   - url: 'http://testfcst.chinaptac.com/open-api/v1'
     description: 测试环境，允许HTTP联调；开放时间及测试凭据由121提供方交付
@@ -19,7 +19,7 @@ paths:
         - Users
       operationId: verify121User
       summary: 查询121用户信息
-      description: '返回公共loginAccount对应用户。POST正文可空或{}，不接受query或Idempotency-Key；兼容正文loginAccount非null时须与公共账号规范化后相同，否则403。'
+      description: '查询请求头loginAccount对应的用户。POST正文可为空或{}，不接受查询参数或Idempotency-Key；正文loginAccount提供非null值时须与请求头规范化后相同，否则返回403。'
       security:
         - AppId: []
           AppSecret: []
@@ -87,7 +87,7 @@ paths:
                 requestId: 7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41
                 data: null
         '403':
-          description: 用户无可用授权部门，或正文兼容账号与公共账号不一致
+          description: 用户无可用授权部门，或正文账号与请求头loginAccount不一致
           content:
             application/json:
               schema:
@@ -196,7 +196,7 @@ components:
             - 'null'
           maxLength: 128
           deprecated: true
-          description: 可选旧版兼容字段，建议省略。非null时按原账号规则规范化后须与公共账号相同，否则403 OPERATOR_FORBIDDEN；不是查询其他用户的参数
+          description: 可选字段，建议省略。提供非null值时须与请求头loginAccount规范化后相同，否则返回403 OPERATOR_FORBIDDEN。
     Department:
       type: object
       additionalProperties: true
@@ -242,7 +242,7 @@ components:
           description: 姓名或昵称未维护时为空字符串
         phoneNumber:
           type: string
-          description: 121用户资料sys_user.phonenumber中维护的完整手机号；未维护时为空字符串，不影响账号校验
+          description: 手机号；未维护时为空字符串，不影响账号校验
         status:
           type: string
           enum:
@@ -252,7 +252,7 @@ components:
           minItems: 1
           items:
             $ref: '#/components/schemas/Department'
-          description: 公共用户所属有效部门与应用授权部门的交集，至少1项。all-departments=true也不授予其他用户部门权限
+          description: 账号所属有效部门与应用授权部门的交集；成功响应至少包含1项
     SuccessResponse:
       type: object
       additionalProperties: true

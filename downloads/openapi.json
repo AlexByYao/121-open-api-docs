@@ -3,7 +3,7 @@
   "info": {
     "title": "121 开放接口",
     "version": "2.5.0",
-    "description": "服务器对服务器；每个121入口携带App-Id、App-Secret和loginAccount，校验有效用户并限制在用户有效成员部门与应用授权交集。无需员工登录或Token。测试允许HTTP、正式HTTPS；本版本需部署新Jar及app-id/app-secret配置。业务幂等和部门权限保留。"
+    "description": "121开放接口，提供用户及字典查询、采购草稿创建与查询、取消及删除通知。请求使用App-Id、App-Secret和loginAccount；数据访问受账号所属部门及应用授权范围约束。"
   },
   "servers": [
     {
@@ -29,7 +29,7 @@
         ],
         "operationId": "verify121User",
         "summary": "查询121用户信息",
-        "description": "返回公共loginAccount对应用户。POST正文可空或{}，不接受query或Idempotency-Key；兼容正文loginAccount非null时须与公共账号规范化后相同，否则403。",
+        "description": "查询请求头loginAccount对应的用户。POST正文可为空或{}，不接受查询参数或Idempotency-Key；正文loginAccount提供非null值时须与请求头规范化后相同，否则返回403。",
         "security": [
           {
             "AppId": [],
@@ -136,7 +136,7 @@
             }
           },
           "403": {
-            "description": "用户无可用授权部门，或正文兼容账号与公共账号不一致",
+            "description": "用户无可用授权部门，或正文账号与请求头loginAccount不一致",
             "content": {
               "application/json": {
                 "schema": {
@@ -513,7 +513,7 @@
     "/purchase-drafts": {
       "post": {
         "operationId": "createPurchaseDraft",
-        "summary": "创建采购草稿和全部明细；保存失败全部回滚，不以预算或生成校验拦截",
+        "summary": "创建采购草稿及全部明细；任一步骤失败整体回滚",
         "parameters": [
           {
             "$ref": "#/components/parameters/AppId"
@@ -1388,7 +1388,7 @@
             ],
             "maxLength": 128,
             "deprecated": true,
-            "description": "可选旧版兼容字段，建议省略。非null时按原账号规则规范化后须与公共账号相同，否则403 OPERATOR_FORBIDDEN；不是查询其他用户的参数"
+            "description": "可选字段，建议省略。提供非null值时须与请求头loginAccount规范化后相同，否则返回403 OPERATOR_FORBIDDEN。"
           }
         }
       },
@@ -1447,7 +1447,7 @@
           },
           "phoneNumber": {
             "type": "string",
-            "description": "121用户资料sys_user.phonenumber中维护的完整手机号；未维护时为空字符串，不影响账号校验"
+            "description": "手机号；未维护时为空字符串，不影响账号校验"
           },
           "status": {
             "type": "string",
@@ -1461,7 +1461,7 @@
             "items": {
               "$ref": "#/components/schemas/Department"
             },
-            "description": "公共用户所属有效部门与应用授权部门的交集，至少1项。all-departments=true也不授予其他用户部门权限"
+            "description": "账号所属有效部门与应用授权部门的交集；成功响应至少包含1项"
           }
         }
       },
@@ -1565,7 +1565,7 @@
             "description": "121自动生成的本次请求追踪编号"
           },
           "data": {
-            "description": "无详情时为null；已知校验错误返回ErrorDetail；SOURCE_ALREADY_SYNCED返回经部门授权校验的原Draft（含原syncBatchId），不得当作本次创建成功。客户端兼容可选字段。",
+            "description": "无详情时为null；参数及业务校验错误返回ErrorDetail；SOURCE_ALREADY_SYNCED返回可访问的已有采购单及其syncBatchId。调用方应按errorCode判断处理结果。",
             "anyOf": [
               {
                 "type": "null"
@@ -1742,7 +1742,7 @@
             "minimum": -9999999999999.99,
             "maximum": 9999999999999.99,
             "multipleOf": 0.01,
-            "description": "沿用原明细DECIMAL(15,2)有符号范围，最多两位有效小数；0.09表示9%；省略或null继承主单税率，不套用主单枚举"
+            "description": "数值范围-9999999999999.99至9999999999999.99，最多两位小数；0.09表示9%；省略或null使用主单税率"
           },
           "remark": {
             "type": "string",
@@ -1793,7 +1793,7 @@
             ],
             "maxLength": 128,
             "deprecated": true,
-            "description": "兼容字段，非null时须规范化后等于公共loginAccount；建议省略"
+            "description": "可选字段，建议省略；提供非null值时须与请求头loginAccount规范化后相同"
           },
           "initiatorLoginAccount": {
             "type": [
@@ -1802,7 +1802,7 @@
             ],
             "maxLength": 128,
             "deprecated": true,
-            "description": "兼容字段，非null时须等于公共账号，不支持代发"
+            "description": "可选字段，提供非null值时须与请求头loginAccount相同"
           },
           "deptId": {
             "type": "string",
@@ -1878,7 +1878,7 @@
             "type": "integer",
             "format": "int64",
             "minimum": 1,
-            "description": "沿用121原Long字段正整数，不新增36500上限，不进行天月换算；最大9223372036854775807"
+            "description": "正整数，最大9223372036854775807；按字典value提交，不自动换算单位"
           },
           "budgetMonth": {
             "type": "string",
@@ -1998,7 +1998,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 64,
-            "description": "需求中的121采购单序号，即purchase_apply.apply_id（Java applyId），与draftId相同，不另建编号"
+            "description": "121采购单序号，与draftId相同"
           },
           "sourceSystem": {
             "type": "string",
@@ -2162,7 +2162,7 @@
             ],
             "maxLength": 128,
             "deprecated": true,
-            "description": "兼容字段，建议省略；非null时须与公共loginAccount一致"
+            "description": "可选字段，建议省略；提供非null值时须与请求头loginAccount相同"
           },
           "reason": {
             "type": "string",
@@ -2221,7 +2221,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 64,
-            "description": "121采购单序号，即applyId，与draftId相同"
+            "description": "121采购单序号，与draftId相同"
           },
           "status": {
             "type": "string",
@@ -2277,7 +2277,7 @@
     "purchaseDraftDeleted": {
       "post": {
         "summary": "121采购草稿删除通知；发送至配置的接收地址，使用独立反向密钥",
-        "description": "固定URL由121运维配置，不从请求获取；正式HTTPS；测试HTTP须对应目标allow-http: true，默认false。URL不得带userinfo、query或fragment。回调使用固定App-Id、App-Secret请求头；HTTP明文传输凭据和正文，仅用于测试。",
+        "description": "向接收方提供的固定URL发送删除通知。正式环境使用HTTPS；URL不得包含用户信息、查询参数或fragment。通知携带独立的App-Id和App-Secret，按eventId幂等处理。",
         "parameters": [
           {
             "$ref": "#/components/parameters/AppId"

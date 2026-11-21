@@ -39,14 +39,14 @@
     <div id="no-results" hidden>未找到匹配内容。请尝试接口编号（如 P01）、参数名或错误码。</div>
     <div class="document-intro"><h1 id="top">121 接口交接文档</h1>
 <p>版本 <strong>2.5.0</strong> · 文档更新 <strong>2026-11-21</strong> · 服务提供方 <strong>121系统</strong></p>
-<p>本文交付121开放接口的调用地址、鉴权方式、请求字段、响应字段、状态、错误码及联调示例。示例账号、手机号、部门和订单均为虚构数据；实际开放时间、调用凭据及有效测试数据由121提供方交付。</p>
+<p>本文定义121开放接口的请求方式、鉴权规则、参数、响应、状态及错误码。示例数据仅用于说明报文格式；接入凭据和测试数据由121服务提供方提供。</p>
 </div><section class="doc-section" data-section="section-1"><h2 id="section-1">接入说明</h2>
 <h3 id="section-1-1">联调顺序</h3>
 <ol>
-<li>121确认测试接口已启用，线下交付appId、appSecret，以及有效测试账号和主数据；文档示例值不能直接作为测试数据。</li>
+<li>获取测试环境App-Id、App-Secret、有效账号及业务测试数据。</li>
 <li>在请求头填写App-Id、App-Secret和loginAccount，调用U01查询账号及可用部门。</li>
 <li>从U01返回的departments确定deptId，再调用D01获取供应商、项目、库位及审批人等字典；提交121的ID，不以名称代替。</li>
-<li>准备P01所需字段，固定本轮syncBatchId、Idempotency-Key和请求正文，再创建采购草稿；保存返回的applyId及首次明细ID映射。</li>
+<li>准备P01所需字段，固定本轮syncBatchId、Idempotency-Key和请求正文，再创建采购草稿；保存返回的draftId及明细ID映射。</li>
 <li>调用P02或P03查询结果与状态；创建超时先用P02确认，再决定是否按原批次、原幂等键、原正文重试。</li>
 <li>仅对未锁单草稿调用P04取消；以DELETED确认删除。C01为121主动发送的删除通知，接收地址及反向凭据配置完成后单独验收。</li>
 </ol>
@@ -82,7 +82,7 @@
 </tr>
 <tr>
 <td>draftId、purchaseOrderNo</td>
-<td>121返回的采购单applyId，两字段相同</td>
+<td>121返回的采购单ID，两字段值相同</td>
 <td>创建后保存，不能自行生成；重新同步可能得到新ID</td>
 </tr>
 <tr>
@@ -97,7 +97,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>同一轮重复请求复用已保存的业务批次、幂等键和原正文。结果未知时先P02查询；404也可能表示客户端或部门不可见，应核对原参数及授权后，再以原批次、原键、原正文重试。</p>
+<p>同一批次的重复请求须使用相同的幂等键和原始正文。结果未知时先调用P02；返回404时，应核对查询参数和访问范围，再使用原批次、原幂等键及原始正文重试。</p>
 <h3 id="section-1-3">调用地址</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -177,9 +177,9 @@
 </tr>
 </tbody>
 </table></div>
-<p>六个121入口无需配置或校验逐接口权限（scope），不要求121网页菜单、按钮权限；应用凭据有效且应用已启用即可进入账号和部门校验。旧配置中的scopes可删除，保留也不生效。六个121入口统一校验公共loginAccount，查询和操作范围为“该用户所属有效部门 ∩ 应用授权部门”。创建deptId须在上述交集中。U01只查询账号有效性，不提供账号归属认证。本版本操作人、发起人均取公共loginAccount，不支持代发。</p>
+<p>请求须携带有效的应用凭据和121操作人账号。可访问的部门范围为该账号所属有效部门与应用授权部门的交集。采购单操作人和发起人均为请求头中的<code>loginAccount</code>。</p>
 <h3 id="section-1-5">部门参数与权限规则</h3>
-<p>同一含义的部门ID统一命名为<code>deptId</code>，部门ID列表命名为<code>deptIds</code>。字段名统一不改变传参位置或必填条件，也不新增公共部门请求头。</p>
+<p>部门参数使用<code>deptId</code>，部门ID列表使用<code>deptIds</code>。各接口的传参位置及要求如下。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -215,16 +215,15 @@
 </tbody>
 </table></div>
 <p>业务部门须处于“账号有效所属部门 ∩ 应用授权部门”范围；多部门账号创建时须明确提交一个deptId。查询、取消均校验原单所属部门，不能通过传入其他部门改变单据归属。</p>
-<p>2.2.0将旧版departmentId、departmentIds统一为deptId、deptIds；旧版创建正文departmentId不再接受，返回400 PARAM_INVALID，data.reason为UNKNOWN_FIELD。调用方须同步更新请求、响应解析及Postman环境变量；不要同时传入新旧字段。同轮请求的原始正文参与幂等校验，升级前应确认在途批次结果，不改名后重放旧批次。</p>
 <h3 id="section-1-6">数据约定</h3>
 <ul>
 <li>ID使用JSON字符串，避免大整数丢精度；必填ID为正整数形式。字典中的 <code>code</code> 是业务编码，不能替代 <code>id</code>。</li>
 <li>所有金额以人民币元计，使用十进制数，非负、最多两位小数；单价、金额及采购合计最大 <code>9999999999999.99</code>。</li>
 <li>数量使用整数，最大 <code>999999999</code>。税率传比例：<code>0.13</code> 表示13%，不能传 <code>13</code>。</li>
-<li><code>cashCycle</code>沿用121线上原有变现周期口径，不在对接层换算；<code>budgetMonth</code> 为 <code>YYYY-MM</code>；<code>purchaseDate</code> 为 <code>yyyy-MM-dd</code>。回调 <code>eventTime</code> 为UTC ISO 8601，例如 <code>2026-11-17T02:00:00Z</code>。</li>
-<li>P01必填预算月份、销售数量、销售单价和当日库存。121保存明细传入价格；预算、利润和导出继续沿用现有取价规则，同步接口不更新物料主数据价格。</li>
+<li><code>cashCycle</code>为采购变现周期值，按字典返回值提交；<code>budgetMonth</code> 为 <code>YYYY-MM</code>；<code>purchaseDate</code> 为 <code>yyyy-MM-dd</code>。回调 <code>eventTime</code> 为UTC ISO 8601，例如 <code>2026-11-17T02:00:00Z</code>。</li>
+<li>P01必填预算月份、销售数量、销售单价和当日库存。明细提交价格保存于采购草稿，不更新物料基础价格。</li>
 <li>供应商与项目、库位的关联按D01字典及P01字段约束校验；一张采购单只提交一个saleChannelId。</li>
-<li>来源草稿创建后供应商不可修改；单据所属部门不可修改；退款审核、结果金额保存沿用原入口权限，不额外按操作人部门限制，其余业务字段按121现有草稿规则编辑。取消同步只允许删除草稿，已锁单及退单状态不能取消。</li>
+<li>采购草稿的供应商和所属部门不可修改。P04仅允许取消草稿，已锁单及退单状态不可取消。</li>
 </ul>
 <p>六个121入口均使用App-Id、App-Secret和公共loginAccount。每次请求携带121交付的两项固定凭据及当前操作人账号，无需员工密码或Token。应用密钥仅在服务器端保存。正式环境使用HTTPS，测试允许HTTP；HTTP会明文传输凭据和正文，仅使用测试凭据与测试数据。</p>
 <h3 id="section-1-7">公共请求头参数</h3>
@@ -283,8 +282,8 @@
 </tr>
 </tbody>
 </table></div>
-<p>Header名称不区分大小写，两项凭据的值区分大小写。凭据为1—256个可打印ASCII字符（不含空格），不得重复传头或附加空格、换行；不放在URL、正文、前端代码或日志中。Postman直接使用变量，无发送前鉴权脚本。</p>
-<p>loginAccount按121原账号规则匹配，清理首尾ASCII空格后1—30个Unicode码点，禁止内部空白、控制及格式字符；解码前输入最长1536字符，解码后原输入最多128码点。普通ASCII账号直接传；含中文、百分号等字符时先做UTF-8百分号编码（JavaScript用<code>encodeURIComponent(account)</code>）。例如张三传<code>%E5%BC%A0%E4%B8%89</code>，<code>a%b</code>传<code>a%25b</code>，<code>a+b</code>可传<code>a%2Bb</code>。121严格解码一次，加号不当空格，不接受非法UTF-8或重复loginAccount请求头。</p>
+<p>Header名称不区分大小写，两项凭据的值区分大小写。凭据为1—256个可打印ASCII字符（不含空格），不得重复传头或附加空格、换行；不得放入URL、正文、客户端代码或日志。</p>
+<p>loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode码点，禁止内部空白、控制及格式字符；解码前输入最长1536字符，解码后原输入最多128码点。普通ASCII账号直接传；含中文、百分号等字符时先做UTF-8百分号编码（JavaScript用<code>encodeURIComponent(account)</code>）。例如张三传<code>%E5%BC%A0%E4%B8%89</code>，<code>a%b</code>传<code>a%25b</code>，<code>a+b</code>可传<code>a%2Bb</code>。121严格解码一次，加号不当空格，不接受非法UTF-8或重复loginAccount请求头。</p>
 <p>每次先校验应用凭据，再查验账号与有效部门交集，最后执行接口业务。loginAccount用于声明本次操作人，不能单独作为登录凭据；账号使用权限由调用方验证。公共校验失败时不会进入业务处理。</p>
 <h3 id="section-1-8">正文与重试</h3>
 <div class="table-scroll" tabindex="0"><table>
@@ -309,7 +308,7 @@
 </tr>
 <tr>
 <td>服务暂不可用</td>
-<td>事务竞争或采购集成尚未启用时返回503 <code>SYSTEM_BUSY</code></td>
+<td>服务暂不可用时返回503 <code>SYSTEM_BUSY</code></td>
 </tr>
 <tr>
 <td>每次HTTP重试</td>
@@ -371,9 +370,9 @@
 </tbody>
 </table></div>
 <p>成功HTTP为200；失败使用实际HTTP状态码。所有应用响应带 <code>Cache-Control: no-store</code>；401额外带 <code>WWW-Authenticate: AppKey realm=&quot;121-open-api&quot;</code>。网关502/504可能没有JSON正文，应按HTTP失败处理。</p>
-<p>响应体<code>code</code>采用数字，与121现有接口成功码200保持一致。成功为<code>HTTP 200 + code=200 + errorCode=null</code>；缺失物料为<code>HTTP 422 + code=422 + errorCode=MATERIAL_NOT_FOUND</code>。详细原因仍放在message及data，不能解析message编写业务分支。HTTP状态继续按实际结果返回，不将失败统一转成HTTP200。部门和字典对象内部的code仍是原业务编码字符串。</p>
+<p>响应体<code>code</code>为数字，表示本次处理结果；字典项中的<code>code</code>为字符串，表示业务编码。调用方应结合HTTP状态和<code>errorCode</code>判断结果，使用<code>message</code>及<code>data</code>定位原因。</p>
 <h3 id="section-1-10">错误详情字段与取值</h3>
-<p>以下字段按错误场景选择返回，不保证每次失败都有详情。明细下标从0开始，<code>sourceDetailId</code>便于调用方定位自己的明细。未知异常、鉴权错误等仍可能<code>data=null</code>，通过requestId排查，不返回SQL或堆栈。</p>
+<p>以下字段按错误场景选择返回，不保证每次失败都有详情。明细下标从0开始，<code>sourceDetailId</code>便于调用方定位自己的明细。未知异常、鉴权错误等仍可能<code>data=null</code>，请保留requestId用于问题查询。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -574,14 +573,14 @@
 </tr>
 <tr>
 <td><code>loginAccount</code>（Body）</td>
-<td>旧版兼容账号</td>
+<td>可选账号</td>
 <td>string / null</td>
 <td>否</td>
-<td>建议省略；非null时按原账号规则规范化后必须与公共账号一致，否则403 OPERATOR_FORBIDDEN</td>
+<td>建议省略；提供非null值时必须与请求头loginAccount规范化后相同，否则403 OPERATOR_FORBIDDEN</td>
 </tr>
 </tbody>
 </table></div>
-<p>按现有121账号查询规则匹配，不强制转换大小写。传姓名、手机号或用户ID不能替代登录账号。返回成功只表示该账号有效，不提供账号归属认证。</p>
+<p>账号匹配区分原始写法，不执行大小写转换。传姓名、手机号或用户ID不能替代登录账号。返回成功只表示该账号有效，不提供账号归属认证。</p>
 <h3 id="section-2-3">返回字段</h3>
 <p>以下字段均位于 <code>data</code> 对象中。</p>
 <div class="table-scroll" tabindex="0"><table>
@@ -606,12 +605,12 @@
 <tr>
 <td><code>userName</code></td>
 <td>string</td>
-<td>121用户资料的姓名/昵称（sys_user.nick_name），未维护时为空字符串</td>
+<td>姓名或昵称；未维护时为空字符串</td>
 </tr>
 <tr>
 <td><code>phoneNumber</code></td>
 <td>string</td>
-<td>121用户资料维护的完整手机号（sys_user.phonenumber），未维护时为空字符串，不影响账号校验</td>
+<td>手机号；未维护时为空字符串，不影响账号校验</td>
 </tr>
 <tr>
 <td><code>status</code></td>
@@ -621,7 +620,7 @@
 <tr>
 <td><code>departments</code></td>
 <td>array</td>
-<td>有效用户成员部门与客户端授权部门的交集；全部模式返回用户所属的全部有效部门，成功至少1项</td>
+<td>账号所属有效部门与应用授权部门的交集；成功响应至少包含1项</td>
 </tr>
 <tr>
 <td><code>departments[].id</code></td>
@@ -837,13 +836,13 @@
 <tr>
 <td><code>suppliers</code></td>
 <td>供应商</td>
-<td>现有全局供应商/双角色合作商；额外返回requiresProject</td>
+<td>全局供应商及具有供应商角色的合作商；额外返回requiresProject</td>
 <td><code>supplierId = id</code></td>
 </tr>
 <tr>
 <td><code>projects</code></td>
 <td>项目</td>
-<td>现有全局项目字典</td>
+<td>全局项目字典</td>
 <td><code>projectId = id</code></td>
 </tr>
 <tr>
@@ -891,7 +890,7 @@
 <tr>
 <td><code>cash-cycles</code></td>
 <td>变现周期</td>
-<td>部门字典；额外value、unit；当前unit返回DAY，业务口径以121线上原有规则为准，不据此换算</td>
+<td>部门变现周期字典；提交value，不根据unit自行换算</td>
 <td><code>cashCycle = value</code></td>
 </tr>
 <tr>
@@ -1153,7 +1152,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>同步接口合并“创建采购草稿”和“添加全部明细”两个保存过程。主单、明细及必要字段校验成功后返回草稿ID和明细映射，状态为DRAFT。任何保存步骤失败均整体回滚，不保留本次主单、明细、来源关联、批次及明细映射；不新增供应商或物料。预算是否超额不作为同步失败条件；同步不执行生成、锁单或导出。</p>
+<p>本接口创建采购草稿及全部明细，并返回采购单ID和明细ID映射。首次创建成功的状态为<code>DRAFT</code>。所有数据在同一事务中保存；任一步骤失败均整体回滚。供应商和物料须预先存在。</p>
 <h3 id="section-4-2">主单请求参数</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1189,14 +1188,14 @@
 </tr>
 <tr>
 <td><code>operatorLoginAccount</code></td>
-<td>旧版兼容操作人</td>
+<td>可选操作人</td>
 <td>string / null</td>
 <td>否</td>
 <td>建议省略，由公共loginAccount取得；非null时须与公共账号规范化后相同，否则403 OPERATOR_FORBIDDEN</td>
 </tr>
 <tr>
 <td><code>initiatorLoginAccount</code></td>
-<td>旧版兼容发起人</td>
+<td>可选发起人</td>
 <td>string / null</td>
 <td>否</td>
 <td>建议省略，由公共loginAccount取得；非null时须与公共账号相同，不支持代发</td>
@@ -1290,7 +1289,7 @@
 <td>变现周期</td>
 <td>integer</td>
 <td>是</td>
-<td>沿用121原Long字段正整数（1—9223372036854775807）；不新增36500上限，业务含义、单位和计算保持原规则，不做天月换算</td>
+<td>正整数，范围1—9223372036854775807；按D01变现周期字典的value提交，不自动换算单位</td>
 </tr>
 <tr>
 <td><code>budgetMonth</code></td>
@@ -1332,21 +1331,21 @@
 <td>超预算说明</td>
 <td>string</td>
 <td>否</td>
-<td>最长500；仅保存到草稿，同步时不要求因超预算而必填</td>
+<td>最长500；可选说明文本，保存于采购草稿</td>
 </tr>
 <tr>
 <td><code>discount</code></td>
 <td>使用折让</td>
 <td>number</td>
 <td>否</td>
-<td>非负金额，单位元；省略为0；保存后供121后续计算使用</td>
+<td>非负金额，单位元；省略为0</td>
 </tr>
 <tr>
 <td><code>advance</code></td>
 <td>使用预付款</td>
 <td>number</td>
 <td>否</td>
-<td>非负金额，单位元；省略为0；保存后供121后续计算使用</td>
+<td>非负金额，单位元；省略为0</td>
 </tr>
 <tr>
 <td><code>details</code></td>
@@ -1359,7 +1358,7 @@
 </table></div>
 <p>不要提交状态、创建人、121主单ID等额外字段。字符串拒绝控制字符和尖括号。未填写的可选ID应省略，不传空字符串。</p>
 <h3 id="section-4-3">草稿保存及失败处理</h3>
-<p>同步成功表示主单、全部明细和同步关联已保存，不代表预算已通过或采购单已生成、锁单。主单和明细保存成功时，即使预算不足、未填写超预算说明，仍返回成功及DRAFT；不会因预算生成条件回滚草稿。</p>
+<p>同步成功表示采购草稿及全部明细已保存。预算是否超额、超预算说明是否填写不影响保存结果。生成采购单、锁单及导出不属于本接口的处理范围。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -1386,8 +1385,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>保存失败时主单、全部明细、来源、批次和明细映射一起回滚。data.rolledBack=true表示本次已整体回滚，不存在可使用的本次单据ID；明细错误通过sourceDetailId和field定位。未知系统异常返回500及requestId，不对外暴露SQL或堆栈。</p>
-<p>121原页面在添加明细后另行查询结果，进行预算计算并提供提示；生成/锁单/导出继续执行原有流程。同步入口只负责草稿及明细保存，不调用预算生成校验，也不新增预算提示返回字段。超预算说明、折让及预付款为可选保存字段，后续计算和业务要求由121原流程处理。</p>
+<p>保存失败时主单、全部明细、来源、批次和明细映射一起回滚。data.rolledBack=true表示本次已整体回滚，不存在可使用的本次单据ID；明细错误通过sourceDetailId和field定位。系统异常返回HTTP 500，调用方可通过requestId联系121查询原因。</p>
 <p>明确收到整体回滚的保存失败后，可修正数据再提交；失败请求未占用已提交的批次和幂等键。超时、断网或结果未知时仍须先P02查询，不能直接改正文或换批次。已成功批次按原批次、原键、原正文重试，返回原单及当前状态，不重复创建。</p>
 <p>明细保存失败示例：</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
@@ -1403,8 +1401,8 @@
 <span class="code-line">  }</span>
 <span class="code-line">}</span></code></pre></div></details>
 <h3 id="section-4-4">可选审批人员</h3>
-<p>以下都是string类型、可选、正整数用户ID；提供时用户须启用未删且具有相应有效角色。仅产品经理须属于当前部门，其他审批角色允许跨部门。通过D01的approval-users取得ID，不能直接传姓名；deptIds可能为空数组，不代表该跨部门审批人无效。121按现有业务字段保存人员姓名。</p>
-<p>审批人字段须符合上述角色与有效性条件；没有匹配人员时应先补齐121人员配置，121不按姓名匹配或自动新增人员。</p>
+<p>以下都是string类型、可选、正整数用户ID；提供时用户须启用未删且具有相应有效角色。仅产品经理须属于当前部门，其他审批角色允许跨部门。通过D01的approval-users取得ID，不能直接传姓名；deptIds可能为空数组，不代表该跨部门审批人无效。</p>
+<p>审批人须通过D01查询获得，并满足对应角色及部门条件。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -1518,7 +1516,7 @@
 <td>明细税率</td>
 <td>number</td>
 <td>否</td>
-<td>沿用原明细DECIMAL(15,2)：-9999999999999.99至9999999999999.99，最多两位有效小数；0.09表示9%，不限定主单枚举；省略或null继承主单taxRate</td>
+<td>数值范围-9999999999999.99至9999999999999.99，最多两位小数；0.09表示9%；省略或null时使用主单taxRate</td>
 </tr>
 <tr>
 <td><code>materialName</code></td>
@@ -1566,12 +1564,12 @@
 <tr>
 <td><code>data.draftId</code></td>
 <td>string</td>
-<td>121采购主单ID，即现有apply_id</td>
+<td>121采购单唯一ID</td>
 </tr>
 <tr>
 <td><code>data.purchaseOrderNo</code></td>
 <td>string</td>
-<td>需求中的121采购单序号，即applyId（purchase_apply.apply_id），与draftId相同</td>
+<td>121采购单序号，与draftId相同</td>
 </tr>
 <tr>
 <td><code>data.sourceSystem</code></td>
@@ -1643,7 +1641,7 @@
 <tr>
 <td><code>RETURNED</code></td>
 <td>退单通过</td>
-<td>现有退单流程已通过；来源关联仍保留</td>
+<td>退单审核通过；来源关联仍保留</td>
 <td>否</td>
 </tr>
 <tr>
@@ -1764,7 +1762,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>正文空格或属性顺序变化也会改变摘要。每轮固定公共账号，不能通过切换loginAccount重放他人创建请求。旧版双账号正文若继续使用，两个字段均须与公共账号相同，保持原正文即可重试；不要在同轮重试时删除兼容字段。不要用“超时后直接更换批次”规避幂等。建议幂等键格式为 <code>intelligent-office:&lt;sourceOrderId&gt;:&lt;syncBatchId&gt;</code>。</p>
+<p>同一批次重试须保持loginAccount、幂等键及原始正文一致，包括正文空格、属性顺序和可选字段。结果未知时先查询P02。幂等键示例：<code>purchase:&lt;sourceOrderId&gt;:&lt;syncBatchId&gt;</code>。</p>
 <h3 id="section-4-10">业务返回码</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1857,7 +1855,7 @@
 <tr>
 <td>503</td>
 <td><code>SYSTEM_BUSY</code></td>
-<td>事务竞争、集成未启用或公共设施暂不可用</td>
+<td>服务暂不可用</td>
 <td>按原业务批次退避重试；持续发生联系121</td>
 </tr>
 </tbody>
@@ -1943,12 +1941,12 @@
 <tr>
 <td><code>data.draftId</code></td>
 <td>string</td>
-<td>121采购主单ID，即现有apply_id</td>
+<td>121采购单唯一ID</td>
 </tr>
 <tr>
 <td><code>data.purchaseOrderNo</code></td>
 <td>string</td>
-<td>需求中的121采购单序号，即applyId（purchase_apply.apply_id），与draftId相同</td>
+<td>121采购单序号，与draftId相同</td>
 </tr>
 <tr>
 <td><code>data.sourceSystem</code></td>
@@ -2099,12 +2097,12 @@
 <tr>
 <td><code>data.draftId</code></td>
 <td>string</td>
-<td>121采购主单ID，即现有apply_id</td>
+<td>121采购单唯一ID</td>
 </tr>
 <tr>
 <td><code>data.purchaseOrderNo</code></td>
 <td>string</td>
-<td>需求中的121采购单序号，即applyId（purchase_apply.apply_id），与draftId相同</td>
+<td>121采购单序号，与draftId相同</td>
 </tr>
 <tr>
 <td><code>data.sourceSystem</code></td>
@@ -2241,7 +2239,7 @@
 </tr>
 <tr>
 <td><code>operatorLoginAccount</code></td>
-<td>旧版兼容操作人</td>
+<td>可选操作人</td>
 <td>Body</td>
 <td>string / null</td>
 <td>否</td>
@@ -2270,12 +2268,12 @@
 <tr>
 <td><code>data.draftId</code></td>
 <td>string</td>
-<td>121采购主单ID，即现有apply_id</td>
+<td>121采购单唯一ID</td>
 </tr>
 <tr>
 <td><code>data.purchaseOrderNo</code></td>
 <td>string</td>
-<td>需求中的121采购单序号，即applyId（purchase_apply.apply_id），与draftId相同</td>
+<td>121采购单序号，与draftId相同</td>
 </tr>
 <tr>
 <td><code>data.sourceSystem</code></td>
@@ -2335,7 +2333,7 @@
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: <span class="token-literal">null</span></span>
 <span class="code-line">}</span></code></pre></div></details>
 <h3 id="section-7-5">取消规则及返回码</h3>
-<p>仅DRAFT可删除；已DELETED重复调用返回同样结果，不再生成重复事件。主单、所属明细、当前来源关联和删除事件在同一事务内处理；锁单与删除使用主单行锁协调。内部退单不等同本接口取消。</p>
+<p>仅DRAFT可删除；已DELETED重复调用返回同样结果，不再生成重复事件。主单、明细及同步关联一并删除，并发送C01通知。退单状态不等同于删除。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -2435,7 +2433,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>接收地址及独立反向凭据后续补充。当前可先测试121提供的六个入口，配置完成后再验收C01。</p>
+<p>接收方应提供固定回调URL及独立的App-Id、App-Secret，并在开始接收通知前完成连通性验证。</p>
 <h3 id="section-8-2">通知正文参数</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -2502,7 +2500,7 @@
 <td>121采购单序号</td>
 <td>string</td>
 <td>是</td>
-<td>即applyId，与draftId相同</td>
+<td>与draftId相同</td>
 </tr>
 <tr>
 <td><code>status</code></td>
@@ -2613,13 +2611,13 @@
 <td><code>AUTH_INVALID</code></td>
 <td>系统凭据无效</td>
 <td>App-Id/App-Secret缺失、重复、错误，应用停用或入口关闭</td>
-<td>核对本环境两项凭据及部署配置</td>
+<td>核对本环境的App-Id和App-Secret</td>
 </tr>
 <tr>
 <td>403</td>
 <td><code>OPERATOR_FORBIDDEN</code></td>
 <td>业务操作越权</td>
-<td>公共用户无可用部门，deptId越权，兼容正文账号与公共账号不一致，禁止代发或变更来源单部门</td>
+<td>公共用户无可用部门，deptId越权，正文账号与请求头loginAccount不一致，禁止代发或变更来源单部门</td>
 <td>修正用户/部门并确认授权</td>
 </tr>
 <tr>
@@ -2752,7 +2750,7 @@
 <td>503</td>
 <td><code>SYSTEM_BUSY</code></td>
 <td>暂不可用</td>
-<td>事务竞争或采购集成尚未启用</td>
+<td>服务暂不可用</td>
 <td>退避重试，P01保留原批次/键/正文</td>
 </tr>
 </tbody>
@@ -2802,7 +2800,7 @@
 </ul>
 <p>可导入支持OpenAPI 3.1的Apifox、Swagger等工具。导入后在Authorize中填写App-Id和App-Secret，所有六个121入口还须在Headers中填写公共loginAccount；C01只用反向系统凭据。</p>
 <h3 id="section-10-2">外部测试接口与材料</h3>
-<p>测试与正式使用相同的六个121接口，通过基础地址和凭据区分环境，无需单独新增测试专用接口。下表给出测试完整地址；每个121入口请求都携带App-Id、App-Secret和loginAccount。</p>
+<p>测试与正式环境使用相同的接口路径，通过基础地址和凭据区分。测试地址如下；请求头均须携带App-Id、App-Secret和loginAccount。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -2854,13 +2852,9 @@
 <li><a href="./downloads/121-open-api-external.postman_collection.json">Postman测试集合</a></li>
 <li><a href="./downloads/121-open-api-test.postman_environment.json">Postman测试环境模板（无密钥）</a></li>
 </ul>
-<p>导入集合和环境，选择测试环境，填写121线下交付的appId、appSecret和测试账号，直接点击Send；无需数据库账号、员工密码或登录Token。集合展开全部字典和审批角色，共23个测试请求；先读后写，采购创建和取消须逐项手动执行。</p>
-<p>发布文档不代表测试后端已更新。2.5.0取消新增开放接口的逐接口scope校验；有效App-Id、App-Secret、公共loginAccount和部门范围校验保持。同步仍只保存草稿和明细，保存失败整体回滚。121须部署配套后端，调用方以成功保存的DRAFT确认同步，不再把超预算作为同步失败条件，且无需配置接口权限；App-Id、App-Secret、loginAccount公共请求头及部门授权规则保持。两项应用凭据配置可沿用，无需调整数据库表结构或服务端department-ids授权配置。旧版创建正文departmentId将返回400 PARAM_INVALID。部署后先以U01和D01只读请求验收，再使用专用测试单验证采购接口。</p>
-<h3 id="section-10-3">联调前业务边界</h3>
-<p>已确认：导入的数据类型、精度、有效值及计算方式以121原有线上业务为准；变现周期沿用原有规则，接口不另定单位或自动换算，不因附件示例修改现有计算。一张采购单只有一个销售渠道，创建时提交一个saleChannelId。变现周期已移除接入层新增的36500上限；明细税率已按原DECIMAL(15,2)字段适配，不再套用主单0/6%/13%枚举。主单下拉及原预算、利润、导出取价与计算规则保持。</p>
-<p>本期对账只保留121采购单ID（applyId）及首次同步明细ID映射，P02/P03现有查询范围满足该约定，不增加完整实时明细查询。C01协议保留，接收地址及反向凭据后续补充，当前先测试U01、D01和P01—P04；回调配置完成后另行验收。</p>
-<h3 id="section-10-4">HTTP调用示例</h3>
-<p>将示例中的两项凭据替换为121线下交付的测试值；业务示例ID仍需换成真实测试数据。</p>
+<p>导入集合和环境模板，填写appId、appSecret、loginAccount及业务数据。集合包含23个请求，覆盖账号查询、字典查询和采购草稿操作。先执行查询，再逐项执行创建和取消。</p>
+<h3 id="section-10-3">HTTP调用示例</h3>
+<p>将示例凭据和业务ID替换为本环境的有效值。</p>
 <details class="code-example" open><summary><span>HTTP 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-http"><span class="code-line">POST /open-api/v1/users/verify HTTP/1.1</span>
 <span class="code-line">Host: testfcst.chinaptac.com</span>
 <span class="code-line">App-Id: your-app-id</span>
@@ -2875,7 +2869,7 @@
 <span class="code-line">App-Secret: your-app-secret</span>
 <span class="code-line">loginAccount: zhangsan</span>
 <span class="code-line">Accept: application/json</span></code></pre></div></details>
-<h3 id="section-10-5">Java服务端示例（JDK 11及以上）</h3>
+<h3 id="section-10-4">Java服务端示例（JDK 11及以上）</h3>
 <p>下载 <a href="./downloads/OpenApiExample.java">OpenApiExample.java</a>，仅使用JDK标准库。配置环境变量后执行下列任一命令，只发送用户查询或部门查询，不创建和取消采购单。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -2905,7 +2899,7 @@
 </table></div>
 <details class="code-example" open><summary><span>SHELL 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-shell"><span class="code-line">java OpenApiExample.java user</span>
 <span class="code-line">java OpenApiExample.java departments</span></code></pre></div></details>
-<h3 id="section-10-6">常见问题</h3>
+<h3 id="section-10-5">常见问题</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -2916,7 +2910,7 @@
 <tbody>
 <tr>
 <td>401 / AUTH_INVALID</td>
-<td>本环境appId、appSecret与121配置是否完全一致；后端是否已部署本版本并开启入口；请求头是否缺失或重复</td>
+<td>核对本环境App-Id、App-Secret及请求头是否缺失或重复</td>
 </tr>
 <tr>
 <td>400 / PARAM_INVALID</td>
@@ -2924,15 +2918,11 @@
 </tr>
 <tr>
 <td>403 / OPERATOR_FORBIDDEN</td>
-<td>用户有效部门交集是否包含业务部门；兼容正文账号是否与公共账号一致</td>
+<td>核对账号所属部门、应用授权部门及正文账号与请求头是否一致</td>
 </tr>
 <tr>
 <td>422 / 业务错误码</td>
 <td>按errorCode及data定位供应商、物料、字段或金额错误</td>
-</tr>
-<tr>
-<td>返回msg/code=401旧登录格式</td>
-<td>后端是否仍是旧Jar、Nginx是否转发到正确后端和完整路径</td>
 </tr>
 <tr>
 <td>P01超时或连接断开</td>
@@ -2940,7 +2930,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>向121反馈时提供环境、接口、HTTP状态、errorCode、requestId和时间，勿发送密钥、数据库密码或完整人员数据。</p>
+<p>反馈问题时提供环境、接口、HTTP状态、errorCode、requestId和时间，请勿提供密钥或完整人员信息。</p>
 </section>
     <footer class="document-footer"><span>121系统 · 开放接口 v2.5.0</span><a href="#top">返回顶部 ↑</a></footer>
   </main>

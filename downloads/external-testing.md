@@ -1,76 +1,88 @@
-# 121开放接口：外部测试说明
+# 121开放接口联调指南
 
-配套接口文档2.5.0，文档更新2026-11-21。
+适用接口版本：**2.5.0** · 更新日期：**2026-11-21**
 
-测试基础地址：`http://testfcst.chinaptac.com/open-api/v1`。测试和正式使用相同路径、字段和凭据规则，凭据分别交付。GitHub Pages只提供文档及文件下载，不处理业务请求。
+本指南用于验证用户查询、基础字典、采购草稿及删除通知。接口字段、约束和错误码以《121接口交接文档》及OpenAPI定义为准。
 
-## 测试范围
+## 1. 接入准备
 
-本说明用于验证121的用户查询、字典、采购草稿及删除通知。字段类型、必填项、范围、状态和错误码以接口交接文档为准；采购创建和取消按专用测试单逐项执行。
+测试基础地址：`http://testfcst.chinaptac.com/open-api/v1`。
 
-同目录`OpenApiExample.java`使用JDK 11+，通过固定App-Id、App-Secret发送用户或部门只读查询；用法见接口文档附录。
+开始联调前，请准备以下资料：
 
-## 1. 开始前准备
+- 测试环境App-Id、App-Secret和有效的121账号。
+- 该账号可访问的部门，以及有效的供应商、项目、库位和物料数据。
+- 用于创建和取消草稿的专用测试订单号。
+- 验证删除通知时，提供固定接收URL及独立的回调凭据。
 
-121需交付：测试接口启用通知、appId、appSecret、专用121测试账号，以及可用部门、供应商、库位、物料等测试数据。密钥由双方线下安全交换，不从网页获取，不填写数据库账号或员工密码。示例ID不能替代真实测试主数据。
-
-**先部署本版本后端并配置app-id/app-secret。** 使用旧Jar不能验收新鉴权；缺凭据应返回HTTP 401、code=401、errorCode=AUTH_INVALID和统一外壳。随后携带正确凭据执行U01、D01。
+所有请求均须携带App-Id、App-Secret和loginAccount。应用密钥仅保存在服务端。测试凭据和业务示例值不得用于正式环境。
 
 ## 2. 导入Postman
 
-1. 下载并导入同目录的`121-open-api-external.postman_collection.json`和`121-open-api-test.postman_environment.json`。
-2. 在Postman右上角选择导入的测试环境；填写appId、appSecret和loginAccount，baseUrl保持测试地址。环境变量优先于集合变量，避免填写后仍被空环境变量覆盖。
-3. 先对U01点击Send。集合全部请求已填写App-Id、App-Secret、loginAccount三个公共请求头，直接发送；无需发送前脚本、Bearer Token或数据库账号。
-4. 成功后，从U01的departments选定deptId；填写测试环境变量，再逐项调用字典。库位请求带projectId筛选，不需要筛选时删除该Query参数；审批人请求已列出全部七种角色。
+1. 导入`121-open-api-external.postman_collection.json`和`121-open-api-test.postman_environment.json`。
+2. 选择测试环境，填写appId、appSecret和loginAccount。baseUrl为上述基础地址，末尾不加斜杠。
+3. 发送U01。成功响应应为HTTP 200、code=200、errorCode=null。
+4. 从`data.departments`中选择本次业务部门，将其id填入deptId变量。
+5. 依次查询D01字典，填写采购草稿所需的业务ID。审批人员按roleCode查询；库位可按projectId筛选。
 
-loginAccount环境变量用于所有请求头，普通ASCII账号直接填写；中文、百分号等先用UTF-8百分号编码，例如张三填写`%E5%BC%A0%E4%B8%89`，`a%b`填写`a%25b`。集合没有自动编码脚本，不要重复编码。U01正文使用`{}`，查询当前公共账号。所有查询、创建及取消范围均为该用户有效成员部门与应用授权部门的交集；只有审批人选项保留原121跨部门规则。U01仅查询账号有效性，不提供账号归属认证；调用方须验证账号使用权限。
+loginAccount为普通ASCII账号时直接填写；包含中文或百分号时，使用UTF-8百分号编码。例如“张三”填写`%E5%BC%A0%E4%B8%89`，`a%b`填写`a%25b`。请勿重复编码。
 
-集合共23个请求：用户查询1个、普通字典11个、审批角色字典7个、采购接口4个。D01是一个接口，按字典及角色展开多个测试请求，不是新增18个业务接口。
+集合包含23个请求：用户查询1个、基础字典11个、审批角色字典7个、采购草稿操作4个。请逐项执行创建和取消请求，避免使用Runner批量执行写操作。
 
-## 3. 测试接口清单
+## 3. 接口清单
 
-下表路径均接在测试基础地址之后；各121入口请求都需App-Id、App-Secret和loginAccount。
+以下路径相对于测试基础地址。
 
-| 编号 | 方法 | 路径 | 测试目的 |
-|---|---|---|---|
-| U01 | POST | `/users/verify` | 账号、姓名、ID、手机号、有效成员部门；不存在/停用账号的错误 |
-| D01 | GET | `/dictionaries/{type}` | 全部12类字典、分页、部门与项目联动、审批人角色 |
-| P01 | POST | `/purchase-drafts` | 创建草稿、返回applyId和明细映射、原请求重复不多建单、供应商/物料错误详情 |
-| P02 | GET | `/purchase-drafts/by-source` | 按来源+批次恢复结果，尤其创建超时之后 |
-| P03 | GET | `/purchase-drafts/{draftId}` | 查询单据状态及首次同步明细ID映射 |
-| P04 | POST | `/purchase-drafts/{draftId}/cancel` | 取消本次未锁单测试草稿；重复取消、锁单拒绝 |
-| C01 | POST | 接收方提供的固定测试URL | 121主动发送删除事件，由双方验证接收、凭据校验、去重和重试 |
+| 编号 | 方法 | 路径 | 验证内容 |
+| --- | --- | --- | --- |
+| U01 | POST | `/users/verify` | 账号信息、可用部门及无效账号错误 |
+| D01 | GET | `/dictionaries/{type}` | 字典、分页、部门关联和审批角色 |
+| P01 | POST | `/purchase-drafts` | 主单与明细保存、ID映射、幂等和错误详情 |
+| P02 | GET | `/purchase-drafts/by-source` | 按来源与批次查询，确认超时请求结果 |
+| P03 | GET | `/purchase-drafts/{draftId}` | 查询采购单状态及首次明细映射 |
+| P04 | POST | `/purchase-drafts/{draftId}/cancel` | 取消草稿、重复取消及不可取消状态 |
+| C01 | POST | 接收方提供的固定URL | 删除事件接收、凭据校验、去重和重试 |
 
-## 4. 采购测试顺序
+## 4. 采购草稿验证
 
-1. 先查询字典，填入真实测试ID和物料编码；主单必填项、供应商项目要求以接口文档为准。可选ID不填时省略，不能传空字符串。
-2. 使用专用测试订单号sourceOrderId、新UUID syncBatchId、16—160字符idempotencyKey；填写budgetMonth（YYYY-MM）与purchaseDate（yyyy-MM-dd）。测试用户同时作为操作人与发起人；同轮重试不能切换loginAccount。
-3. **手动**发送P01，核对HTTP 200、code=200、errorCode=null、status=DRAFT。将返回draftId手动填入测试环境；purchaseOrderNo和draftId均为121的applyId。
-4. 原样重发P01，保持正文、批次和幂等键不变，应返回同一ID。凭据和公共账号保持不变。若超时，先执行P02，不能立刻换新批次。
-5. 用P02、P03查询同一张单。details为首次同步映射，不包含121后续新增明细及编辑后的完整数据，不用于完整实时对账。
-6. 仅对本次未锁单测试草稿手动执行P04，预期DELETED。锁单后预期409/DRAFT_NOT_EDITABLE；不要用真实业务单测试。未调用P04不会影响创建或查询，但不能完成主动取消流程验收。
+1. 查询字典后填写有效的业务ID和物料编码。未填写的可选ID省略，不传空字符串。
+2. 为本轮创建准备sourceOrderId、UUID格式的syncBatchId和16—160字符的idempotencyKey。填写budgetMonth和purchaseDate。
+3. 发送P01，核对HTTP 200、code=200、errorCode=null、data.status=DRAFT。保存draftId及details中的明细ID映射。
+4. 保持loginAccount、批次、幂等键及原始正文不变，重复发送P01，应返回相同draftId，不重复创建。
+5. 调用P02和P03查询同一采购单。返回的details为首次同步明细映射，不包含后续新增明细或完整实时明细内容。
+6. 对本次未锁单测试草稿执行P04，预期状态为DELETED。再次取消应返回同一删除结果。
 
-不要直接对整个集合运行Runner：集合包含创建和取消，会写入及软删除数据。HTTP测试应使用专门的测试数据。
+P01仅保存采购草稿及全部明细。预算不足、未填写超预算说明不影响合法草稿的保存；生成、锁单和导出不属于本接口范围。
 
-## 5. 删除通知如何测试
+主单或任一明细保存失败时，本次请求整体回滚。失败响应通过message说明原因，data可包含stage、rolledBack、sourceDetailId和field。可使用同批次P02查询确认不存在已提交结果。明确收到保存失败后，修正数据再提交；网络中断或结果未知时，先查询结果再决定是否重试。
 
-C01不是121新增的接收接口。接收方提供固定测试URL及独立反向凭据，121配置后，由121页面删除来源草稿或调用P04触发发送。接收方校验App-Id、App-Secret，按eventId去重，按sourceOrderId、syncBatchId、draftId核对关联。可靠处理完成或重复事件返回2xx，推荐204；凭据校验失败或处理失败返回非2xx。
+## 5. 删除通知验证
 
-双方需验证：收到通知并清空当前关联；暂时返回非2xx或超时后重试；重复通知不重复处理；旧批次通知不清空新批次。未提供测试接收地址时，不能宣称回调已经验收。测试可约定HTTP，正式使用HTTPS。
+接收方提供固定回调URL及独立App-Id、App-Secret。删除来源草稿或调用P04成功后，121向该URL发送C01通知。
 
-## 6. 已确认的本期范围
+接收方须先校验凭据，再按eventId去重，并核对sourceOrderId、syncBatchId和draftId。可靠处理完成或已处理的重复事件返回2xx，推荐204；处理失败返回非2xx。
 
-- 导入字段类型、精度、有效值和计算规则均以121线上原有业务为准；新增接口负责适配，不因附件示例改动原有逻辑。
-- 变现周期完全沿用121原有规则，不另定单位，不自动天月换算，不修改旧计算公式。接口接收原Long字段正整数（1—9223372036854775807），已移除新增36500上限；字典unit当前返回DAY，仅作原字典元数据，不据此换算。
-- 一张采购单只有一个销售渠道，P01传一个saleChannelId，不需要多渠道选择或拆单方案。
-- 本期只保存applyId及首次同步明细ID，现有P02/P03足够，不新增完整实时对账接口。
-- C01接收地址及独立反向凭据后续补充，当前先测六个121入口；回调配置后单独验收。
-- 税率按121线上主单、明细各自原有规则适配。主单仍为0、0.06、0.13；明细沿用原有符号DECIMAL(15,2)范围，最多两位有效小数，可传0.09表示9%，省略或null继承主单，不新增枚举限制。
+应覆盖以下情况：正常接收、重复事件、超时或非2xx后的重试，以及旧批次通知到达时不清除新批次关联。
 
-错误排查：401看两项系统凭据及后端版本；403看用户成员部门与客户端授权；422看message和data的字段/行详情；网络超时或503先查询本轮结果。创建失败应保存errorCode、message和requestId便于双方排查。
+## 6. 错误处理
 
-## 7. 草稿保存与回滚验收
+| 结果 | 处理方式 |
+| --- | --- |
+| 400 / PARAM_INVALID | 按data.field、reason及message修正参数 |
+| 401 / AUTH_INVALID | 核对本环境App-Id、App-Secret及请求头 |
+| 403 / OPERATOR_FORBIDDEN | 核对账号和业务部门是否在可访问范围 |
+| 404 / USER_NOT_FOUND | 使用存在且启用的121账号 |
+| 409 / IDEMPOTENCY_CONFLICT | 查询原批次，不覆盖已成功的请求内容 |
+| 422 / 业务错误码 | 按message及data定位供应商、物料、字段或保存错误 |
+| 500、503或网络异常 | 保留requestId；创建请求先通过P02确认结果 |
 
-P01只保存主单和全部明细，成功返回DRAFT及主单、明细ID，不执行预算生成拦截、锁单或导出。预算不足、未填写超预算说明均不得使合法草稿保存失败；budgetExplanation、discount和advance为可选保存字段，折让及预付款默认0。后续预算计算与生成要求沿用121原流程。
+反馈问题时提供环境、接口、时间、HTTP状态、errorCode及requestId，请勿提供密钥。
 
-分别验证主单保存失败、未返回主单ID，以及第二条明细保存失败、未返回明细ID，核对具体message、data.stage、rolledBack、sourceDetailId和field。失败后数据库不应保留本次主单、任何明细、来源、批次及映射；已确认整体回滚后可修正再提交，结果未知时先P02。重复成功请求仍返回原单，不重复新增。
+## 7. Java示例
+
+`OpenApiExample.java`适用于JDK 11及以上版本，提供用户和部门只读查询。配置OPEN_API_BASE_URL、OPEN_API_APP_ID、OPEN_API_APP_SECRET及OPEN_API_LOGIN_ACCOUNT后执行：
+
+```shell
+java OpenApiExample.java user
+java OpenApiExample.java departments
+```
