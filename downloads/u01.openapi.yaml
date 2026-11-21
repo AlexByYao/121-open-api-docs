@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 121 User Verification API
-  version: 2.2.0
+  version: 2.3.0
   description: >-
     调用方携带固定App-Id、App-Secret和必填loginAccount公共请求头。每次校验用户有效且至少有一个授权成员部门；范围为该用户有效成员部门与应用授权交集。无需员工密码或Token，测试HTTP正式HTTPS；须升级Jar和调用方请求头，表结构不变。
 servers:

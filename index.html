@@ -15,7 +15,7 @@
   <a class="skip-link" href="#content">跳到文档正文</a>
   <header class="site-header">
     <a class="brand" href="#top"><span class="brand-mark">121</span><span>接口交接文档<small>用户、字典与采购草稿</small></span></a>
-    <div class="header-actions"><span class="version">v2.2.0</span><a href="./downloads/openapi.yaml" download>下载 OpenAPI</a><button id="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">目录</button></div>
+    <div class="header-actions"><span class="version">v2.3.0</span><a href="./downloads/openapi.yaml" download>下载 OpenAPI</a><button id="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">目录</button></div>
   </header>
   <aside id="sidebar" class="sidebar" aria-label="文档目录">
     <label class="search-label" for="doc-search">查找文档</label>
@@ -38,7 +38,7 @@
     <div class="overview"><details><summary>展开完整章节目录</summary><ol><li><a href="#section-1">接入说明</a></li><li><a href="#section-2">U01 查询121用户信息（POST）</a></li><li><a href="#section-3">D01 查询基础字典（GET）</a></li><li><a href="#section-4">P01 创建采购草稿（POST）</a></li><li><a href="#section-5">P02 按来源和批次查询草稿（GET）</a></li><li><a href="#section-6">P03 按121采购单ID查询草稿（GET）</a></li><li><a href="#section-7">P04 取消同步并删除草稿（POST）</a></li><li><a href="#section-8">C01 采购草稿删除通知（POST）</a></li><li><a href="#section-9">返回码说明</a></li><li><a href="#section-10">附录</a></li></ol></details></div>
     <div id="no-results" hidden>未找到匹配内容。请尝试接口编号（如 P01）、参数名或错误码。</div>
     <div class="document-intro"><h1 id="top">121 接口交接文档</h1>
-<p>版本 <strong>2.2.0</strong> · 文档更新 <strong>2026-11-21</strong> · 服务提供方 <strong>121系统</strong></p>
+<p>版本 <strong>2.3.0</strong> · 文档更新 <strong>2026-11-21</strong> · 服务提供方 <strong>121系统</strong></p>
 <p>本文交付121开放接口的调用地址、鉴权方式、请求字段、响应字段、状态、错误码及联调示例。示例账号、手机号、部门和订单均为虚构数据；实际开放时间、调用凭据及有效测试数据由121提供方交付。</p>
 </div><section class="doc-section" data-section="section-1"><h2 id="section-1">接入说明</h2>
 <h3 id="section-1-1">联调顺序</h3>
@@ -450,6 +450,36 @@
 <td><code>calculated</code></td>
 <td>number</td>
 <td>采购数量乘单价后的计算金额</td>
+</tr>
+<tr>
+<td><code>stage</code></td>
+<td>string</td>
+<td>失败阶段：DETAIL_CREATE或ORDER_GENERATION</td>
+</tr>
+<tr>
+<td><code>rolledBack</code></td>
+<td>boolean</td>
+<td>true表示本次同步已整体回滚</td>
+</tr>
+<tr>
+<td><code>generationMessage</code></td>
+<td>string / null</td>
+<td>原121预算计算提示</td>
+</tr>
+<tr>
+<td><code>purchaseAmount</code></td>
+<td>number / null</td>
+<td>原121口径计算采购金额，单位元</td>
+</tr>
+<tr>
+<td><code>overBudgetAmount</code></td>
+<td>number / null</td>
+<td>原121口径计算超预算金额，单位元</td>
+</tr>
+<tr>
+<td><code>payableAmount</code></td>
+<td>number / null</td>
+<td>原121口径计算实付金额，单位元</td>
 </tr>
 <tr>
 <td><code>errors</code></td>
@@ -1163,7 +1193,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>成功创建草稿，原子保存主单、全部明细及来源关联；校验失败整体回滚，不新增供应商/物料。</p>
+<p>同步接口一次完成主单创建、全部明细添加，以及121原有预算生成校验。任何一步失败均整体回滚，不保留主单、明细、来源关联、批次及明细映射；不新增供应商或物料。通过校验后返回草稿ID和明细映射，状态仍为DRAFT，未锁单、未导出。</p>
 <h3 id="section-4-2">主单请求参数</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1338,6 +1368,27 @@
 <td>最长500</td>
 </tr>
 <tr>
+<td><code>budgetExplanation</code></td>
+<td>超预算说明</td>
+<td>string</td>
+<td>条件</td>
+<td>最长500；原121规则允许超预算采购时须填写，其他情况可省略</td>
+</tr>
+<tr>
+<td><code>discount</code></td>
+<td>使用折让</td>
+<td>number</td>
+<td>否</td>
+<td>非负金额，单位元；省略为0，参与原实付金额计算</td>
+</tr>
+<tr>
+<td><code>advance</code></td>
+<td>使用预付款</td>
+<td>number</td>
+<td>否</td>
+<td>非负金额，单位元；省略为0，参与原实付金额计算</td>
+</tr>
+<tr>
 <td><code>details</code></td>
 <td>采购明细</td>
 <td>array</td>
@@ -1347,7 +1398,60 @@
 </tbody>
 </table></div>
 <p>不要提交状态、创建人、121主单ID等额外字段。字符串拒绝控制字符和尖括号。未填写的可选ID应省略，不传空字符串。</p>
-<h3 id="section-4-3">可选审批人员</h3>
+<h3 id="section-4-3">生成校验及失败处理</h3>
+<p>明细写入后，在同一事务中执行121结果页和生成采购单使用的原预算计算及生成条件，包括内采/外采预算、允许超预算的说明要求，以及实付金额不能为负数。沿用原有预算口径、阈值和取价规则；不是出现“超预算”就一律拒绝。</p>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>场景</th>
+<th>返回结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>主单未保存成功</td>
+<td>422 ORDER_CREATE_FAILED，message说明主单创建失败</td>
+</tr>
+<tr>
+<td>明细未添加成功</td>
+<td>422 DETAIL_CREATE_FAILED，data标识来源明细和失败阶段</td>
+</tr>
+<tr>
+<td>原预算规则不允许生成</td>
+<td>422 ORDER_GENERATION_FAILED，message返回原业务原因，例如“外采物料超预算，总金额超过50万，请分别采购！”或“内采超预算，请上会！”</td>
+</tr>
+<tr>
+<td>允许超预算但缺少说明</td>
+<td>422 BUDGET_EXPLANATION_REQUIRED，data.field=budgetExplanation</td>
+</tr>
+<tr>
+<td>实付金额为负数</td>
+<td>422 PAYMENT_INVALID，message说明金额问题</td>
+</tr>
+<tr>
+<td>校验通过</td>
+<td>200，返回DRAFT及主单、明细ID；后续生成/导出仍按121当时业务状态再次校验</td>
+</tr>
+</tbody>
+</table></div>
+<p>以上失败均不留下本次主单和明细。返回的data.rolledBack=true表示本次整体回滚，不能把错误详情中的计算结果当成已保存采购单。未知系统异常返回500及requestId，不对外暴露SQL或堆栈。</p>
+<p>明确收到整体回滚的业务失败后，可修正数据再提交；该失败请求未占用已提交的批次和幂等键。超时、断网或结果未知时仍须先P02查询，不能直接改正文或换批次。已成功批次只返回首次结果，不因幂等重试重复预算校验或创建。</p>
+<p>失败示例：</p>
+<details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
+<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-literal">422</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;errorCode&quot;</span>: <span class="token-string">&quot;ORDER_GENERATION_FAILED&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;message&quot;</span>: <span class="token-string">&quot;外采物料超预算，总金额超过50万，请分别采购！&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>: <span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;data&quot;</span>: {</span>
+<span class="code-line">    <span class="token-key">&quot;stage&quot;</span>: <span class="token-string">&quot;ORDER_GENERATION&quot;</span>,</span>
+<span class="code-line">    <span class="token-key">&quot;rolledBack&quot;</span>: <span class="token-literal">true</span>,</span>
+<span class="code-line">    <span class="token-key">&quot;generationMessage&quot;</span>: <span class="token-string">&quot;外采物料超预算，总金额超过50万，请分别采购！&quot;</span>,</span>
+<span class="code-line">    <span class="token-key">&quot;purchaseAmount&quot;</span>: <span class="token-literal">600000</span>,</span>
+<span class="code-line">    <span class="token-key">&quot;overBudgetAmount&quot;</span>: <span class="token-literal">600000</span>,</span>
+<span class="code-line">    <span class="token-key">&quot;payableAmount&quot;</span>: <span class="token-literal">600000</span></span>
+<span class="code-line">  }</span>
+<span class="code-line">}</span></code></pre></div></details>
+<h3 id="section-4-4">可选审批人员</h3>
 <p>以下都是string类型、可选、正整数用户ID；提供时用户须启用未删且具有相应有效角色。仅产品经理须属于当前部门，其他审批角色允许跨部门。通过D01的approval-users取得ID，不能直接传姓名；deptIds可能为空数组，不代表该跨部门审批人无效。121按现有业务字段保存人员姓名。</p>
 <p>审批人字段须符合上述角色与有效性条件；没有匹配人员时应先补齐121人员配置，121不按姓名匹配或自动新增人员。</p>
 <div class="table-scroll" tabindex="0"><table>
@@ -1396,7 +1500,7 @@
 </tr>
 </tbody>
 </table></div>
-<h3 id="section-4-4">明细请求参数</h3>
+<h3 id="section-4-5">明细请求参数</h3>
 <p>以下字段位于 <code>details[]</code> 中。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1504,7 +1608,7 @@
 </table></div>
 <p>多个物料编码不存在时一次返回全部缺失编码；编码对应多个物料时报 <code>MATERIAL_AMBIGUOUS</code>。未命中物料不能自行创建或按名称匹配。</p>
 <p>供应商ID不存在时返回422 <code>REFERENCE_INVALID</code>，message为“供应商xxx，在121系统未找到，请先核实供应商再推送至121”；xxx优先使用supplierName，未提供名称时使用supplierId，名称不参与匹配。物料缺失返回422 <code>MATERIAL_NOT_FOUND</code>，message为“物料编码xxx、xxx在121系统未找到，请先核实物料编码再推送至121”，一次列出全部缺失编码。</p>
-<h3 id="section-4-5">返回字段</h3>
+<h3 id="section-4-6">返回字段</h3>
 <p>P01、P02、P03和P04使用相同业务对象。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1562,7 +1666,7 @@
 </tr>
 </tbody>
 </table></div>
-<h3 id="section-4-6">采购单状态值</h3>
+<h3 id="section-4-7">采购单状态值</h3>
 <p>下面是P01、P02、P03、P04的 <code>data.status</code>，与响应外层 <code>code</code> 含义不同。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1613,7 +1717,7 @@
 </tbody>
 </table></div>
 <p>已删除标记优先于其他状态。只有确认旧批次为 <code>DELETED</code> 后，调用方才能使用新批次和新幂等键重新同步。锁单及退单仍保留来源有效关联。</p>
-<h3 id="section-4-7">请求与响应示例</h3>
+<h3 id="section-4-8">请求与响应示例</h3>
 <p>除公共鉴权头外再带 <code>Idempotency-Key: intelligent-office:PC202611170001:550e8400-e29b-41d4-a716-446655440001</code>。</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
 <span class="code-line">  <span class="token-key">&quot;sourceSystem&quot;</span>: <span class="token-string">&quot;INTELLIGENT_OFFICE&quot;</span>,</span>
@@ -1681,7 +1785,7 @@
 <span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>:<span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>:{<span class="token-key">&quot;field&quot;</span>:<span class="token-string">&quot;details[0].purchaseAmount&quot;</span>,<span class="token-key">&quot;sourceDetailId&quot;</span>:<span class="token-string">&quot;line-1&quot;</span>,<span class="token-key">&quot;provided&quot;</span>:<span class="token-literal">99</span>,<span class="token-key">&quot;calculated&quot;</span>:<span class="token-literal">100.00</span>}</span>
 <span class="code-line">}</span></code></pre></div></details>
-<h3 id="section-4-8">幂等、超时与重新同步</h3>
+<h3 id="section-4-9">幂等、超时与重新同步</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -1717,7 +1821,7 @@
 </tbody>
 </table></div>
 <p>正文空格或属性顺序变化也会改变摘要。每轮固定公共账号，不能通过切换loginAccount重放他人创建请求。旧版双账号正文若继续使用，两个字段均须与公共账号相同，保持原正文即可重试；不要在同轮重试时删除兼容字段。不要用“超时后直接更换批次”规避幂等。建议幂等键格式为 <code>intelligent-office:&lt;sourceOrderId&gt;:&lt;syncBatchId&gt;</code>。</p>
-<h3 id="section-4-9">业务返回码</h3>
+<h3 id="section-4-10">业务返回码</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -1793,6 +1897,36 @@
 <td><code>AMOUNT_MISMATCH</code></td>
 <td>采购金额与数量×单价不同</td>
 <td>修正金额或省略purchaseAmount</td>
+</tr>
+<tr>
+<td>422</td>
+<td><code>ORDER_CREATE_FAILED</code></td>
+<td>采购主单未保存成功</td>
+<td>核对原因后重新提交</td>
+</tr>
+<tr>
+<td>422</td>
+<td><code>DETAIL_CREATE_FAILED</code></td>
+<td>明细添加失败</td>
+<td>按data定位来源明细；本次全部回滚</td>
+</tr>
+<tr>
+<td>422</td>
+<td><code>ORDER_GENERATION_FAILED</code></td>
+<td>原121预算生成规则不通过</td>
+<td>按message处理业务原因；本次全部回滚</td>
+</tr>
+<tr>
+<td>422</td>
+<td><code>BUDGET_EXPLANATION_REQUIRED</code></td>
+<td>缺少超预算说明</td>
+<td>补齐budgetExplanation后提交</td>
+</tr>
+<tr>
+<td>422</td>
+<td><code>PAYMENT_INVALID</code></td>
+<td>实付金额为负数</td>
+<td>核对折让、预付款及采购金额</td>
 </tr>
 <tr>
 <td>503</td>
@@ -2687,6 +2821,41 @@
 <td>修正金额或省略该字段</td>
 </tr>
 <tr>
+<td>422</td>
+<td><code>ORDER_CREATE_FAILED</code></td>
+<td>主单创建失败</td>
+<td>主单未成功保存</td>
+<td>核对具体原因，本次全部回滚</td>
+</tr>
+<tr>
+<td>422</td>
+<td><code>DETAIL_CREATE_FAILED</code></td>
+<td>明细添加失败</td>
+<td>明细写入失败</td>
+<td>按data定位来源明细，本次全部回滚</td>
+</tr>
+<tr>
+<td>422</td>
+<td><code>ORDER_GENERATION_FAILED</code></td>
+<td>生成校验失败</td>
+<td>原121预算规则拒绝生成或无可用明细</td>
+<td>按message处理原业务原因</td>
+</tr>
+<tr>
+<td>422</td>
+<td><code>BUDGET_EXPLANATION_REQUIRED</code></td>
+<td>缺少超预算说明</td>
+<td>原规则允许超预算但未填写说明</td>
+<td>填写budgetExplanation</td>
+</tr>
+<tr>
+<td>422</td>
+<td><code>PAYMENT_INVALID</code></td>
+<td>实付金额无效</td>
+<td>采购金额减折让和预付款后为负数</td>
+<td>核对discount、advance及采购金额</td>
+</tr>
+<tr>
 <td>500</td>
 <td><code>SYSTEM_ERROR</code></td>
 <td>内部处理失败</td>
@@ -2800,7 +2969,7 @@
 <li><a href="./downloads/121-open-api-test.postman_environment.json">Postman测试环境模板（无密钥）</a></li>
 </ul>
 <p>导入集合和环境，选择测试环境，填写121线下交付的appId、appSecret和测试账号，直接点击Send；无需数据库账号、员工密码或登录Token。集合展开全部字典和审批角色，共23个测试请求；先读后写，采购创建和取消须逐项手动执行。</p>
-<p>发布文档不代表测试后端已更新。2.2.0统一部门字段名称，121须部署配套后端，调用方须更新创建正文、返回解析及Postman变量；App-Id、App-Secret、loginAccount公共请求头及部门授权规则保持。两项应用凭据配置可沿用，无需调整数据库表结构或服务端department-ids授权配置。旧版创建正文departmentId将返回400 PARAM_INVALID。部署后先以U01和D01只读请求验收，再使用专用测试单验证采购接口。</p>
+<p>发布文档不代表测试后端已更新。2.3.0增加同步后的原121预算生成校验及失败整体回滚，121须部署配套后端，调用方须更新新增字段和业务错误码处理；App-Id、App-Secret、loginAccount公共请求头及部门授权规则保持。两项应用凭据配置可沿用，无需调整数据库表结构或服务端department-ids授权配置。旧版创建正文departmentId将返回400 PARAM_INVALID。部署后先以U01和D01只读请求验收，再使用专用测试单验证采购接口。</p>
 <h3 id="section-10-3">联调前业务边界</h3>
 <p>已确认：导入的数据类型、精度、有效值及计算方式以121原有线上业务为准；变现周期沿用原有规则，接口不另定单位或自动换算，不因附件示例修改现有计算。一张采购单只有一个销售渠道，创建时提交一个saleChannelId。变现周期已移除接入层新增的36500上限；明细税率已按原DECIMAL(15,2)字段适配，不再套用主单0/6%/13%枚举。主单下拉及原预算、利润、导出取价与计算规则保持。</p>
 <p>本期对账只保留121采购单ID（applyId）及首次同步明细ID映射，P02/P03现有查询范围满足该约定，不增加完整实时明细查询。C01协议保留，接收地址及反向凭据后续补充，当前先测试U01、D01和P01—P04；回调配置完成后另行验收。</p>
@@ -2891,7 +3060,7 @@
 </table></div>
 <p>向121反馈时提供环境、接口、HTTP状态、errorCode、requestId和时间，勿发送密钥、数据库密码或完整人员数据。</p>
 </section>
-    <footer class="document-footer"><span>121系统 · 开放接口 v2.2.0</span><a href="#top">返回顶部 ↑</a></footer>
+    <footer class="document-footer"><span>121系统 · 开放接口 v2.3.0</span><a href="#top">返回顶部 ↑</a></footer>
   </main>
 </body>
 </html>

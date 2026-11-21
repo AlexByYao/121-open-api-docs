@@ -1,6 +1,6 @@
 # 121 接口交接文档
 
-版本 **2.2.0** · 文档更新 **2026-11-21** · 服务提供方 **121系统**
+版本 **2.3.0** · 文档更新 **2026-11-21** · 服务提供方 **121系统**
 
 本文交付121开放接口的调用地址、鉴权方式、请求字段、响应字段、状态、错误码及联调示例。示例账号、手机号、部门和订单均为虚构数据；实际开放时间、调用凭据及有效测试数据由121提供方交付。
 
@@ -152,6 +152,12 @@ loginAccount按121原账号规则匹配，清理首尾ASCII空格后1—30个Uni
 | `matchCount` | integer | 对应物料编码匹配到的记录数 |
 | `provided` | number | 调用方提交的采购金额 |
 | `calculated` | number | 采购数量乘单价后的计算金额 |
+| `stage` | string | 失败阶段：DETAIL_CREATE或ORDER_GENERATION |
+| `rolledBack` | boolean | true表示本次同步已整体回滚 |
+| `generationMessage` | string / null | 原121预算计算提示 |
+| `purchaseAmount` | number / null | 原121口径计算采购金额，单位元 |
+| `overBudgetAmount` | number / null | 原121口径计算超预算金额，单位元 |
+| `payableAmount` | number / null | 原121口径计算实付金额，单位元 |
 | `errors` | object[] | 缺失/重复物料的行详情，每项使用上述field、sourceDetailId、materialCode等字段 |
 
 | reason取值 | 含义 | 调用方处理 |
@@ -395,7 +401,7 @@ HTTP 200，省份示例：
 | 传参位置 | Body JSON；不接受查询参数；Header必须带Idempotency-Key |
 | Content-Type | `application/json` |
 
-成功创建草稿，原子保存主单、全部明细及来源关联；校验失败整体回滚，不新增供应商/物料。
+同步接口一次完成主单创建、全部明细添加，以及121原有预算生成校验。任何一步失败均整体回滚，不保留主单、明细、来源关联、批次及明细映射；不新增供应商或物料。通过校验后返回草稿ID和明细映射，状态仍为DRAFT，未锁单、未导出。
 
 ### 主单请求参数
 
@@ -424,9 +430,48 @@ HTTP 200，省份示例：
 | `contractNo` | 合同号 | string | 否 | 最长64 |
 | `externalPurchaseOrderNo` | 外部采购单号 | string | 否 | 最长64，业务备注关联号；不等于121内部ID |
 | `remark` | 主单备注 | string | 否 | 最长500 |
+| `budgetExplanation` | 超预算说明 | string | 条件 | 最长500；原121规则允许超预算采购时须填写，其他情况可省略 |
+| `discount` | 使用折让 | number | 否 | 非负金额，单位元；省略为0，参与原实付金额计算 |
+| `advance` | 使用预付款 | number | 否 | 非负金额，单位元；省略为0，参与原实付金额计算 |
 | `details` | 采购明细 | array | 是 | 1—500条，字段见“明细请求参数” |
 
 不要提交状态、创建人、121主单ID等额外字段。字符串拒绝控制字符和尖括号。未填写的可选ID应省略，不传空字符串。
+
+### 生成校验及失败处理
+
+明细写入后，在同一事务中执行121结果页和生成采购单使用的原预算计算及生成条件，包括内采/外采预算、允许超预算的说明要求，以及实付金额不能为负数。沿用原有预算口径、阈值和取价规则；不是出现“超预算”就一律拒绝。
+
+| 场景 | 返回结果 |
+| --- | --- |
+| 主单未保存成功 | 422 ORDER_CREATE_FAILED，message说明主单创建失败 |
+| 明细未添加成功 | 422 DETAIL_CREATE_FAILED，data标识来源明细和失败阶段 |
+| 原预算规则不允许生成 | 422 ORDER_GENERATION_FAILED，message返回原业务原因，例如“外采物料超预算，总金额超过50万，请分别采购！”或“内采超预算，请上会！” |
+| 允许超预算但缺少说明 | 422 BUDGET_EXPLANATION_REQUIRED，data.field=budgetExplanation |
+| 实付金额为负数 | 422 PAYMENT_INVALID，message说明金额问题 |
+| 校验通过 | 200，返回DRAFT及主单、明细ID；后续生成/导出仍按121当时业务状态再次校验 |
+
+以上失败均不留下本次主单和明细。返回的data.rolledBack=true表示本次整体回滚，不能把错误详情中的计算结果当成已保存采购单。未知系统异常返回500及requestId，不对外暴露SQL或堆栈。
+
+明确收到整体回滚的业务失败后，可修正数据再提交；该失败请求未占用已提交的批次和幂等键。超时、断网或结果未知时仍须先P02查询，不能直接改正文或换批次。已成功批次只返回首次结果，不因幂等重试重复预算校验或创建。
+
+失败示例：
+
+```json
+{
+  "code": 422,
+  "errorCode": "ORDER_GENERATION_FAILED",
+  "message": "外采物料超预算，总金额超过50万，请分别采购！",
+  "requestId": "7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
+  "data": {
+    "stage": "ORDER_GENERATION",
+    "rolledBack": true,
+    "generationMessage": "外采物料超预算，总金额超过50万，请分别采购！",
+    "purchaseAmount": 600000,
+    "overBudgetAmount": 600000,
+    "payableAmount": 600000
+  }
+}
+```
 
 ### 可选审批人员
 
@@ -612,6 +657,11 @@ P01、P02、P03和P04使用相同业务对象。
 | 422 | `MATERIAL_NOT_FOUND` | 一个或多个物料编码不存在 | 在121补齐/核实后重新推送 |
 | 422 | `MATERIAL_AMBIGUOUS` | 物料编码匹配多条记录 | 121消除重复数据后重试 |
 | 422 | `AMOUNT_MISMATCH` | 采购金额与数量×单价不同 | 修正金额或省略purchaseAmount |
+| 422 | `ORDER_CREATE_FAILED` | 采购主单未保存成功 | 核对原因后重新提交 |
+| 422 | `DETAIL_CREATE_FAILED` | 明细添加失败 | 按data定位来源明细；本次全部回滚 |
+| 422 | `ORDER_GENERATION_FAILED` | 原121预算生成规则不通过 | 按message处理业务原因；本次全部回滚 |
+| 422 | `BUDGET_EXPLANATION_REQUIRED` | 缺少超预算说明 | 补齐budgetExplanation后提交 |
+| 422 | `PAYMENT_INVALID` | 实付金额为负数 | 核对折让、预付款及采购金额 |
 | 503 | `SYSTEM_BUSY` | 事务竞争、集成未启用或公共设施暂不可用 | 按原业务批次退避重试；持续发生联系121 |
 
 还可能返回公共鉴权/系统错误。遇到500先查询结果，不应直接认为未创建。
@@ -933,6 +983,11 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 | 422 | `MATERIAL_NOT_FOUND` | 物料不存在 | 一个或多个materialCode无匹配 | 核对message中的全部编码，121补齐后再推 |
 | 422 | `MATERIAL_AMBIGUOUS` | 物料编码不唯一 | materialCode匹配多条物料 | 121修复重复数据 |
 | 422 | `AMOUNT_MISMATCH` | 采购金额不一致 | purchaseAmount不等于quantity×purchasePrice | 修正金额或省略该字段 |
+| 422 | `ORDER_CREATE_FAILED` | 主单创建失败 | 主单未成功保存 | 核对具体原因，本次全部回滚 |
+| 422 | `DETAIL_CREATE_FAILED` | 明细添加失败 | 明细写入失败 | 按data定位来源明细，本次全部回滚 |
+| 422 | `ORDER_GENERATION_FAILED` | 生成校验失败 | 原121预算规则拒绝生成或无可用明细 | 按message处理原业务原因 |
+| 422 | `BUDGET_EXPLANATION_REQUIRED` | 缺少超预算说明 | 原规则允许超预算但未填写说明 | 填写budgetExplanation |
+| 422 | `PAYMENT_INVALID` | 实付金额无效 | 采购金额减折让和预付款后为负数 | 核对discount、advance及采购金额 |
 | 500 | `SYSTEM_ERROR` | 内部处理失败 | 未预期异常或状态数据异常 | 留存requestId；P01先P02查询，联系121 |
 | 503 | `SYSTEM_BUSY` | 暂不可用 | 事务竞争或采购集成尚未启用 | 退避重试，P01保留原批次/键/正文 |
 
@@ -988,7 +1043,7 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 
 导入集合和环境，选择测试环境，填写121线下交付的appId、appSecret和测试账号，直接点击Send；无需数据库账号、员工密码或登录Token。集合展开全部字典和审批角色，共23个测试请求；先读后写，采购创建和取消须逐项手动执行。
 
-发布文档不代表测试后端已更新。2.2.0统一部门字段名称，121须部署配套后端，调用方须更新创建正文、返回解析及Postman变量；App-Id、App-Secret、loginAccount公共请求头及部门授权规则保持。两项应用凭据配置可沿用，无需调整数据库表结构或服务端department-ids授权配置。旧版创建正文departmentId将返回400 PARAM_INVALID。部署后先以U01和D01只读请求验收，再使用专用测试单验证采购接口。
+发布文档不代表测试后端已更新。2.3.0增加同步后的原121预算生成校验及失败整体回滚，121须部署配套后端，调用方须更新新增字段和业务错误码处理；App-Id、App-Secret、loginAccount公共请求头及部门授权规则保持。两项应用凭据配置可沿用，无需调整数据库表结构或服务端department-ids授权配置。旧版创建正文departmentId将返回400 PARAM_INVALID。部署后先以U01和D01只读请求验收，再使用专用测试单验证采购接口。
 
 ### 联调前业务边界
 
