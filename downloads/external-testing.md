@@ -1,6 +1,6 @@
 # 121开放接口联调指南
 
-适用接口版本：**2.7.2** · 更新日期：**2026-11-22**
+适用接口版本：**2.8.0** · 更新日期：**2026-11-22**
 
 本指南用于验证用户查询、基础字典、采购草稿及删除通知。接口字段、约束和错误码以《121接口交接文档》及OpenAPI定义为准。
 
@@ -38,7 +38,7 @@ loginAccount为普通ASCII账号时直接填写；包含中文或百分号时，
 | U01 | POST | `/users/verify` | 账号信息、可用部门及无效账号错误 |
 | D01 | GET | `/dictionaries/{type}` | 字典、分页、部门关联和审批角色 |
 | P01 | POST | `/purchase-drafts` | 主单与明细保存、ID映射、幂等和错误详情 |
-| P02 | GET | `/purchase-drafts/by-source` | 按来源与批次查询，确认超时请求结果 |
+| P02 | GET | `/purchase-drafts/by-source` | 按来源记录及原幂等键查询，确认超时请求结果 |
 | P03 | GET | `/purchase-drafts/{draftId}` | 查询采购单状态及首次明细映射 |
 | P04 | POST | `/purchase-drafts/{draftId}/cancel` | 取消草稿、重复取消及不可取消状态 |
 | C01 | POST | 接收方提供的固定URL | 删除事件接收、凭据校验、去重和重试 |
@@ -46,23 +46,23 @@ loginAccount为普通ASCII账号时直接填写；包含中文或百分号时，
 ## 4. 采购草稿验证
 
 1. 查询字典后填写有效的业务ID和物料编码。未填写的可选ID省略，不传空字符串。
-2. 首次创建前确定并保存sourceOrderId：可用调用方已有采购草稿ID；没有ID时生成UUID，例如`a58161da-4499-4bee-8b26-374c31989150`。它不是121采购单号。同一采购记录超时重试、删除后再同步均沿用该ID，不同采购记录使用不同ID。syncBatchId首次创建也必填，由调用方另生成UUID并保存，例如`550e8400-e29b-41d4-a716-446655440001`，标识本轮同步；本轮查询、超时重试沿用原值，确认旧单DELETED后重新同步才更换。另准备16—160字符的idempotencyKey，填写budgetMonth和purchaseDate。
+2. 首次创建前确定并保存sourceOrderId：使用调用方已有采购记录ID；没有ID时生成UUID。另生成并保存idempotencyKey，可直接使用另一个UUID。首次创建及超时重试使用相同的来源记录ID和幂等键；确认旧单DELETED后重新创建时只换幂等键。sourceSystem可省略，由121使用默认值。填写budgetMonth和purchaseDate。
 3. 发送P01，核对HTTP 200、code=200、errorCode=null、data.status=DRAFT。保存draftId及details中的明细ID映射。
-4. 保持loginAccount、批次、幂等键及原始正文不变，重复发送P01，应返回相同draftId，不重复创建。
-5. 调用P02和P03查询同一采购单。返回的details为首次同步明细映射，不包含后续新增明细或完整实时明细内容。
+4. 保持loginAccount、sourceOrderId、幂等键及原始正文不变，重复发送P01，应返回相同draftId，不重复创建。
+5. P02在Query传sourceOrderId，在Header传原Idempotency-Key；P03直接使用draftId。两者查询同一采购单。返回的details为首次同步明细映射，不包含后续新增明细或完整实时明细内容。
 6. 对本次未锁单测试草稿执行P04，预期状态为DELETED。再次取消应返回同一删除结果。
 
 P01仅保存采购草稿及全部明细。预算不足、未填写超预算说明不影响合法草稿的保存；生成、锁单和导出不属于本接口范围。
 
-主单或任一明细保存失败时，本次请求整体回滚。失败响应通过message说明原因，data可包含stage、rolledBack、sourceDetailId和field。可使用同批次P02查询确认不存在已提交结果。明确收到保存失败后，修正数据再提交；网络中断或结果未知时，先查询结果再决定是否重试。
+主单或任一明细保存失败时，本次请求整体回滚。失败响应通过message说明原因，data可包含stage、rolledBack、sourceDetailId和field。可使用原sourceOrderId和Idempotency-Key调用P02查询确认不存在已提交结果。明确收到保存失败后，修正数据再提交；网络中断或结果未知时，先查询结果再决定是否重试。
 
 ## 5. 删除通知验证
 
 接收方提供固定回调URL及独立App-Id、App-Secret。删除来源草稿或调用P04成功后，121向该URL发送C01通知。
 
-接收方须先校验凭据，再按eventId去重，并核对sourceOrderId、syncBatchId和draftId。可靠处理完成或已处理的重复事件返回2xx，推荐204；处理失败返回非2xx。
+接收方须先校验凭据，再按eventId去重，并核对sourceOrderId、draftId。可靠处理完成或已处理的重复事件返回2xx，推荐204；处理失败返回非2xx。
 
-应覆盖以下情况：正常接收、重复事件、超时或非2xx后的重试，以及旧批次通知到达时不清除新批次关联。
+应覆盖以下情况：正常接收、重复事件、超时或非2xx后的重试，以及旧采购单删除通知到达时不清除新采购单关联。
 
 ## 6. 错误处理
 
@@ -72,7 +72,7 @@ P01仅保存采购草稿及全部明细。预算不足、未填写超预算说�
 | 401 / AUTH_INVALID | 核对本环境App-Id、App-Secret及请求头 |
 | 403 / OPERATOR_FORBIDDEN | 核对账号和业务部门是否在可访问范围 |
 | 404 / USER_NOT_FOUND | 使用存在且启用的121账号 |
-| 409 / IDEMPOTENCY_CONFLICT | 查询原批次，不覆盖已成功的请求内容 |
+| 409 / IDEMPOTENCY_CONFLICT | 查询原创建请求，不覆盖已成功的请求内容 |
 | 422 / 业务错误码 | 按message及data定位供应商、物料、字段或保存错误 |
 | 500、503或网络异常 | 保留requestId；创建请求先通过P02确认结果 |
 

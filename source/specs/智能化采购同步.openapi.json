@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "121 开放接口",
-    "version": "2.7.2",
+    "version": "2.8.0",
     "description": "121开放接口，提供用户及字典查询、采购草稿创建与查询、取消及删除通知。请求使用App-Id、App-Secret和loginAccount；数据访问受账号所属部门及应用授权范围约束。"
   },
   "servers": [
@@ -717,7 +717,7 @@
     "/purchase-drafts/by-source": {
       "get": {
         "operationId": "getDraftBySource",
-        "summary": "按来源及本轮批次查询",
+        "summary": "按来源记录及原幂等键查询创建结果",
         "parameters": [
           {
             "$ref": "#/components/parameters/AppId"
@@ -731,12 +731,12 @@
           {
             "name": "sourceSystem",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 128,
-              "description": "传创建时的INTELLIGENT_OFFICE；查询仅校验非空、长度、控制字符及尖括号，不另校验常量"
+              "const": "INTELLIGENT_OFFICE",
+              "default": "INTELLIGENT_OFFICE",
+              "description": "省略使用默认来源系统"
             }
           },
           {
@@ -746,19 +746,19 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 128,
-              "description": "创建时提交的来源采购记录ID，须与P01使用的值相同"
+              "maxLength": 64,
+              "description": "原创建请求的来源采购记录ID"
             }
           },
           {
-            "name": "syncBatchId",
-            "in": "query",
+            "name": "Idempotency-Key",
+            "in": "header",
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 128,
-              "description": "传创建时UUID；查询不另校验UUID格式，无匹配返回404"
+              "minLength": 16,
+              "maxLength": 160,
+              "pattern": "^[A-Za-z0-9._:-]{16,160}$"
             }
           }
         ],
@@ -1565,7 +1565,7 @@
               "SYSTEM_ERROR",
               "SYSTEM_BUSY"
             ],
-            "description": "PARAM_INVALID：请求参数错误；AUTH_INVALID：App-Id或App-Secret缺失、重复、错误，应用停用或入口关闭；OPERATOR_FORBIDDEN：用户/部门越权、禁止代发或修改所属部门；USER_NOT_FOUND：用户不存在或已删；DRAFT_NOT_FOUND：同步采购单不存在或不可见；NOT_FOUND：字典类型不存在；METHOD_NOT_ALLOWED：HTTP方法不支持；IDEMPOTENCY_CONFLICT：幂等键或批次与原请求冲突；SOURCE_ALREADY_SYNCED：来源已有有效关联；DRAFT_NOT_EDITABLE：状态不允许删除/修改；SUPPLIER_IMMUTABLE：来源单供应商不可改；PAYLOAD_TOO_LARGE：请求体超过大小上限；UNSUPPORTED_MEDIA_TYPE：媒体类型或编码不支持；USER_DISABLED：用户已停用；REFERENCE_INVALID：供应商或其他引用数据无效；MATERIAL_NOT_FOUND：一个或多个物料不存在；MATERIAL_AMBIGUOUS：物料编码匹配不唯一；AMOUNT_MISMATCH：采购金额与数量乘单价不一致；ORDER_CREATE_FAILED：采购主单未成功保存；DETAIL_CREATE_FAILED：采购明细添加失败；SYSTEM_ERROR：内部处理失败；SYSTEM_BUSY：暂不可用"
+            "description": "PARAM_INVALID：请求参数错误；AUTH_INVALID：App-Id或App-Secret缺失、重复、错误，应用停用或入口关闭；OPERATOR_FORBIDDEN：用户/部门越权、禁止代发或修改所属部门；USER_NOT_FOUND：用户不存在或已删；DRAFT_NOT_FOUND：同步采购单不存在或不可见；NOT_FOUND：字典类型不存在；METHOD_NOT_ALLOWED：HTTP方法不支持；IDEMPOTENCY_CONFLICT：幂等键与原请求冲突；SOURCE_ALREADY_SYNCED：来源已有有效关联；DRAFT_NOT_EDITABLE：状态不允许删除/修改；SUPPLIER_IMMUTABLE：来源单供应商不可改；PAYLOAD_TOO_LARGE：请求体超过大小上限；UNSUPPORTED_MEDIA_TYPE：媒体类型或编码不支持；USER_DISABLED：用户已停用；REFERENCE_INVALID：供应商或其他引用数据无效；MATERIAL_NOT_FOUND：一个或多个物料不存在；MATERIAL_AMBIGUOUS：物料编码匹配不唯一；AMOUNT_MISMATCH：采购金额与数量乘单价不一致；ORDER_CREATE_FAILED：采购主单未成功保存；DETAIL_CREATE_FAILED：采购明细添加失败；SYSTEM_ERROR：内部处理失败；SYSTEM_BUSY：暂不可用"
           },
           "message": {
             "type": "string"
@@ -1577,7 +1577,7 @@
             "description": "121自动生成的本次请求追踪编号"
           },
           "data": {
-            "description": "无详情时为null；参数及业务校验错误返回ErrorDetail；SOURCE_ALREADY_SYNCED返回可访问的已有采购单及其syncBatchId。调用方应按errorCode判断处理结果。",
+            "description": "无详情时为null；参数及业务校验错误返回ErrorDetail；SOURCE_ALREADY_SYNCED返回可访问的已有采购单。调用方应按errorCode判断处理结果。",
             "anyOf": [
               {
                 "type": "null"
@@ -1766,9 +1766,7 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "sourceSystem",
           "sourceOrderId",
-          "syncBatchId",
           "deptId",
           "supplierId",
           "authorized",
@@ -1785,8 +1783,16 @@
         ],
         "properties": {
           "sourceSystem": {
-            "type": "string",
-            "const": "INTELLIGENT_OFFICE"
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "INTELLIGENT_OFFICE",
+              null
+            ],
+            "default": "INTELLIGENT_OFFICE",
+            "description": "可省略；省略或null使用INTELLIGENT_OFFICE"
           },
           "sourceOrderId": {
             "type": "string",
@@ -1794,11 +1800,6 @@
             "maxLength": 64,
             "pattern": "^[A-Za-z0-9_-]{1,64}$",
             "description": "来源采购记录ID，由调用方首次同步前生成并保存；可用已有采购草稿ID，没有ID时生成UUID。不是121采购单号。不同采购记录使用不同ID，同一记录超时重试、删除后重新同步均保持不变。"
-          },
-          "syncBatchId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "本轮同步批次ID，首次创建也必填；调用方发送前生成并保存UUID。本轮查询、超时重试保持不变；确认旧单DELETED后重新同步时生成新UUID。不同采购记录或新轮次不得复用已使用的批次ID。"
           },
           "operatorLoginAccount": {
             "type": [
@@ -1997,7 +1998,6 @@
           "purchaseOrderNo",
           "sourceSystem",
           "sourceOrderId",
-          "syncBatchId",
           "status",
           "details"
         ],
@@ -2024,11 +2024,6 @@
             "minLength": 1,
             "maxLength": 64,
             "description": "创建时提交的来源采购记录ID"
-          },
-          "syncBatchId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "创建时提交的本轮同步批次ID，用于查询结果及关联删除通知"
           },
           "status": {
             "type": "string",
@@ -2230,7 +2225,6 @@
           "eventTime",
           "sourceSystem",
           "sourceOrderId",
-          "syncBatchId",
           "draftId",
           "purchaseOrderNo",
           "status",
@@ -2259,11 +2253,6 @@
             "minLength": 1,
             "maxLength": 64,
             "description": "创建时提交的来源采购记录ID"
-          },
-          "syncBatchId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "被删除采购单所属同步批次ID；须与当前关联的批次核对，避免旧通知清除新一轮关联"
           },
           "draftId": {
             "type": "string",

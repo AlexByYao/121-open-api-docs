@@ -1,6 +1,6 @@
 # 121 接口交接文档
 
-版本 **2.7.2** · 文档更新 **2026-11-22** · 服务提供方 **121系统**
+版本 **2.8.0** · 文档更新 **2026-11-22** · 服务提供方 **121系统**
 
 本文定义121开放接口的请求方式、鉴权规则、参数、响应、状态及错误码。示例数据仅用于说明报文格式；接入凭据和测试数据由121服务提供方提供。
 
@@ -11,8 +11,8 @@
 1. 获取测试环境App-Id、App-Secret、有效账号及业务测试数据。
 2. 在请求头填写App-Id、App-Secret和loginAccount，调用U01查询账号及可用部门。
 3. 从U01返回的departments确定deptId，再调用D01获取供应商、项目、库位及审批人等字典；提交121的ID，不以名称代替。
-4. 准备P01所需字段，固定本轮syncBatchId、Idempotency-Key和请求正文，再创建采购草稿；保存返回的draftId及明细ID映射。
-5. 调用P02或P03查询结果与状态；创建超时先用P02确认，再决定是否按原批次、原幂等键、原正文重试。
+4. 准备P01所需字段，保存sourceOrderId、Idempotency-Key和请求正文，再创建采购草稿；保存返回的draftId及明细ID映射。
+5. 调用P02或P03查询结果与状态；创建超时先用P02确认，再决定是否按原来源记录ID、原幂等键、原正文重试。
 6. 仅对未锁单草稿调用P04取消；以DELETED确认删除。C01为121主动发送的删除通知，接收地址及反向凭据配置完成后单独验收。
 
 ### 编号、幂等与重试
@@ -20,14 +20,13 @@
 | 字段 | 产生方与用途 | 何时变化 |
 | --- | --- | --- |
 | sourceOrderId | 调用方生成并保存的来源采购记录ID | 同一采购记录不变，超时重试、删除后再同步也不改 |
-| syncBatchId | 调用方生成UUID，标识一轮同步 | 本轮查询、重试不变；确认旧轮DELETED后再同步才新建 |
-| Idempotency-Key | 调用方生成的P01业务幂等键 | 同轮同正文不变；新轮换新键，只有P01提交该Header |
+| Idempotency-Key | 调用方生成的P01业务幂等键 | 创建重试及P02查询使用原键；确认旧单删除后重新创建时换新键 |
 | requestId | 121自动生成的本次请求追踪编号 | 每次响应生成，排查问题时提供 |
 | draftId、purchaseOrderNo | 121返回的采购单ID，两字段值相同 | 创建后保存，不能自行生成；重新同步可能得到新ID |
 | sourceDetailId、detailId | 来源明细ID与121初始明细ID | 发送前固定来源行ID，成功后保存两者映射 |
 | eventId | 121生成的C01事件去重键 | 同一事件重试不变；接收方按eventId幂等处理 |
 
-同一批次的重复请求须使用相同的幂等键和原始正文。结果未知时先调用P02；返回404时，应核对查询参数和访问范围，再使用原批次、原幂等键及原始正文重试。
+同一创建请求的重复提交须使用相同的幂等键和原始正文。结果未知时先调用P02；返回404时，应核对查询参数和访问范围，再使用原来源记录ID、原幂等键及原始正文重试。
 
 ### 调用地址
 
@@ -47,7 +46,7 @@
 | U01 | 查询121用户信息 | POST | `/users/verify` |
 | D01 | 查询基础字典 | GET | `/dictionaries/{type}` |
 | P01 | 创建采购草稿 | POST | `/purchase-drafts` |
-| P02 | 按来源和批次查询草稿 | GET | `/purchase-drafts/by-source` |
+| P02 | 按来源记录和幂等键查询草稿 | GET | `/purchase-drafts/by-source` |
 | P03 | 按121采购单ID查询草稿 | GET | `/purchase-drafts/{draftId}` |
 | P04 | 取消同步并删除草稿 | POST | `/purchase-drafts/{draftId}/cancel` |
 | C01 | 采购草稿删除通知 | POST | 接收方提供的固定回调地址 |
@@ -88,7 +87,7 @@
 | `App-Id` | 调用方应用编号 | string | 是 | 121分配的固定值，与本环境配置完全一致 |
 | `App-Secret` | 应用密钥 | string | 是 | 121交付的固定密钥，原样传入，无需编码或计算 |
 | `loginAccount` | 当前121操作人账号 | string | 六个121入口必填 | 用户须存在、启用且有可用授权部门；返回账号为规范loginAccount，不是姓名/手机号/ID。C01系统通知不携带此项 |
-| `Idempotency-Key` | 业务幂等键 | string | 仅P01必填 | 16—160字符；ASCII字母、数字及 `._:-`；其他接口不能传 |
+| `Idempotency-Key` | 业务幂等键 | string | P01、P02必填 | 16—160字符；ASCII字母、数字及 `._:-`；其他接口不传 |
 | `Content-Type` | 正文媒体类型 | string | POST必填 | `application/json` 或 `application/json; charset=utf-8` |
 | `Accept` | 期望响应类型 | string | 建议 | `application/json` |
 
@@ -105,7 +104,7 @@ loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode�
 | 严格JSON | 拒绝未知属性、重复属性、错误标量类型、非整数数量、尾随JSON及非法UTF-8 |
 | 服务暂不可用 | 服务暂不可用时返回503 `SYSTEM_BUSY` |
 | 每次HTTP重试 | 沿用本环境App-Id、App-Secret及本轮loginAccount |
-| P01业务重试 | 同时保留原loginAccount、`syncBatchId`、`Idempotency-Key`及原始正文；先按P02查询 |
+| P01业务重试 | 保留原sourceOrderId、Idempotency-Key、loginAccount及原始正文；结果未知时先调用P02查询 |
 
 ### 统一响应字段
 
@@ -164,7 +163,7 @@ loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode�
 | `DEPARTMENT_MISMATCH` | 产品经理不属于所选部门 | 选择本部门产品经理 |
 | `ROLE_MISSING` | 审批用户缺少对应有效角色 | 在121补齐角色或重新选择 |
 
-`SOURCE_ALREADY_SYNCED`的data使用P01“返回字段”中的原单对象，含原`draftId`、`purchaseOrderNo`、`syncBatchId`和当前状态。只能在原单属于当前客户端且在授权部门内时返回；不可访问时返回404 `DRAFT_NOT_FOUND`。这仍是409冲突，不表示本次创建成功。
+`SOURCE_ALREADY_SYNCED`的data使用P01“返回字段”中的原单对象，含原`draftId`、`purchaseOrderNo`和当前状态。只能在原单属于当前客户端且在授权部门内时返回；不可访问时返回404 `DRAFT_NOT_FOUND`。这仍是409冲突，不表示本次创建成功。
 
 ## U01 查询121用户信息（POST）
 
@@ -399,9 +398,8 @@ HTTP 200，省份示例：
 
 | 参数名 | 名称 | 类型 | 是否必填 | 说明 |
 | --- | --- | --- | --- | --- |
-| `sourceSystem` | 来源系统 | string | 是 | 固定 `INTELLIGENT_OFFICE`，为当前接口约定的来源系统编码 |
+| `sourceSystem` | 来源系统 | string | 否 | 省略或null时使用 `INTELLIGENT_OFFICE`；提供时仅允许该值 |
 | `sourceOrderId` | 来源采购记录ID | string | 是 | 调用方生成并保存；可用已有草稿ID或UUID，无需提前取得121采购单号。1—64位ASCII字母、数字、下划线、短横线；同一采购记录保持不变 |
-| `syncBatchId` | 本轮同步批次ID | string | 是 | 首次调用前由调用方生成并保存UUID；本轮查询、超时重试沿用原值。确认旧单DELETED后重新同步时生成新UUID |
 | `operatorLoginAccount` | 可选操作人 | string / null | 否 | 建议省略，由公共loginAccount取得；非null时须与公共账号规范化后相同，否则403 OPERATOR_FORBIDDEN |
 | `initiatorLoginAccount` | 可选发起人 | string / null | 否 | 建议省略，由公共loginAccount取得；非null时须与公共账号相同，不支持代发 |
 | `deptId` | 业务部门 | string | 是 | 用户所属、客户端授权且启用的121部门ID |
@@ -435,21 +433,21 @@ HTTP 200，省份示例：
 
 - 已有采购草稿或采购记录ID时，使用该ID，须符合上表格式。
 - 尚无记录ID时，生成一个UUID并保存到该采购记录中，再发起同步；例如 `a58161da-4499-4bee-8b26-374c31989150`。
-- 不同采购记录使用不同ID；同一记录超时重试或删除后重新同步时沿用原ID。重新同步只更换`syncBatchId`和`Idempotency-Key`。
+- 不同采购记录使用不同ID；同一记录超时重试或删除后重新同步时沿用原ID。确认旧单DELETED后重新创建时只更换`Idempotency-Key`。
 
 首次创建示例中的`sourceOrderId`为调用方生成的UUID；创建成功后，121返回自己的`draftId`和`purchaseOrderNo`。
 
-### 首次创建时的同步批次ID
+### 来源记录与请求去重
 
-`syncBatchId`首次创建也必填，由调用方在发送前生成并保存UUID，例如`550e8400-e29b-41d4-a716-446655440001`。121通过该批次识别本轮请求，供P02查询结果及C01删除通知关联使用，避免旧批次通知影响重新同步后的采购单。
+首次创建前只需准备并保存来源采购记录ID和幂等键：
 
-| 场景 | sourceOrderId | syncBatchId | Idempotency-Key |
-| --- | --- | --- | --- |
-| 首次创建 | 使用已有采购记录ID，或生成UUID并保存 | 生成新的UUID并保存 | 生成本轮请求的幂等键并保存 |
-| 本轮超时重试 | 保持不变 | 保持不变 | 保持不变，使用原始正文重试 |
-| 确认旧单DELETED后重新同步 | 保持不变 | 生成新的UUID | 生成新的幂等键 |
+| 场景 | sourceOrderId（Body） | Idempotency-Key（Header） |
+| --- | --- | --- |
+| 首次创建 | 使用已有采购记录ID，或生成UUID并保存 | 生成一个16—160字符的唯一键并保存，可直接使用UUID |
+| 请求超时后查询、重试 | 保持不变 | 保持不变，重试使用原始正文 |
+| 确认旧单DELETED后重新创建 | 保持不变 | 生成新的幂等键 |
 
-`sourceOrderId`标识采购记录，`syncBatchId`标识该记录的一轮同步，`Idempotency-Key`用于P01重复提交去重。首次创建可同时准备三者；不同采购记录或新的同步轮次不得复用已使用的批次ID和幂等键。
+`sourceOrderId`标识采购记录，`Idempotency-Key`用于防止同一请求重复建单。不同采购记录使用不同来源ID；不同创建请求使用不同幂等键。P02查询携带原创建请求的幂等键，不需要额外的批次参数。
 
 ### 草稿保存及失败处理
 
@@ -462,9 +460,9 @@ HTTP 200，省份示例：
 | 字段、物料、供应商或金额校验失败 | 按对应PARAM_INVALID、MATERIAL_NOT_FOUND、REFERENCE_INVALID、AMOUNT_MISMATCH等错误码返回具体原因 |
 | 主单及全部明细保存成功 | 200，返回DRAFT及主单、明细ID |
 
-保存失败时主单、全部明细、来源、批次和明细映射一起回滚。data.rolledBack=true表示本次已整体回滚，不存在可使用的本次单据ID；明细错误通过sourceDetailId和field定位。系统异常返回HTTP 500，调用方可通过requestId联系121查询原因。
+保存失败时主单、全部明细、来源关联、幂等记录和明细映射一起回滚。data.rolledBack=true表示本次已整体回滚，不存在可使用的本次单据ID；明细错误通过sourceDetailId和field定位。系统异常返回HTTP 500，调用方可通过requestId联系121查询原因。
 
-明确收到整体回滚的保存失败后，可修正数据再提交；失败请求未占用已提交的批次和幂等键。超时、断网或结果未知时仍须先P02查询，不能直接改正文或换批次。已成功批次按原批次、原键、原正文重试，返回原单及当前状态，不重复创建。
+明确收到整体回滚的保存失败后，可修正数据再提交；失败请求不占用幂等键。超时、断网或结果未知时仍须先P02查询，不能直接改正文或换幂等键。已成功请求按原来源记录ID、原键、原正文重试，返回原单及当前状态，不重复创建。
 
 明细保存失败示例：
 
@@ -528,7 +526,6 @@ P01、P02、P03和P04使用相同业务对象。
 | `data.purchaseOrderNo` | string | 121采购单序号，与draftId相同 |
 | `data.sourceSystem` | string | 来源系统，当前为INTELLIGENT_OFFICE |
 | `data.sourceOrderId` | string | 创建时提交的来源采购记录ID |
-| `data.syncBatchId` | string | 本轮同步UUID，用于查询、重试和防止旧事件覆盖新批次 |
 | `data.status` | string | 当前采购状态；全部取值和含义见P01“采购单状态值” |
 | `data.details` | array | 来源明细与121明细ID的映射 |
 | `data.details[].sourceDetailId` | string | 创建时传入的来源明细号 |
@@ -545,19 +542,17 @@ P01、P02、P03和P04使用相同业务对象。
 | `RETURN_PENDING` | 退单待审核 | 已申请退单，等待审核；不能视为删除 | 否 |
 | `RETURNED` | 退单通过 | 退单审核通过；来源关联仍保留 | 否 |
 | `RETURN_REJECTED` | 退单驳回 | 退单申请被驳回；来源关联仍有效 | 否 |
-| `DELETED` | 已删除 | 草稿已软删除，本轮批次可查询历史ID；不能恢复为已同步 | 重复调用返回DELETED |
+| `DELETED` | 已删除 | 草稿已软删除，通过原幂等键仍可查询历史ID；不能恢复为已同步 | 重复调用返回DELETED |
 
-已删除标记优先于其他状态。只有确认旧批次为 `DELETED` 后，调用方才能使用新批次和新幂等键重新同步。锁单及退单仍保留来源有效关联。
+已删除标记优先于其他状态。只有确认旧单为 `DELETED` 后，调用方才能使用新幂等键重新创建。锁单及退单仍保留来源有效关联。
 
 ### 请求与响应示例
 
-除公共鉴权头外再带 `Idempotency-Key: intelligent-office:a58161da-4499-4bee-8b26-374c31989150:550e8400-e29b-41d4-a716-446655440001`。
+除公共鉴权头外再带 `Idempotency-Key: 550e8400-e29b-41d4-a716-446655440001`。
 
 ```json
 {
-  "sourceSystem": "INTELLIGENT_OFFICE",
   "sourceOrderId": "a58161da-4499-4bee-8b26-374c31989150",
-  "syncBatchId": "550e8400-e29b-41d4-a716-446655440001",
   "deptId": "80001",
   "supplierId": "1001",
   "authorized": true,
@@ -598,7 +593,6 @@ P01、P02、P03和P04使用相同业务对象。
     "purchaseOrderNo": "12345",
     "sourceSystem": "INTELLIGENT_OFFICE",
     "sourceOrderId": "a58161da-4499-4bee-8b26-374c31989150",
-    "syncBatchId": "550e8400-e29b-41d4-a716-446655440001",
     "status": "DRAFT",
     "details": [{"sourceDetailId":"line-1","detailId":"67890"}]
   }
@@ -638,13 +632,13 @@ P01、P02、P03和P04使用相同业务对象。
 
 | 场景 | 处理结果/要求 |
 | --- | --- |
-| 同应用、同操作人、同批次、同幂等键、同原始正文 | 返回已有单当前状态及原ID，不重复创建；可能返回DELETED |
-| 批次或幂等键与原请求组合/内容不一致 | 409 IDEMPOTENCY_CONFLICT |
-| 同sourceSystem+sourceOrderId仍有有效121关联 | 409 SOURCE_ALREADY_SYNCED，data返回可访问原单及原批次，按返回draftId调用P03查询 |
-| 创建超时、网关502/504、网络中断 | 先P02查本批次；查不到再用原批次、原键、原始正文重试 |
-| 原草稿已确认DELETED | 新批次UUID、新幂等键再创建；旧批次保留历史可查询 |
+| 同应用、同操作人、同来源记录ID、同幂等键、同原始正文 | 返回已有单当前状态及原ID，不重复创建；可能返回DELETED |
+| 幂等键已用于其他来源记录或不同请求内容 | 409 IDEMPOTENCY_CONFLICT |
+| 同sourceSystem+sourceOrderId仍有有效121关联 | 409 SOURCE_ALREADY_SYNCED，data返回可访问原单，按返回draftId调用P03查询 |
+| 创建超时、网关502/504、网络中断 | 先用原来源记录ID和原幂等键调用P02；查不到再用原键、原始正文重试 |
+| 原草稿已确认DELETED | 保留sourceOrderId，使用新幂等键再创建；原键仍可查询旧单 |
 
-同一批次重试须保持loginAccount、幂等键及原始正文一致，包括正文空格、属性顺序和可选字段。结果未知时先查询P02。幂等键示例：`purchase:<sourceOrderId>:<syncBatchId>`。
+重试须保持loginAccount、sourceOrderId、幂等键及原始正文一致，包括正文空格、属性顺序和可选字段。结果未知时先查询P02。幂等键可以直接使用UUID，例如`550e8400-e29b-41d4-a716-446655440001`。
 
 ### 业务返回码
 
@@ -654,7 +648,7 @@ P01、P02、P03和P04使用相同业务对象。
 | 400 | `PARAM_INVALID` | 缺字段、格式/类型/金额精度/范围或幂等键不合法 | 修正完整正文 |
 | 403 | `OPERATOR_FORBIDDEN` | 部门越权、用户不属部门、操作人与发起人不同 | 核对授权，不自动重试 |
 | 404 | `USER_NOT_FOUND` | 操作人不存在或已删除 | 核对loginAccount并使用有效账号 |
-| 409 | `IDEMPOTENCY_CONFLICT` | 批次/键已用于不一致请求 | 查询原请求，不能覆盖原结果 |
+| 409 | `IDEMPOTENCY_CONFLICT` | 幂等键已用于不一致请求 | 查询原请求，不能覆盖原结果 |
 | 409 | `SOURCE_ALREADY_SYNCED` | 来源订单存在有效121单据 | 按data.draftId查询原单，勿重复创建 |
 | 422 | `USER_DISABLED` | 操作人已停用 | 更换可用账号 |
 | 422 | `REFERENCE_INVALID` | 供应商不存在、字典/审批人或联动关系不可用 | 核实供应商提示，或重新拉取字典并修正 |
@@ -663,11 +657,11 @@ P01、P02、P03和P04使用相同业务对象。
 | 422 | `AMOUNT_MISMATCH` | 采购金额与数量×单价不同 | 修正金额或省略purchaseAmount |
 | 422 | `ORDER_CREATE_FAILED` | 采购主单未保存成功 | 核对原因后重新提交 |
 | 422 | `DETAIL_CREATE_FAILED` | 明细添加失败 | 按data定位来源明细；本次全部回滚 |
-| 503 | `SYSTEM_BUSY` | 服务暂不可用 | 按原业务批次退避重试；持续发生联系121 |
+| 503 | `SYSTEM_BUSY` | 服务暂不可用 | 使用原幂等键和原始正文退避重试；持续发生联系121 |
 
 还可能返回公共鉴权/系统错误。遇到500先查询结果，不应直接认为未创建。
 
-## P02 按来源和批次查询草稿（GET）
+## P02 按来源记录和幂等键查询草稿（GET）
 
 ### 请求方式与地址
 
@@ -675,16 +669,16 @@ P01、P02、P03和P04使用相同业务对象。
 | --- | --- |
 | 请求方法 | **GET** |
 | 请求路径 | `/open-api/v1/purchase-drafts/by-source` |
-| 传参位置 | Query查询参数；无正文，不传幂等键 |
+| 传参位置 | Query查询参数；无正文；Header必填原创建请求的Idempotency-Key |
 | Content-Type | 无请求正文，无需设置 |
 
 ### 请求参数
 
 | 参数名 | 名称 | 位置 | 类型 | 是否必填 | 说明 |
 | --- | --- | --- | --- | --- | --- |
-| `sourceSystem` | 来源系统 | Query | string | 是 | 使用创建时的INTELLIGENT_OFFICE；查询入口只校验非空及长度≤128码点 |
-| `sourceOrderId` | 来源采购记录ID | Query | string | 是 | 使用创建时提交的sourceOrderId；非空且≤128码点 |
-| `syncBatchId` | 同步批次 | Query | string | 是 | 使用创建时的UUID；查询入口只校验非空及长度≤128码点，不自动返回最近批次 |
+| `sourceSystem` | 来源系统 | Query | string | 否 | 省略时使用INTELLIGENT_OFFICE；提供时仅允许该值 |
+| `sourceOrderId` | 来源采购记录ID | Query | string | 是 | 使用创建时提交的sourceOrderId；非空且≤64码点 |
+| `Idempotency-Key` | 原创建请求幂等键 | Header | string | 是 | 与P01使用的值相同，格式见公共请求头 |
 
 ### 返回字段
 
@@ -694,7 +688,6 @@ P01、P02、P03和P04使用相同业务对象。
 | `data.purchaseOrderNo` | string | 121采购单序号，与draftId相同 |
 | `data.sourceSystem` | string | 来源系统，当前为INTELLIGENT_OFFICE |
 | `data.sourceOrderId` | string | 创建时提交的来源采购记录ID |
-| `data.syncBatchId` | string | 本轮同步UUID，用于查询、重试和防止旧事件覆盖新批次 |
 | `data.status` | string | 当前采购状态；全部取值和含义见P01“采购单状态值” |
 | `data.details` | array | 来源明细与121明细ID的映射 |
 | `data.details[].sourceDetailId` | string | 创建时传入的来源明细号 |
@@ -702,10 +695,11 @@ P01、P02、P03和P04使用相同业务对象。
 
 ### 请求与响应示例
 
-`data`字段逐项见P01“返回字段”；`data.status`的所有值见P01“采购单状态值”。仅查询本客户端及授权部门范围内的批次。删除后仍返回原ID和明细映射，状态为DELETED。
+`data`字段逐项见P01“返回字段”；`data.status`的所有值见P01“采购单状态值”。仅查询本客户端及授权部门范围内、与原幂等键匹配的创建记录。删除后仍返回原ID和明细映射，状态为DELETED。
 
 ```http
-GET /open-api/v1/purchase-drafts/by-source?sourceSystem=INTELLIGENT_OFFICE&sourceOrderId=a58161da-4499-4bee-8b26-374c31989150&syncBatchId=550e8400-e29b-41d4-a716-446655440001
+GET /open-api/v1/purchase-drafts/by-source?sourceOrderId=a58161da-4499-4bee-8b26-374c31989150
+Idempotency-Key: 550e8400-e29b-41d4-a716-446655440001
 ```
 
 HTTP 200：
@@ -718,7 +712,6 @@ HTTP 200：
   "data": {
     "draftId": "12345", "purchaseOrderNo": "12345",
     "sourceSystem": "INTELLIGENT_OFFICE", "sourceOrderId": "a58161da-4499-4bee-8b26-374c31989150",
-    "syncBatchId": "550e8400-e29b-41d4-a716-446655440001",
     "status": "DRAFT",
     "details": [{"sourceDetailId":"line-1","detailId":"67890"}]
   }
@@ -730,10 +723,10 @@ HTTP 200：
 | HTTP | errorCode | 含义 | 调用方处理 |
 | --- | --- | --- | --- |
 | 200 | `null` | 找到本轮结果 | 依据status恢复本地同步结果 |
-| 400 | `PARAM_INVALID` | 缺参数或参数不合法 | 使用原创建批次参数 |
-| 404 | `DRAFT_NOT_FOUND` | 批次不存在、主单不存在或不在本客户/授权部门范围 | 超时恢复时核对原参数，再按原业务请求重试；不得据此取消其他批次 |
+| 400 | `PARAM_INVALID` | 缺参数或参数不合法 | 使用原sourceOrderId和Idempotency-Key |
+| 404 | `DRAFT_NOT_FOUND` | 幂等键无匹配记录、主单不存在或不在本客户/授权部门范围 | 超时恢复时核对原参数，再按原业务请求重试；不得据此取消其他采购单 |
 
-公共错误码仍适用。P02不是按来源查询“最新一单”，syncBatchId必须准确。三个查询字段均禁止控制字符及尖括号；查询入口不另校验来源常量、订单号格式或UUID格式，格式错误且无匹配时返回404 DRAFT_NOT_FOUND。
+公共错误码仍适用。P02使用原sourceOrderId和请求头Idempotency-Key精确查询该次创建结果；没有匹配或无权访问时返回404 DRAFT_NOT_FOUND，不自动选择最近一单。
 
 ## P03 按121采购单ID查询草稿（GET）
 
@@ -760,7 +753,6 @@ HTTP 200：
 | `data.purchaseOrderNo` | string | 121采购单序号，与draftId相同 |
 | `data.sourceSystem` | string | 来源系统，当前为INTELLIGENT_OFFICE |
 | `data.sourceOrderId` | string | 创建时提交的来源采购记录ID |
-| `data.syncBatchId` | string | 本轮同步UUID，用于查询、重试和防止旧事件覆盖新批次 |
 | `data.status` | string | 当前采购状态；全部取值和含义见P01“采购单状态值” |
 | `data.details` | array | 来源明细与121明细ID的映射 |
 | `data.details[].sourceDetailId` | string | 创建时传入的来源明细号 |
@@ -783,7 +775,6 @@ HTTP 200，锁单示例：
   "data": {
     "draftId": "12345", "purchaseOrderNo": "12345",
     "sourceSystem": "INTELLIGENT_OFFICE", "sourceOrderId": "a58161da-4499-4bee-8b26-374c31989150",
-    "syncBatchId": "550e8400-e29b-41d4-a716-446655440001",
     "status": "LOCKED", "details": [{"sourceDetailId":"line-1","detailId":"67890"}]
   }
 }
@@ -828,7 +819,6 @@ HTTP 200，锁单示例：
 | `data.purchaseOrderNo` | string | 121采购单序号，与draftId相同 |
 | `data.sourceSystem` | string | 来源系统，当前为INTELLIGENT_OFFICE |
 | `data.sourceOrderId` | string | 创建时提交的来源采购记录ID |
-| `data.syncBatchId` | string | 本轮同步UUID，用于查询、重试和防止旧事件覆盖新批次 |
 | `data.status` | string | 当前采购状态；全部取值和含义见P01“采购单状态值” |
 | `data.details` | array | 来源明细与121明细ID的映射 |
 | `data.details[].sourceDetailId` | string | 创建时传入的来源明细号 |
@@ -849,7 +839,6 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
   "data": {
     "draftId": "12345", "purchaseOrderNo": "12345",
     "sourceSystem": "INTELLIGENT_OFFICE", "sourceOrderId": "a58161da-4499-4bee-8b26-374c31989150",
-    "syncBatchId": "550e8400-e29b-41d4-a716-446655440001",
     "status": "DELETED", "details": [{"sourceDetailId":"line-1","detailId":"67890"}]
   }
 }
@@ -872,7 +861,7 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 
 | HTTP | errorCode | 含义 | 调用方处理 |
 | --- | --- | --- | --- |
-| 200 | `null` | 删除成功或该批次已删除 | 按批次清空本地关联，不影响新批次 |
+| 200 | `null` | 删除成功或该单已删除 | 按sourceOrderId和draftId清空匹配关联 |
 | 400 | `PARAM_INVALID` | 参数无效 | 修正请求 |
 | 403 | `OPERATOR_FORBIDDEN` | 操作人不属该单部门或越权 | 核对部门和操作人 |
 | 404 | `USER_NOT_FOUND` | 操作人不存在/已删 | 更换有效账号 |
@@ -906,7 +895,6 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 | `eventTime` | 事件发生时间 | string | 是 | UTC ISO 8601，不是本次重试时间 |
 | `sourceSystem` | 来源系统 | string | 是 | 当前固定INTELLIGENT_OFFICE |
 | `sourceOrderId` | 来源采购记录ID | string | 是 | 创建时提交的sourceOrderId |
-| `syncBatchId` | 被删同步批次 | string | 是 | 仅清除此UUID对应的关联 |
 | `draftId` | 被删121主单ID | string | 是 | 与本地当前关联一起核对 |
 | `purchaseOrderNo` | 121采购单序号 | string | 是 | 与draftId相同 |
 | `status` | 删除结果 | string | 是 | 固定DELETED |
@@ -921,7 +909,6 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
   "eventTime": "2026-11-17T02:00:00Z",
   "sourceSystem": "INTELLIGENT_OFFICE",
   "sourceOrderId": "a58161da-4499-4bee-8b26-374c31989150",
-  "syncBatchId": "550e8400-e29b-41d4-a716-446655440001",
   "draftId": "12345",
   "purchaseOrderNo": "12345",
   "status": "DELETED",
@@ -947,9 +934,9 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 
 - 通知可能重复投递。连接超时5秒、读取超时10秒；首次发送失败后按30秒、2分钟、10分钟、30分钟间隔重试，最多5次发送。
 - 同一事件重试保持eventId和正文，沿用该回调目标的App-Id、App-Secret。
-- 先校验两项系统凭据，再按eventId幂等处理。必须同时核对sourceOrderId、syncBatchId、draftId，仅清除完全匹配的当前主单/明细映射。
-- 旧批次通知不能清除重新同步的新单；即使不匹配当前关联，也应将该旧事件记为已处理并回2xx。
-- 通知可能早于P01响应到达。接收方须保留批次已删记录，迟到的创建响应不得恢复已删除批次的关联。
+- 先校验两项系统凭据，再按eventId幂等处理。必须同时核对sourceOrderId和draftId，仅清除完全匹配的当前主单/明细映射。
+- 旧采购单的删除通知不能清除重新同步的新单；即使不匹配当前关联，也应将该旧事件记为已处理并回2xx。
+- 通知可能早于P01响应到达。接收方须按draftId保留删除记录，迟到的创建响应不得恢复已删除采购单的关联。
 
 ## 返回码说明
 
@@ -964,11 +951,11 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 | 401 | `AUTH_INVALID` | 系统凭据无效 | App-Id/App-Secret缺失、重复、错误，应用停用或入口关闭 | 核对本环境的App-Id和App-Secret |
 | 403 | `OPERATOR_FORBIDDEN` | 业务操作越权 | 公共用户无可用部门，deptId越权，正文账号与请求头loginAccount不一致，禁止代发或变更来源单部门 | 修正用户/部门并确认授权 |
 | 404 | `USER_NOT_FOUND` | 用户不存在 | 账号不存在或已删除 | 核对loginAccount并使用有效账号 |
-| 404 | `DRAFT_NOT_FOUND` | 同步采购单不可见 | 没有来源记录、主单不存在、其他客户或非授权部门 | 核对ID、来源、批次与授权 |
+| 404 | `DRAFT_NOT_FOUND` | 同步采购单不可见 | 没有来源记录、主单不存在、其他客户或非授权部门 | 核对采购单ID、来源记录ID、幂等键与授权 |
 | 404 | `NOT_FOUND` | 字典类型不存在 | D01 type不在支持列表 | 使用D01“字典类型及联动”枚举 |
 | 405 | `METHOD_NOT_ALLOWED` | 请求方法不支持 | 对已匹配路径使用不支持的HTTP方法 | 按接口约定使用GET/POST |
-| 409 | `IDEMPOTENCY_CONFLICT` | 幂等冲突 | 批次/键已绑定不一致请求，或并发复用唯一键 | 查询原请求，不覆盖、不随意换批次 |
-| 409 | `SOURCE_ALREADY_SYNCED` | 来源已同步 | 同来源订单已有有效采购单，含锁单及退单 | 查原单；确认DELETED后再用新批次 |
+| 409 | `IDEMPOTENCY_CONFLICT` | 幂等冲突 | 幂等键已绑定不同来源记录或不同请求内容 | 查询原请求，不覆盖、不随意换幂等键 |
+| 409 | `SOURCE_ALREADY_SYNCED` | 来源已同步 | 同来源订单已有有效采购单，含锁单及退单 | 查原单；确认DELETED后再用新幂等键 |
 | 409 | `DRAFT_NOT_EDITABLE` | 当前状态不能删除/修改 | 已锁单、退单、删除保护或并发状态变化 | 查询状态，不强制取消 |
 | 409 | `SUPPLIER_IMMUTABLE` | 来源单供应商不可更改 | 121编辑同步单时尝试变更供应商 | 保留原供应商；该码用于来源单编辑保护 |
 | 413 | `PAYLOAD_TOO_LARGE` | 请求体过大 | U01超过8KiB，其他超过2MiB | 缩小请求体；P01同时最多500条 |
@@ -981,7 +968,7 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 | 422 | `ORDER_CREATE_FAILED` | 主单创建失败 | 主单未成功保存 | 核对具体原因，本次全部回滚 |
 | 422 | `DETAIL_CREATE_FAILED` | 明细添加失败 | 明细写入失败 | 按data定位来源明细，本次全部回滚 |
 | 500 | `SYSTEM_ERROR` | 内部处理失败 | 未预期异常或状态数据异常 | 留存requestId；P01先P02查询，联系121 |
-| 503 | `SYSTEM_BUSY` | 暂不可用 | 服务暂不可用 | 退避重试，P01保留原批次/键/正文 |
+| 503 | `SYSTEM_BUSY` | 暂不可用 | 服务暂不可用 | 退避重试，P01保留原来源记录ID、幂等键和正文 |
 
 `SUPPLIER_IMMUTABLE` 是来源单的121编辑业务保护码；当前开放接口不提供修改供应商接口。未知URL还可能由网关/框架返回普通404，不能保证包含此JSON外壳。
 
@@ -1000,7 +987,7 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 | --- | --- | --- |
 | 修正后再发 | 400、401、403、404、409、415、422 | 根据具体errorCode修正，不盲目循环重试 |
 | 等待后重发 | 503、网关502/504、网络错误 | 建议退避2秒、5秒、15秒 |
-| 结果不确定 | P01读取超时、500、连接在发送后中断 | 先查本批次，再按原业务请求重试 |
+| 结果不确定 | P01读取超时、500、连接在发送后中断 | 先用原来源记录ID和幂等键查询，再按原业务请求重试 |
 
 不要把所有非200都解释为“参数错误”，也不要把所有200都解释为“仍然有效同步”：成功查询可能返回DELETED。
 
@@ -1083,6 +1070,6 @@ java OpenApiExample.java departments
 | 400 / PARAM_INVALID | loginAccount头是否缺失、重复、非法编码，或业务字段是否错误 |
 | 403 / OPERATOR_FORBIDDEN | 核对账号所属部门、应用授权部门及正文账号与请求头是否一致 |
 | 422 / 业务错误码 | 按errorCode及data定位供应商、物料、字段或金额错误 |
-| P01超时或连接断开 | 先P02查询，保留本轮批次、幂等键和原始正文 |
+| P01超时或连接断开 | 先P02查询，保留原来源记录ID、幂等键和原始正文 |
 
 反馈问题时提供环境、接口、HTTP状态、errorCode、requestId和时间，请勿提供密钥或完整人员信息。

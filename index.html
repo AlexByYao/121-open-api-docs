@@ -15,7 +15,7 @@
   <a class="skip-link" href="#content">跳到文档正文</a>
   <header class="site-header">
     <a class="brand" href="#top"><span class="brand-mark">121</span><span>接口交接文档<small>用户、字典与采购草稿</small></span></a>
-    <div class="header-actions"><span class="version">v2.7.2</span><a href="./downloads/openapi.yaml" download>下载 OpenAPI</a><button id="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">目录</button></div>
+    <div class="header-actions"><span class="version">v2.8.0</span><a href="./downloads/openapi.yaml" download>下载 OpenAPI</a><button id="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">目录</button></div>
   </header>
   <aside id="sidebar" class="sidebar" aria-label="文档目录">
     <label class="search-label" for="doc-search">查找文档</label>
@@ -25,7 +25,7 @@
 <a class="toc-level-2" href="#section-2">U01 查询121用户信息（POST）</a>
 <a class="toc-level-2" href="#section-3">D01 查询基础字典（GET）</a>
 <a class="toc-level-2" href="#section-4">P01 创建采购草稿（POST）</a>
-<a class="toc-level-2" href="#section-5">P02 按来源和批次查询草稿（GET）</a>
+<a class="toc-level-2" href="#section-5">P02 按来源记录和幂等键查询草稿（GET）</a>
 <a class="toc-level-2" href="#section-6">P03 按121采购单ID查询草稿（GET）</a>
 <a class="toc-level-2" href="#section-7">P04 取消同步并删除草稿（POST）</a>
 <a class="toc-level-2" href="#section-8">C01 采购草稿删除通知（POST）</a>
@@ -35,10 +35,10 @@
   </aside>
   <main id="content" class="document" tabindex="-1">
     <div class="page-kicker">开发者文档 / 服务器对服务器</div>
-    <div class="overview"><details><summary>展开完整章节目录</summary><ol><li><a href="#section-1">接入说明</a></li><li><a href="#section-2">U01 查询121用户信息（POST）</a></li><li><a href="#section-3">D01 查询基础字典（GET）</a></li><li><a href="#section-4">P01 创建采购草稿（POST）</a></li><li><a href="#section-5">P02 按来源和批次查询草稿（GET）</a></li><li><a href="#section-6">P03 按121采购单ID查询草稿（GET）</a></li><li><a href="#section-7">P04 取消同步并删除草稿（POST）</a></li><li><a href="#section-8">C01 采购草稿删除通知（POST）</a></li><li><a href="#section-9">返回码说明</a></li><li><a href="#section-10">附录</a></li></ol></details></div>
+    <div class="overview"><details><summary>展开完整章节目录</summary><ol><li><a href="#section-1">接入说明</a></li><li><a href="#section-2">U01 查询121用户信息（POST）</a></li><li><a href="#section-3">D01 查询基础字典（GET）</a></li><li><a href="#section-4">P01 创建采购草稿（POST）</a></li><li><a href="#section-5">P02 按来源记录和幂等键查询草稿（GET）</a></li><li><a href="#section-6">P03 按121采购单ID查询草稿（GET）</a></li><li><a href="#section-7">P04 取消同步并删除草稿（POST）</a></li><li><a href="#section-8">C01 采购草稿删除通知（POST）</a></li><li><a href="#section-9">返回码说明</a></li><li><a href="#section-10">附录</a></li></ol></details></div>
     <div id="no-results" hidden>未找到匹配内容。请尝试接口编号（如 P01）、参数名或错误码。</div>
     <div class="document-intro"><h1 id="top">121 接口交接文档</h1>
-<p>版本 <strong>2.7.2</strong> · 文档更新 <strong>2026-11-22</strong> · 服务提供方 <strong>121系统</strong></p>
+<p>版本 <strong>2.8.0</strong> · 文档更新 <strong>2026-11-22</strong> · 服务提供方 <strong>121系统</strong></p>
 <p>本文定义121开放接口的请求方式、鉴权规则、参数、响应、状态及错误码。示例数据仅用于说明报文格式；接入凭据和测试数据由121服务提供方提供。</p>
 </div><section class="doc-section" data-section="section-1"><h2 id="section-1">接入说明</h2>
 <h3 id="section-1-1">联调顺序</h3>
@@ -46,8 +46,8 @@
 <li>获取测试环境App-Id、App-Secret、有效账号及业务测试数据。</li>
 <li>在请求头填写App-Id、App-Secret和loginAccount，调用U01查询账号及可用部门。</li>
 <li>从U01返回的departments确定deptId，再调用D01获取供应商、项目、库位及审批人等字典；提交121的ID，不以名称代替。</li>
-<li>准备P01所需字段，固定本轮syncBatchId、Idempotency-Key和请求正文，再创建采购草稿；保存返回的draftId及明细ID映射。</li>
-<li>调用P02或P03查询结果与状态；创建超时先用P02确认，再决定是否按原批次、原幂等键、原正文重试。</li>
+<li>准备P01所需字段，保存sourceOrderId、Idempotency-Key和请求正文，再创建采购草稿；保存返回的draftId及明细ID映射。</li>
+<li>调用P02或P03查询结果与状态；创建超时先用P02确认，再决定是否按原来源记录ID、原幂等键、原正文重试。</li>
 <li>仅对未锁单草稿调用P04取消；以DELETED确认删除。C01为121主动发送的删除通知，接收地址及反向凭据配置完成后单独验收。</li>
 </ol>
 <h3 id="section-1-2">编号、幂等与重试</h3>
@@ -66,14 +66,9 @@
 <td>同一采购记录不变，超时重试、删除后再同步也不改</td>
 </tr>
 <tr>
-<td>syncBatchId</td>
-<td>调用方生成UUID，标识一轮同步</td>
-<td>本轮查询、重试不变；确认旧轮DELETED后再同步才新建</td>
-</tr>
-<tr>
 <td>Idempotency-Key</td>
 <td>调用方生成的P01业务幂等键</td>
-<td>同轮同正文不变；新轮换新键，只有P01提交该Header</td>
+<td>创建重试及P02查询使用原键；确认旧单删除后重新创建时换新键</td>
 </tr>
 <tr>
 <td>requestId</td>
@@ -97,7 +92,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>同一批次的重复请求须使用相同的幂等键和原始正文。结果未知时先调用P02；返回404时，应核对查询参数和访问范围，再使用原批次、原幂等键及原始正文重试。</p>
+<p>同一创建请求的重复提交须使用相同的幂等键和原始正文。结果未知时先调用P02；返回404时，应核对查询参数和访问范围，再使用原来源记录ID、原幂等键及原始正文重试。</p>
 <h3 id="section-1-3">调用地址</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -153,7 +148,7 @@
 </tr>
 <tr>
 <td>P02</td>
-<td>按来源和批次查询草稿</td>
+<td>按来源记录和幂等键查询草稿</td>
 <td>GET</td>
 <td><code>/purchase-drafts/by-source</code></td>
 </tr>
@@ -263,8 +258,8 @@
 <td><code>Idempotency-Key</code></td>
 <td>业务幂等键</td>
 <td>string</td>
-<td>仅P01必填</td>
-<td>16—160字符；ASCII字母、数字及 <code>._:-</code>；其他接口不能传</td>
+<td>P01、P02必填</td>
+<td>16—160字符；ASCII字母、数字及 <code>._:-</code>；其他接口不传</td>
 </tr>
 <tr>
 <td><code>Content-Type</code></td>
@@ -315,7 +310,7 @@
 </tr>
 <tr>
 <td>P01业务重试</td>
-<td>同时保留原loginAccount、<code>syncBatchId</code>、<code>Idempotency-Key</code>及原始正文；先按P02查询</td>
+<td>保留原sourceOrderId、Idempotency-Key、loginAccount及原始正文；结果未知时先调用P02查询</td>
 </tr>
 </tbody>
 </table></div>
@@ -514,7 +509,7 @@
 </tr>
 </tbody>
 </table></div>
-<p><code>SOURCE_ALREADY_SYNCED</code>的data使用P01“返回字段”中的原单对象，含原<code>draftId</code>、<code>purchaseOrderNo</code>、<code>syncBatchId</code>和当前状态。只能在原单属于当前客户端且在授权部门内时返回；不可访问时返回404 <code>DRAFT_NOT_FOUND</code>。这仍是409冲突，不表示本次创建成功。</p>
+<p><code>SOURCE_ALREADY_SYNCED</code>的data使用P01“返回字段”中的原单对象，含原<code>draftId</code>、<code>purchaseOrderNo</code>和当前状态。只能在原单属于当前客户端且在授权部门内时返回；不可访问时返回404 <code>DRAFT_NOT_FOUND</code>。这仍是409冲突，不表示本次创建成功。</p>
 </section><section class="doc-section" data-section="section-2"><h2 id="section-2">U01 查询121用户信息（POST）</h2>
 <h3 id="section-2-1">请求方式与地址</h3>
 <div class="table-scroll" tabindex="0"><table>
@@ -1190,8 +1185,8 @@
 <td><code>sourceSystem</code></td>
 <td>来源系统</td>
 <td>string</td>
-<td>是</td>
-<td>固定 <code>INTELLIGENT_OFFICE</code>，为当前接口约定的来源系统编码</td>
+<td>否</td>
+<td>省略或null时使用 <code>INTELLIGENT_OFFICE</code>；提供时仅允许该值</td>
 </tr>
 <tr>
 <td><code>sourceOrderId</code></td>
@@ -1199,13 +1194,6 @@
 <td>string</td>
 <td>是</td>
 <td>调用方生成并保存；可用已有草稿ID或UUID，无需提前取得121采购单号。1—64位ASCII字母、数字、下划线、短横线；同一采购记录保持不变</td>
-</tr>
-<tr>
-<td><code>syncBatchId</code></td>
-<td>本轮同步批次ID</td>
-<td>string</td>
-<td>是</td>
-<td>首次调用前由调用方生成并保存UUID；本轮查询、超时重试沿用原值。确认旧单DELETED后重新同步时生成新UUID</td>
 </tr>
 <tr>
 <td><code>operatorLoginAccount</code></td>
@@ -1383,42 +1371,38 @@
 <ul>
 <li>已有采购草稿或采购记录ID时，使用该ID，须符合上表格式。</li>
 <li>尚无记录ID时，生成一个UUID并保存到该采购记录中，再发起同步；例如 <code>a58161da-4499-4bee-8b26-374c31989150</code>。</li>
-<li>不同采购记录使用不同ID；同一记录超时重试或删除后重新同步时沿用原ID。重新同步只更换<code>syncBatchId</code>和<code>Idempotency-Key</code>。</li>
+<li>不同采购记录使用不同ID；同一记录超时重试或删除后重新同步时沿用原ID。确认旧单DELETED后重新创建时只更换<code>Idempotency-Key</code>。</li>
 </ul>
 <p>首次创建示例中的<code>sourceOrderId</code>为调用方生成的UUID；创建成功后，121返回自己的<code>draftId</code>和<code>purchaseOrderNo</code>。</p>
-<h3 id="section-4-4">首次创建时的同步批次ID</h3>
-<p><code>syncBatchId</code>首次创建也必填，由调用方在发送前生成并保存UUID，例如<code>550e8400-e29b-41d4-a716-446655440001</code>。121通过该批次识别本轮请求，供P02查询结果及C01删除通知关联使用，避免旧批次通知影响重新同步后的采购单。</p>
+<h3 id="section-4-4">来源记录与请求去重</h3>
+<p>首次创建前只需准备并保存来源采购记录ID和幂等键：</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
 <th>场景</th>
-<th>sourceOrderId</th>
-<th>syncBatchId</th>
-<th>Idempotency-Key</th>
+<th>sourceOrderId（Body）</th>
+<th>Idempotency-Key（Header）</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>首次创建</td>
 <td>使用已有采购记录ID，或生成UUID并保存</td>
-<td>生成新的UUID并保存</td>
-<td>生成本轮请求的幂等键并保存</td>
+<td>生成一个16—160字符的唯一键并保存，可直接使用UUID</td>
 </tr>
 <tr>
-<td>本轮超时重试</td>
+<td>请求超时后查询、重试</td>
 <td>保持不变</td>
-<td>保持不变</td>
-<td>保持不变，使用原始正文重试</td>
+<td>保持不变，重试使用原始正文</td>
 </tr>
 <tr>
-<td>确认旧单DELETED后重新同步</td>
+<td>确认旧单DELETED后重新创建</td>
 <td>保持不变</td>
-<td>生成新的UUID</td>
 <td>生成新的幂等键</td>
 </tr>
 </tbody>
 </table></div>
-<p><code>sourceOrderId</code>标识采购记录，<code>syncBatchId</code>标识该记录的一轮同步，<code>Idempotency-Key</code>用于P01重复提交去重。首次创建可同时准备三者；不同采购记录或新的同步轮次不得复用已使用的批次ID和幂等键。</p>
+<p><code>sourceOrderId</code>标识采购记录，<code>Idempotency-Key</code>用于防止同一请求重复建单。不同采购记录使用不同来源ID；不同创建请求使用不同幂等键。P02查询携带原创建请求的幂等键，不需要额外的批次参数。</p>
 <h3 id="section-4-5">草稿保存及失败处理</h3>
 <p>同步成功表示采购草稿及全部明细已保存。预算是否超额、超预算说明是否填写不影响保存结果。生成采购单、锁单及导出不属于本接口的处理范围。</p>
 <div class="table-scroll" tabindex="0"><table>
@@ -1447,8 +1431,8 @@
 </tr>
 </tbody>
 </table></div>
-<p>保存失败时主单、全部明细、来源、批次和明细映射一起回滚。data.rolledBack=true表示本次已整体回滚，不存在可使用的本次单据ID；明细错误通过sourceDetailId和field定位。系统异常返回HTTP 500，调用方可通过requestId联系121查询原因。</p>
-<p>明确收到整体回滚的保存失败后，可修正数据再提交；失败请求未占用已提交的批次和幂等键。超时、断网或结果未知时仍须先P02查询，不能直接改正文或换批次。已成功批次按原批次、原键、原正文重试，返回原单及当前状态，不重复创建。</p>
+<p>保存失败时主单、全部明细、来源关联、幂等记录和明细映射一起回滚。data.rolledBack=true表示本次已整体回滚，不存在可使用的本次单据ID；明细错误通过sourceDetailId和field定位。系统异常返回HTTP 500，调用方可通过requestId联系121查询原因。</p>
+<p>明确收到整体回滚的保存失败后，可修正数据再提交；失败请求不占用幂等键。超时、断网或结果未知时仍须先P02查询，不能直接改正文或换幂等键。已成功请求按原来源记录ID、原键、原正文重试，返回原单及当前状态，不重复创建。</p>
 <p>明细保存失败示例：</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
 <span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-literal">422</span>,</span>
@@ -1642,11 +1626,6 @@
 <td>创建时提交的来源采购记录ID</td>
 </tr>
 <tr>
-<td><code>data.syncBatchId</code></td>
-<td>string</td>
-<td>本轮同步UUID，用于查询、重试和防止旧事件覆盖新批次</td>
-</tr>
-<tr>
 <td><code>data.status</code></td>
 <td>string</td>
 <td>当前采购状态；全部取值和含义见P01“采购单状态值”</td>
@@ -1713,18 +1692,16 @@
 <tr>
 <td><code>DELETED</code></td>
 <td>已删除</td>
-<td>草稿已软删除，本轮批次可查询历史ID；不能恢复为已同步</td>
+<td>草稿已软删除，通过原幂等键仍可查询历史ID；不能恢复为已同步</td>
 <td>重复调用返回DELETED</td>
 </tr>
 </tbody>
 </table></div>
-<p>已删除标记优先于其他状态。只有确认旧批次为 <code>DELETED</code> 后，调用方才能使用新批次和新幂等键重新同步。锁单及退单仍保留来源有效关联。</p>
+<p>已删除标记优先于其他状态。只有确认旧单为 <code>DELETED</code> 后，调用方才能使用新幂等键重新创建。锁单及退单仍保留来源有效关联。</p>
 <h3 id="section-4-10">请求与响应示例</h3>
-<p>除公共鉴权头外再带 <code>Idempotency-Key: intelligent-office:a58161da-4499-4bee-8b26-374c31989150:550e8400-e29b-41d4-a716-446655440001</code>。</p>
+<p>除公共鉴权头外再带 <code>Idempotency-Key: 550e8400-e29b-41d4-a716-446655440001</code>。</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
-<span class="code-line">  <span class="token-key">&quot;sourceSystem&quot;</span>: <span class="token-string">&quot;INTELLIGENT_OFFICE&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;a58161da-4499-4bee-8b26-374c31989150&quot;</span>,</span>
-<span class="code-line">  <span class="token-key">&quot;syncBatchId&quot;</span>: <span class="token-string">&quot;550e8400-e29b-41d4-a716-446655440001&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;deptId&quot;</span>: <span class="token-string">&quot;80001&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;supplierId&quot;</span>: <span class="token-string">&quot;1001&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;authorized&quot;</span>: <span class="token-literal">true</span>,</span>
@@ -1761,7 +1738,6 @@
 <span class="code-line">    <span class="token-key">&quot;purchaseOrderNo&quot;</span>: <span class="token-string">&quot;12345&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;sourceSystem&quot;</span>: <span class="token-string">&quot;INTELLIGENT_OFFICE&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;a58161da-4499-4bee-8b26-374c31989150&quot;</span>,</span>
-<span class="code-line">    <span class="token-key">&quot;syncBatchId&quot;</span>: <span class="token-string">&quot;550e8400-e29b-41d4-a716-446655440001&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;status&quot;</span>: <span class="token-string">&quot;DRAFT&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;details&quot;</span>: [{<span class="token-key">&quot;sourceDetailId&quot;</span>:<span class="token-string">&quot;line-1&quot;</span>,<span class="token-key">&quot;detailId&quot;</span>:<span class="token-string">&quot;67890&quot;</span>}]</span>
 <span class="code-line">  }</span>
@@ -1797,28 +1773,28 @@
 </thead>
 <tbody>
 <tr>
-<td>同应用、同操作人、同批次、同幂等键、同原始正文</td>
+<td>同应用、同操作人、同来源记录ID、同幂等键、同原始正文</td>
 <td>返回已有单当前状态及原ID，不重复创建；可能返回DELETED</td>
 </tr>
 <tr>
-<td>批次或幂等键与原请求组合/内容不一致</td>
+<td>幂等键已用于其他来源记录或不同请求内容</td>
 <td>409 IDEMPOTENCY_CONFLICT</td>
 </tr>
 <tr>
 <td>同sourceSystem+sourceOrderId仍有有效121关联</td>
-<td>409 SOURCE_ALREADY_SYNCED，data返回可访问原单及原批次，按返回draftId调用P03查询</td>
+<td>409 SOURCE_ALREADY_SYNCED，data返回可访问原单，按返回draftId调用P03查询</td>
 </tr>
 <tr>
 <td>创建超时、网关502/504、网络中断</td>
-<td>先P02查本批次；查不到再用原批次、原键、原始正文重试</td>
+<td>先用原来源记录ID和原幂等键调用P02；查不到再用原键、原始正文重试</td>
 </tr>
 <tr>
 <td>原草稿已确认DELETED</td>
-<td>新批次UUID、新幂等键再创建；旧批次保留历史可查询</td>
+<td>保留sourceOrderId，使用新幂等键再创建；原键仍可查询旧单</td>
 </tr>
 </tbody>
 </table></div>
-<p>同一批次重试须保持loginAccount、幂等键及原始正文一致，包括正文空格、属性顺序和可选字段。结果未知时先查询P02。幂等键示例：<code>purchase:&lt;sourceOrderId&gt;:&lt;syncBatchId&gt;</code>。</p>
+<p>重试须保持loginAccount、sourceOrderId、幂等键及原始正文一致，包括正文空格、属性顺序和可选字段。结果未知时先查询P02。幂等键可以直接使用UUID，例如<code>550e8400-e29b-41d4-a716-446655440001</code>。</p>
 <h3 id="section-4-12">业务返回码</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1857,7 +1833,7 @@
 <tr>
 <td>409</td>
 <td><code>IDEMPOTENCY_CONFLICT</code></td>
-<td>批次/键已用于不一致请求</td>
+<td>幂等键已用于不一致请求</td>
 <td>查询原请求，不能覆盖原结果</td>
 </tr>
 <tr>
@@ -1912,12 +1888,12 @@
 <td>503</td>
 <td><code>SYSTEM_BUSY</code></td>
 <td>服务暂不可用</td>
-<td>按原业务批次退避重试；持续发生联系121</td>
+<td>使用原幂等键和原始正文退避重试；持续发生联系121</td>
 </tr>
 </tbody>
 </table></div>
 <p>还可能返回公共鉴权/系统错误。遇到500先查询结果，不应直接认为未创建。</p>
-</section><section class="doc-section" data-section="section-5"><h2 id="section-5">P02 按来源和批次查询草稿（GET）</h2>
+</section><section class="doc-section" data-section="section-5"><h2 id="section-5">P02 按来源记录和幂等键查询草稿（GET）</h2>
 <h3 id="section-5-1">请求方式与地址</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1937,7 +1913,7 @@
 </tr>
 <tr>
 <td>传参位置</td>
-<td>Query查询参数；无正文，不传幂等键</td>
+<td>Query查询参数；无正文；Header必填原创建请求的Idempotency-Key</td>
 </tr>
 <tr>
 <td>Content-Type</td>
@@ -1963,8 +1939,8 @@
 <td>来源系统</td>
 <td>Query</td>
 <td>string</td>
-<td>是</td>
-<td>使用创建时的INTELLIGENT_OFFICE；查询入口只校验非空及长度≤128码点</td>
+<td>否</td>
+<td>省略时使用INTELLIGENT_OFFICE；提供时仅允许该值</td>
 </tr>
 <tr>
 <td><code>sourceOrderId</code></td>
@@ -1972,15 +1948,15 @@
 <td>Query</td>
 <td>string</td>
 <td>是</td>
-<td>使用创建时提交的sourceOrderId；非空且≤128码点</td>
+<td>使用创建时提交的sourceOrderId；非空且≤64码点</td>
 </tr>
 <tr>
-<td><code>syncBatchId</code></td>
-<td>同步批次</td>
-<td>Query</td>
+<td><code>Idempotency-Key</code></td>
+<td>原创建请求幂等键</td>
+<td>Header</td>
 <td>string</td>
 <td>是</td>
-<td>使用创建时的UUID；查询入口只校验非空及长度≤128码点，不自动返回最近批次</td>
+<td>与P01使用的值相同，格式见公共请求头</td>
 </tr>
 </tbody>
 </table></div>
@@ -2015,11 +1991,6 @@
 <td>创建时提交的来源采购记录ID</td>
 </tr>
 <tr>
-<td><code>data.syncBatchId</code></td>
-<td>string</td>
-<td>本轮同步UUID，用于查询、重试和防止旧事件覆盖新批次</td>
-</tr>
-<tr>
 <td><code>data.status</code></td>
 <td>string</td>
 <td>当前采购状态；全部取值和含义见P01“采购单状态值”</td>
@@ -2042,8 +2013,9 @@
 </tbody>
 </table></div>
 <h3 id="section-5-4">请求与响应示例</h3>
-<p><code>data</code>字段逐项见P01“返回字段”；<code>data.status</code>的所有值见P01“采购单状态值”。仅查询本客户端及授权部门范围内的批次。删除后仍返回原ID和明细映射，状态为DELETED。</p>
-<details class="code-example" open><summary><span>HTTP 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-http"><span class="code-line">GET /open-api/v1/purchase-drafts/by-source?sourceSystem=INTELLIGENT_OFFICE&amp;sourceOrderId=a58161da-4499-4bee-8b26-374c31989150&amp;syncBatchId=550e8400-e29b-41d4-a716-446655440001</span></code></pre></div></details>
+<p><code>data</code>字段逐项见P01“返回字段”；<code>data.status</code>的所有值见P01“采购单状态值”。仅查询本客户端及授权部门范围内、与原幂等键匹配的创建记录。删除后仍返回原ID和明细映射，状态为DELETED。</p>
+<details class="code-example" open><summary><span>HTTP 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-http"><span class="code-line">GET /open-api/v1/purchase-drafts/by-source?sourceOrderId=a58161da-4499-4bee-8b26-374c31989150</span>
+<span class="code-line">Idempotency-Key: 550e8400-e29b-41d4-a716-446655440001</span></code></pre></div></details>
 <p>HTTP 200：</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
 <span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-literal">200</span>, <span class="token-key">&quot;errorCode&quot;</span>: <span class="token-literal">null</span>,</span>
@@ -2052,7 +2024,6 @@
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: {</span>
 <span class="code-line">    <span class="token-key">&quot;draftId&quot;</span>: <span class="token-string">&quot;12345&quot;</span>, <span class="token-key">&quot;purchaseOrderNo&quot;</span>: <span class="token-string">&quot;12345&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;sourceSystem&quot;</span>: <span class="token-string">&quot;INTELLIGENT_OFFICE&quot;</span>, <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;a58161da-4499-4bee-8b26-374c31989150&quot;</span>,</span>
-<span class="code-line">    <span class="token-key">&quot;syncBatchId&quot;</span>: <span class="token-string">&quot;550e8400-e29b-41d4-a716-446655440001&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;status&quot;</span>: <span class="token-string">&quot;DRAFT&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;details&quot;</span>: [{<span class="token-key">&quot;sourceDetailId&quot;</span>:<span class="token-string">&quot;line-1&quot;</span>,<span class="token-key">&quot;detailId&quot;</span>:<span class="token-string">&quot;67890&quot;</span>}]</span>
 <span class="code-line">  }</span>
@@ -2078,17 +2049,17 @@
 <td>400</td>
 <td><code>PARAM_INVALID</code></td>
 <td>缺参数或参数不合法</td>
-<td>使用原创建批次参数</td>
+<td>使用原sourceOrderId和Idempotency-Key</td>
 </tr>
 <tr>
 <td>404</td>
 <td><code>DRAFT_NOT_FOUND</code></td>
-<td>批次不存在、主单不存在或不在本客户/授权部门范围</td>
-<td>超时恢复时核对原参数，再按原业务请求重试；不得据此取消其他批次</td>
+<td>幂等键无匹配记录、主单不存在或不在本客户/授权部门范围</td>
+<td>超时恢复时核对原参数，再按原业务请求重试；不得据此取消其他采购单</td>
 </tr>
 </tbody>
 </table></div>
-<p>公共错误码仍适用。P02不是按来源查询“最新一单”，syncBatchId必须准确。三个查询字段均禁止控制字符及尖括号；查询入口不另校验来源常量、订单号格式或UUID格式，格式错误且无匹配时返回404 DRAFT_NOT_FOUND。</p>
+<p>公共错误码仍适用。P02使用原sourceOrderId和请求头Idempotency-Key精确查询该次创建结果；没有匹配或无权访问时返回404 DRAFT_NOT_FOUND，不自动选择最近一单。</p>
 </section><section class="doc-section" data-section="section-6"><h2 id="section-6">P03 按121采购单ID查询草稿（GET）</h2>
 <h3 id="section-6-1">请求方式与地址</h3>
 <div class="table-scroll" tabindex="0"><table>
@@ -2171,11 +2142,6 @@
 <td>创建时提交的来源采购记录ID</td>
 </tr>
 <tr>
-<td><code>data.syncBatchId</code></td>
-<td>string</td>
-<td>本轮同步UUID，用于查询、重试和防止旧事件覆盖新批次</td>
-</tr>
-<tr>
 <td><code>data.status</code></td>
 <td>string</td>
 <td>当前采购状态；全部取值和含义见P01“采购单状态值”</td>
@@ -2207,7 +2173,6 @@
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: {</span>
 <span class="code-line">    <span class="token-key">&quot;draftId&quot;</span>: <span class="token-string">&quot;12345&quot;</span>, <span class="token-key">&quot;purchaseOrderNo&quot;</span>: <span class="token-string">&quot;12345&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;sourceSystem&quot;</span>: <span class="token-string">&quot;INTELLIGENT_OFFICE&quot;</span>, <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;a58161da-4499-4bee-8b26-374c31989150&quot;</span>,</span>
-<span class="code-line">    <span class="token-key">&quot;syncBatchId&quot;</span>: <span class="token-string">&quot;550e8400-e29b-41d4-a716-446655440001&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;status&quot;</span>: <span class="token-string">&quot;LOCKED&quot;</span>, <span class="token-key">&quot;details&quot;</span>: [{<span class="token-key">&quot;sourceDetailId&quot;</span>:<span class="token-string">&quot;line-1&quot;</span>,<span class="token-key">&quot;detailId&quot;</span>:<span class="token-string">&quot;67890&quot;</span>}]</span>
 <span class="code-line">  }</span>
 <span class="code-line">}</span></code></pre></div></details>
@@ -2342,11 +2307,6 @@
 <td>创建时提交的来源采购记录ID</td>
 </tr>
 <tr>
-<td><code>data.syncBatchId</code></td>
-<td>string</td>
-<td>本轮同步UUID，用于查询、重试和防止旧事件覆盖新批次</td>
-</tr>
-<tr>
 <td><code>data.status</code></td>
 <td>string</td>
 <td>当前采购状态；全部取值和含义见P01“采购单状态值”</td>
@@ -2377,7 +2337,6 @@
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: {</span>
 <span class="code-line">    <span class="token-key">&quot;draftId&quot;</span>: <span class="token-string">&quot;12345&quot;</span>, <span class="token-key">&quot;purchaseOrderNo&quot;</span>: <span class="token-string">&quot;12345&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;sourceSystem&quot;</span>: <span class="token-string">&quot;INTELLIGENT_OFFICE&quot;</span>, <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;a58161da-4499-4bee-8b26-374c31989150&quot;</span>,</span>
-<span class="code-line">    <span class="token-key">&quot;syncBatchId&quot;</span>: <span class="token-string">&quot;550e8400-e29b-41d4-a716-446655440001&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;status&quot;</span>: <span class="token-string">&quot;DELETED&quot;</span>, <span class="token-key">&quot;details&quot;</span>: [{<span class="token-key">&quot;sourceDetailId&quot;</span>:<span class="token-string">&quot;line-1&quot;</span>,<span class="token-key">&quot;detailId&quot;</span>:<span class="token-string">&quot;67890&quot;</span>}]</span>
 <span class="code-line">  }</span>
 <span class="code-line">}</span></code></pre></div></details>
@@ -2403,8 +2362,8 @@
 <tr>
 <td>200</td>
 <td><code>null</code></td>
-<td>删除成功或该批次已删除</td>
-<td>按批次清空本地关联，不影响新批次</td>
+<td>删除成功或该单已删除</td>
+<td>按sourceOrderId和draftId清空匹配关联</td>
 </tr>
 <tr>
 <td>400</td>
@@ -2537,13 +2496,6 @@
 <td>创建时提交的sourceOrderId</td>
 </tr>
 <tr>
-<td><code>syncBatchId</code></td>
-<td>被删同步批次</td>
-<td>string</td>
-<td>是</td>
-<td>仅清除此UUID对应的关联</td>
-</tr>
-<tr>
 <td><code>draftId</code></td>
 <td>被删121主单ID</td>
 <td>string</td>
@@ -2580,7 +2532,6 @@
 <span class="code-line">  <span class="token-key">&quot;eventTime&quot;</span>: <span class="token-string">&quot;2026-11-17T02:00:00Z&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;sourceSystem&quot;</span>: <span class="token-string">&quot;INTELLIGENT_OFFICE&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;a58161da-4499-4bee-8b26-374c31989150&quot;</span>,</span>
-<span class="code-line">  <span class="token-key">&quot;syncBatchId&quot;</span>: <span class="token-string">&quot;550e8400-e29b-41d4-a716-446655440001&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;draftId&quot;</span>: <span class="token-string">&quot;12345&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;purchaseOrderNo&quot;</span>: <span class="token-string">&quot;12345&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;status&quot;</span>: <span class="token-string">&quot;DELETED&quot;</span>,</span>
@@ -2629,9 +2580,9 @@
 <ul>
 <li>通知可能重复投递。连接超时5秒、读取超时10秒；首次发送失败后按30秒、2分钟、10分钟、30分钟间隔重试，最多5次发送。</li>
 <li>同一事件重试保持eventId和正文，沿用该回调目标的App-Id、App-Secret。</li>
-<li>先校验两项系统凭据，再按eventId幂等处理。必须同时核对sourceOrderId、syncBatchId、draftId，仅清除完全匹配的当前主单/明细映射。</li>
-<li>旧批次通知不能清除重新同步的新单；即使不匹配当前关联，也应将该旧事件记为已处理并回2xx。</li>
-<li>通知可能早于P01响应到达。接收方须保留批次已删记录，迟到的创建响应不得恢复已删除批次的关联。</li>
+<li>先校验两项系统凭据，再按eventId幂等处理。必须同时核对sourceOrderId和draftId，仅清除完全匹配的当前主单/明细映射。</li>
+<li>旧采购单的删除通知不能清除重新同步的新单；即使不匹配当前关联，也应将该旧事件记为已处理并回2xx。</li>
+<li>通知可能早于P01响应到达。接收方须按draftId保留删除记录，迟到的创建响应不得恢复已删除采购单的关联。</li>
 </ul>
 </section><section class="doc-section" data-section="section-9"><h2 id="section-9">返回码说明</h2>
 <h3 id="section-9-1">业务返回码总表</h3>
@@ -2687,7 +2638,7 @@
 <td><code>DRAFT_NOT_FOUND</code></td>
 <td>同步采购单不可见</td>
 <td>没有来源记录、主单不存在、其他客户或非授权部门</td>
-<td>核对ID、来源、批次与授权</td>
+<td>核对采购单ID、来源记录ID、幂等键与授权</td>
 </tr>
 <tr>
 <td>404</td>
@@ -2707,15 +2658,15 @@
 <td>409</td>
 <td><code>IDEMPOTENCY_CONFLICT</code></td>
 <td>幂等冲突</td>
-<td>批次/键已绑定不一致请求，或并发复用唯一键</td>
-<td>查询原请求，不覆盖、不随意换批次</td>
+<td>幂等键已绑定不同来源记录或不同请求内容</td>
+<td>查询原请求，不覆盖、不随意换幂等键</td>
 </tr>
 <tr>
 <td>409</td>
 <td><code>SOURCE_ALREADY_SYNCED</code></td>
 <td>来源已同步</td>
 <td>同来源订单已有有效采购单，含锁单及退单</td>
-<td>查原单；确认DELETED后再用新批次</td>
+<td>查原单；确认DELETED后再用新幂等键</td>
 </tr>
 <tr>
 <td>409</td>
@@ -2806,7 +2757,7 @@
 <td><code>SYSTEM_BUSY</code></td>
 <td>暂不可用</td>
 <td>服务暂不可用</td>
-<td>退避重试，P01保留原批次/键/正文</td>
+<td>退避重试，P01保留原来源记录ID、幂等键和正文</td>
 </tr>
 </tbody>
 </table></div>
@@ -2840,7 +2791,7 @@
 <tr>
 <td>结果不确定</td>
 <td>P01读取超时、500、连接在发送后中断</td>
-<td>先查本批次，再按原业务请求重试</td>
+<td>先用原来源记录ID和幂等键查询，再按原业务请求重试</td>
 </tr>
 </tbody>
 </table></div>
@@ -2981,13 +2932,13 @@
 </tr>
 <tr>
 <td>P01超时或连接断开</td>
-<td>先P02查询，保留本轮批次、幂等键和原始正文</td>
+<td>先P02查询，保留原来源记录ID、幂等键和原始正文</td>
 </tr>
 </tbody>
 </table></div>
 <p>反馈问题时提供环境、接口、HTTP状态、errorCode、requestId和时间，请勿提供密钥或完整人员信息。</p>
 </section>
-    <footer class="document-footer"><span>121系统 · 开放接口 v2.7.2</span><a href="#top">返回顶部 ↑</a></footer>
+    <footer class="document-footer"><span>121系统 · 开放接口 v2.8.0</span><a href="#top">返回顶部 ↑</a></footer>
   </main>
 </body>
 </html>
