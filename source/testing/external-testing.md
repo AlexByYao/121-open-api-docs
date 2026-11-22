@@ -1,6 +1,6 @@
 # 121开放接口联调指南
 
-适用接口版本：**2.7.1** · 更新日期：**2026-11-22**
+适用接口版本：**2.7.2** · 更新日期：**2026-11-22**
 
 本指南用于验证用户查询、基础字典、采购草稿及删除通知。接口字段、约束和错误码以《121接口交接文档》及OpenAPI定义为准。
 
@@ -46,7 +46,7 @@ loginAccount为普通ASCII账号时直接填写；包含中文或百分号时，
 ## 4. 采购草稿验证
 
 1. 查询字典后填写有效的业务ID和物料编码。未填写的可选ID省略，不传空字符串。
-2. 为本轮创建准备sourceOrderId、UUID格式的syncBatchId和16—160字符的idempotencyKey。填写budgetMonth和purchaseDate。
+2. 首次创建前确定并保存sourceOrderId：可用调用方已有采购草稿ID；没有ID时生成UUID，例如`a58161da-4499-4bee-8b26-374c31989150`。它不是121采购单号。同一采购记录超时重试、删除后再同步均沿用该ID，不同采购记录使用不同ID。syncBatchId首次创建也必填，由调用方另生成UUID并保存，例如`550e8400-e29b-41d4-a716-446655440001`，标识本轮同步；本轮查询、超时重试沿用原值，确认旧单DELETED后重新同步才更换。另准备16—160字符的idempotencyKey，填写budgetMonth和purchaseDate。
 3. 发送P01，核对HTTP 200、code=200、errorCode=null、data.status=DRAFT。保存draftId及details中的明细ID映射。
 4. 保持loginAccount、批次、幂等键及原始正文不变，重复发送P01，应返回相同draftId，不重复创建。
 5. 调用P02和P03查询同一采购单。返回的details为首次同步明细映射，不包含后续新增明细或完整实时明细内容。

@@ -1,6 +1,6 @@
 # 121 接口交接文档
 
-版本 **2.7.1** · 文档更新 **2026-11-22** · 服务提供方 **121系统**
+版本 **2.7.2** · 文档更新 **2026-11-22** · 服务提供方 **121系统**
 
 本文定义121开放接口的请求方式、鉴权规则、参数、响应、状态及错误码。示例数据仅用于说明报文格式；接入凭据和测试数据由121服务提供方提供。
 
@@ -19,7 +19,7 @@
 
 | 字段 | 产生方与用途 | 何时变化 |
 | --- | --- | --- |
-| sourceOrderId | 来源采购单稳定标识 | 同一来源采购单不变，删除后再同步也不改 |
+| sourceOrderId | 调用方生成并保存的来源采购记录ID | 同一采购记录不变，超时重试、删除后再同步也不改 |
 | syncBatchId | 调用方生成UUID，标识一轮同步 | 本轮查询、重试不变；确认旧轮DELETED后再同步才新建 |
 | Idempotency-Key | 调用方生成的P01业务幂等键 | 同轮同正文不变；新轮换新键，只有P01提交该Header |
 | requestId | 121自动生成的本次请求追踪编号 | 每次响应生成，排查问题时提供 |
@@ -400,8 +400,8 @@ HTTP 200，省份示例：
 | 参数名 | 名称 | 类型 | 是否必填 | 说明 |
 | --- | --- | --- | --- | --- |
 | `sourceSystem` | 来源系统 | string | 是 | 固定 `INTELLIGENT_OFFICE`，为当前接口约定的来源系统编码 |
-| `sourceOrderId` | 来源采购单号 | string | 是 | 1—64位ASCII字母、数字、下划线、短横线；同来源稳定不变 |
-| `syncBatchId` | 本轮同步批次 | string | 是 | UUID；同轮重试不变，确认删除后重新同步用新UUID |
+| `sourceOrderId` | 来源采购记录ID | string | 是 | 调用方生成并保存；可用已有草稿ID或UUID，无需提前取得121采购单号。1—64位ASCII字母、数字、下划线、短横线；同一采购记录保持不变 |
+| `syncBatchId` | 本轮同步批次ID | string | 是 | 首次调用前由调用方生成并保存UUID；本轮查询、超时重试沿用原值。确认旧单DELETED后重新同步时生成新UUID |
 | `operatorLoginAccount` | 可选操作人 | string / null | 否 | 建议省略，由公共loginAccount取得；非null时须与公共账号规范化后相同，否则403 OPERATOR_FORBIDDEN |
 | `initiatorLoginAccount` | 可选发起人 | string / null | 否 | 建议省略，由公共loginAccount取得；非null时须与公共账号相同，不支持代发 |
 | `deptId` | 业务部门 | string | 是 | 用户所属、客户端授权且启用的121部门ID |
@@ -428,6 +428,28 @@ HTTP 200，省份示例：
 | `details` | 采购明细 | array | 是 | 1—500条，字段见“明细请求参数” |
 
 不要提交状态、创建人、121主单ID等额外字段。字符串拒绝控制字符和尖括号。未填写的可选ID应省略，不传空字符串。
+
+### 首次创建时的来源采购记录ID
+
+`sourceOrderId`由调用方在首次调用P01前确定，用于识别同一笔来源采购、避免重复创建，并关联后续查询和删除通知。该字段不是121采购单号，也不要求调用方已有正式订单号。
+
+- 已有采购草稿或采购记录ID时，使用该ID，须符合上表格式。
+- 尚无记录ID时，生成一个UUID并保存到该采购记录中，再发起同步；例如 `a58161da-4499-4bee-8b26-374c31989150`。
+- 不同采购记录使用不同ID；同一记录超时重试或删除后重新同步时沿用原ID。重新同步只更换`syncBatchId`和`Idempotency-Key`。
+
+首次创建示例中的`sourceOrderId`为调用方生成的UUID；创建成功后，121返回自己的`draftId`和`purchaseOrderNo`。
+
+### 首次创建时的同步批次ID
+
+`syncBatchId`首次创建也必填，由调用方在发送前生成并保存UUID，例如`550e8400-e29b-41d4-a716-446655440001`。121通过该批次识别本轮请求，供P02查询结果及C01删除通知关联使用，避免旧批次通知影响重新同步后的采购单。
+
+| 场景 | sourceOrderId | syncBatchId | Idempotency-Key |
+| --- | --- | --- | --- |
+| 首次创建 | 使用已有采购记录ID，或生成UUID并保存 | 生成新的UUID并保存 | 生成本轮请求的幂等键并保存 |
+| 本轮超时重试 | 保持不变 | 保持不变 | 保持不变，使用原始正文重试 |
+| 确认旧单DELETED后重新同步 | 保持不变 | 生成新的UUID | 生成新的幂等键 |
+
+`sourceOrderId`标识采购记录，`syncBatchId`标识该记录的一轮同步，`Idempotency-Key`用于P01重复提交去重。首次创建可同时准备三者；不同采购记录或新的同步轮次不得复用已使用的批次ID和幂等键。
 
 ### 草稿保存及失败处理
 
@@ -505,7 +527,7 @@ P01、P02、P03和P04使用相同业务对象。
 | `data.draftId` | string | 121采购单唯一ID |
 | `data.purchaseOrderNo` | string | 121采购单序号，与draftId相同 |
 | `data.sourceSystem` | string | 来源系统，当前为INTELLIGENT_OFFICE |
-| `data.sourceOrderId` | string | 来源订单号 |
+| `data.sourceOrderId` | string | 创建时提交的来源采购记录ID |
 | `data.syncBatchId` | string | 本轮同步UUID，用于查询、重试和防止旧事件覆盖新批次 |
 | `data.status` | string | 当前采购状态；全部取值和含义见P01“采购单状态值” |
 | `data.details` | array | 来源明细与121明细ID的映射 |
@@ -529,12 +551,12 @@ P01、P02、P03和P04使用相同业务对象。
 
 ### 请求与响应示例
 
-除公共鉴权头外再带 `Idempotency-Key: intelligent-office:PC202611170001:550e8400-e29b-41d4-a716-446655440001`。
+除公共鉴权头外再带 `Idempotency-Key: intelligent-office:a58161da-4499-4bee-8b26-374c31989150:550e8400-e29b-41d4-a716-446655440001`。
 
 ```json
 {
   "sourceSystem": "INTELLIGENT_OFFICE",
-  "sourceOrderId": "PC202611170001",
+  "sourceOrderId": "a58161da-4499-4bee-8b26-374c31989150",
   "syncBatchId": "550e8400-e29b-41d4-a716-446655440001",
   "deptId": "80001",
   "supplierId": "1001",
@@ -575,7 +597,7 @@ P01、P02、P03和P04使用相同业务对象。
     "draftId": "12345",
     "purchaseOrderNo": "12345",
     "sourceSystem": "INTELLIGENT_OFFICE",
-    "sourceOrderId": "PC202611170001",
+    "sourceOrderId": "a58161da-4499-4bee-8b26-374c31989150",
     "syncBatchId": "550e8400-e29b-41d4-a716-446655440001",
     "status": "DRAFT",
     "details": [{"sourceDetailId":"line-1","detailId":"67890"}]
@@ -661,7 +683,7 @@ P01、P02、P03和P04使用相同业务对象。
 | 参数名 | 名称 | 位置 | 类型 | 是否必填 | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `sourceSystem` | 来源系统 | Query | string | 是 | 使用创建时的INTELLIGENT_OFFICE；查询入口只校验非空及长度≤128码点 |
-| `sourceOrderId` | 来源订单号 | Query | string | 是 | 使用创建时的来源订单号；非空且≤128码点 |
+| `sourceOrderId` | 来源采购记录ID | Query | string | 是 | 使用创建时提交的sourceOrderId；非空且≤128码点 |
 | `syncBatchId` | 同步批次 | Query | string | 是 | 使用创建时的UUID；查询入口只校验非空及长度≤128码点，不自动返回最近批次 |
 
 ### 返回字段
@@ -671,7 +693,7 @@ P01、P02、P03和P04使用相同业务对象。
 | `data.draftId` | string | 121采购单唯一ID |
 | `data.purchaseOrderNo` | string | 121采购单序号，与draftId相同 |
 | `data.sourceSystem` | string | 来源系统，当前为INTELLIGENT_OFFICE |
-| `data.sourceOrderId` | string | 来源订单号 |
+| `data.sourceOrderId` | string | 创建时提交的来源采购记录ID |
 | `data.syncBatchId` | string | 本轮同步UUID，用于查询、重试和防止旧事件覆盖新批次 |
 | `data.status` | string | 当前采购状态；全部取值和含义见P01“采购单状态值” |
 | `data.details` | array | 来源明细与121明细ID的映射 |
@@ -683,7 +705,7 @@ P01、P02、P03和P04使用相同业务对象。
 `data`字段逐项见P01“返回字段”；`data.status`的所有值见P01“采购单状态值”。仅查询本客户端及授权部门范围内的批次。删除后仍返回原ID和明细映射，状态为DELETED。
 
 ```http
-GET /open-api/v1/purchase-drafts/by-source?sourceSystem=INTELLIGENT_OFFICE&sourceOrderId=PC202611170001&syncBatchId=550e8400-e29b-41d4-a716-446655440001
+GET /open-api/v1/purchase-drafts/by-source?sourceSystem=INTELLIGENT_OFFICE&sourceOrderId=a58161da-4499-4bee-8b26-374c31989150&syncBatchId=550e8400-e29b-41d4-a716-446655440001
 ```
 
 HTTP 200：
@@ -695,7 +717,7 @@ HTTP 200：
   "requestId": "7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
   "data": {
     "draftId": "12345", "purchaseOrderNo": "12345",
-    "sourceSystem": "INTELLIGENT_OFFICE", "sourceOrderId": "PC202611170001",
+    "sourceSystem": "INTELLIGENT_OFFICE", "sourceOrderId": "a58161da-4499-4bee-8b26-374c31989150",
     "syncBatchId": "550e8400-e29b-41d4-a716-446655440001",
     "status": "DRAFT",
     "details": [{"sourceDetailId":"line-1","detailId":"67890"}]
@@ -737,7 +759,7 @@ HTTP 200：
 | `data.draftId` | string | 121采购单唯一ID |
 | `data.purchaseOrderNo` | string | 121采购单序号，与draftId相同 |
 | `data.sourceSystem` | string | 来源系统，当前为INTELLIGENT_OFFICE |
-| `data.sourceOrderId` | string | 来源订单号 |
+| `data.sourceOrderId` | string | 创建时提交的来源采购记录ID |
 | `data.syncBatchId` | string | 本轮同步UUID，用于查询、重试和防止旧事件覆盖新批次 |
 | `data.status` | string | 当前采购状态；全部取值和含义见P01“采购单状态值” |
 | `data.details` | array | 来源明细与121明细ID的映射 |
@@ -760,7 +782,7 @@ HTTP 200，锁单示例：
   "requestId": "7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
   "data": {
     "draftId": "12345", "purchaseOrderNo": "12345",
-    "sourceSystem": "INTELLIGENT_OFFICE", "sourceOrderId": "PC202611170001",
+    "sourceSystem": "INTELLIGENT_OFFICE", "sourceOrderId": "a58161da-4499-4bee-8b26-374c31989150",
     "syncBatchId": "550e8400-e29b-41d4-a716-446655440001",
     "status": "LOCKED", "details": [{"sourceDetailId":"line-1","detailId":"67890"}]
   }
@@ -805,7 +827,7 @@ HTTP 200，锁单示例：
 | `data.draftId` | string | 121采购单唯一ID |
 | `data.purchaseOrderNo` | string | 121采购单序号，与draftId相同 |
 | `data.sourceSystem` | string | 来源系统，当前为INTELLIGENT_OFFICE |
-| `data.sourceOrderId` | string | 来源订单号 |
+| `data.sourceOrderId` | string | 创建时提交的来源采购记录ID |
 | `data.syncBatchId` | string | 本轮同步UUID，用于查询、重试和防止旧事件覆盖新批次 |
 | `data.status` | string | 当前采购状态；全部取值和含义见P01“采购单状态值” |
 | `data.details` | array | 来源明细与121明细ID的映射 |
@@ -826,7 +848,7 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
   "requestId": "7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
   "data": {
     "draftId": "12345", "purchaseOrderNo": "12345",
-    "sourceSystem": "INTELLIGENT_OFFICE", "sourceOrderId": "PC202611170001",
+    "sourceSystem": "INTELLIGENT_OFFICE", "sourceOrderId": "a58161da-4499-4bee-8b26-374c31989150",
     "syncBatchId": "550e8400-e29b-41d4-a716-446655440001",
     "status": "DELETED", "details": [{"sourceDetailId":"line-1","detailId":"67890"}]
   }
@@ -883,7 +905,7 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 | `eventType` | 事件类型 | string | 是 | 固定PURCHASE_DRAFT_DELETED，表示采购草稿已删除 |
 | `eventTime` | 事件发生时间 | string | 是 | UTC ISO 8601，不是本次重试时间 |
 | `sourceSystem` | 来源系统 | string | 是 | 当前固定INTELLIGENT_OFFICE |
-| `sourceOrderId` | 来源订单号 | string | 是 | 来源系统原订单号 |
+| `sourceOrderId` | 来源采购记录ID | string | 是 | 创建时提交的sourceOrderId |
 | `syncBatchId` | 被删同步批次 | string | 是 | 仅清除此UUID对应的关联 |
 | `draftId` | 被删121主单ID | string | 是 | 与本地当前关联一起核对 |
 | `purchaseOrderNo` | 121采购单序号 | string | 是 | 与draftId相同 |
@@ -898,7 +920,7 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
   "eventType": "PURCHASE_DRAFT_DELETED",
   "eventTime": "2026-11-17T02:00:00Z",
   "sourceSystem": "INTELLIGENT_OFFICE",
-  "sourceOrderId": "PC202611170001",
+  "sourceOrderId": "a58161da-4499-4bee-8b26-374c31989150",
   "syncBatchId": "550e8400-e29b-41d4-a716-446655440001",
   "draftId": "12345",
   "purchaseOrderNo": "12345",

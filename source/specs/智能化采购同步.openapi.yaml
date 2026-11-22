@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 121 开放接口
-  version: 2.7.1
+  version: 2.7.2
   description: 121开放接口，提供用户及字典查询、采购草稿创建与查询、取消及删除通知。请求使用App-Id、App-Secret和loginAccount；数据访问受账号所属部门及应用授权范围约束。
 servers:
   - url: 'http://testfcst.chinaptac.com/open-api/v1'
@@ -478,7 +478,7 @@ paths:
             type: string
             minLength: 1
             maxLength: 128
-            description: 传创建时来源号；查询不另校验订单号格式
+            description: 创建时提交的来源采购记录ID，须与P01使用的值相同
         - name: syncBatchId
           in: query
           required: true
@@ -1205,9 +1205,11 @@ components:
           minLength: 1
           maxLength: 64
           pattern: '^[A-Za-z0-9_-]{1,64}$'
+          description: 来源采购记录ID，由调用方首次同步前生成并保存；可用已有采购草稿ID，没有ID时生成UUID。不是121采购单号。不同采购记录使用不同ID，同一记录超时重试、删除后重新同步均保持不变。
         syncBatchId:
           type: string
           format: uuid
+          description: 本轮同步批次ID，首次创建也必填；调用方发送前生成并保存UUID。本轮查询、超时重试保持不变；确认旧单DELETED后重新同步时生成新UUID。不同采购记录或新轮次不得复用已使用的批次ID。
         operatorLoginAccount:
           type:
             - string
@@ -1390,9 +1392,11 @@ components:
           type: string
           minLength: 1
           maxLength: 64
+          description: 创建时提交的来源采购记录ID
         syncBatchId:
           type: string
           format: uuid
+          description: 创建时提交的本轮同步批次ID，用于查询结果及关联删除通知
         status:
           type: string
           enum:
@@ -1560,9 +1564,11 @@ components:
           type: string
           minLength: 1
           maxLength: 64
+          description: 创建时提交的来源采购记录ID
         syncBatchId:
           type: string
           format: uuid
+          description: 被删除采购单所属同步批次ID；须与当前关联的批次核对，避免旧通知清除新一轮关联
         draftId:
           type: string
           minLength: 1

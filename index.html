@@ -15,7 +15,7 @@
   <a class="skip-link" href="#content">跳到文档正文</a>
   <header class="site-header">
     <a class="brand" href="#top"><span class="brand-mark">121</span><span>接口交接文档<small>用户、字典与采购草稿</small></span></a>
-    <div class="header-actions"><span class="version">v2.7.1</span><a href="./downloads/openapi.yaml" download>下载 OpenAPI</a><button id="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">目录</button></div>
+    <div class="header-actions"><span class="version">v2.7.2</span><a href="./downloads/openapi.yaml" download>下载 OpenAPI</a><button id="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">目录</button></div>
   </header>
   <aside id="sidebar" class="sidebar" aria-label="文档目录">
     <label class="search-label" for="doc-search">查找文档</label>
@@ -38,7 +38,7 @@
     <div class="overview"><details><summary>展开完整章节目录</summary><ol><li><a href="#section-1">接入说明</a></li><li><a href="#section-2">U01 查询121用户信息（POST）</a></li><li><a href="#section-3">D01 查询基础字典（GET）</a></li><li><a href="#section-4">P01 创建采购草稿（POST）</a></li><li><a href="#section-5">P02 按来源和批次查询草稿（GET）</a></li><li><a href="#section-6">P03 按121采购单ID查询草稿（GET）</a></li><li><a href="#section-7">P04 取消同步并删除草稿（POST）</a></li><li><a href="#section-8">C01 采购草稿删除通知（POST）</a></li><li><a href="#section-9">返回码说明</a></li><li><a href="#section-10">附录</a></li></ol></details></div>
     <div id="no-results" hidden>未找到匹配内容。请尝试接口编号（如 P01）、参数名或错误码。</div>
     <div class="document-intro"><h1 id="top">121 接口交接文档</h1>
-<p>版本 <strong>2.7.1</strong> · 文档更新 <strong>2026-11-22</strong> · 服务提供方 <strong>121系统</strong></p>
+<p>版本 <strong>2.7.2</strong> · 文档更新 <strong>2026-11-22</strong> · 服务提供方 <strong>121系统</strong></p>
 <p>本文定义121开放接口的请求方式、鉴权规则、参数、响应、状态及错误码。示例数据仅用于说明报文格式；接入凭据和测试数据由121服务提供方提供。</p>
 </div><section class="doc-section" data-section="section-1"><h2 id="section-1">接入说明</h2>
 <h3 id="section-1-1">联调顺序</h3>
@@ -62,8 +62,8 @@
 <tbody>
 <tr>
 <td>sourceOrderId</td>
-<td>来源采购单稳定标识</td>
-<td>同一来源采购单不变，删除后再同步也不改</td>
+<td>调用方生成并保存的来源采购记录ID</td>
+<td>同一采购记录不变，超时重试、删除后再同步也不改</td>
 </tr>
 <tr>
 <td>syncBatchId</td>
@@ -1195,17 +1195,17 @@
 </tr>
 <tr>
 <td><code>sourceOrderId</code></td>
-<td>来源采购单号</td>
+<td>来源采购记录ID</td>
 <td>string</td>
 <td>是</td>
-<td>1—64位ASCII字母、数字、下划线、短横线；同来源稳定不变</td>
+<td>调用方生成并保存；可用已有草稿ID或UUID，无需提前取得121采购单号。1—64位ASCII字母、数字、下划线、短横线；同一采购记录保持不变</td>
 </tr>
 <tr>
 <td><code>syncBatchId</code></td>
-<td>本轮同步批次</td>
+<td>本轮同步批次ID</td>
 <td>string</td>
 <td>是</td>
-<td>UUID；同轮重试不变，确认删除后重新同步用新UUID</td>
+<td>首次调用前由调用方生成并保存UUID；本轮查询、超时重试沿用原值。确认旧单DELETED后重新同步时生成新UUID</td>
 </tr>
 <tr>
 <td><code>operatorLoginAccount</code></td>
@@ -1378,7 +1378,48 @@
 </tbody>
 </table></div>
 <p>不要提交状态、创建人、121主单ID等额外字段。字符串拒绝控制字符和尖括号。未填写的可选ID应省略，不传空字符串。</p>
-<h3 id="section-4-3">草稿保存及失败处理</h3>
+<h3 id="section-4-3">首次创建时的来源采购记录ID</h3>
+<p><code>sourceOrderId</code>由调用方在首次调用P01前确定，用于识别同一笔来源采购、避免重复创建，并关联后续查询和删除通知。该字段不是121采购单号，也不要求调用方已有正式订单号。</p>
+<ul>
+<li>已有采购草稿或采购记录ID时，使用该ID，须符合上表格式。</li>
+<li>尚无记录ID时，生成一个UUID并保存到该采购记录中，再发起同步；例如 <code>a58161da-4499-4bee-8b26-374c31989150</code>。</li>
+<li>不同采购记录使用不同ID；同一记录超时重试或删除后重新同步时沿用原ID。重新同步只更换<code>syncBatchId</code>和<code>Idempotency-Key</code>。</li>
+</ul>
+<p>首次创建示例中的<code>sourceOrderId</code>为调用方生成的UUID；创建成功后，121返回自己的<code>draftId</code>和<code>purchaseOrderNo</code>。</p>
+<h3 id="section-4-4">首次创建时的同步批次ID</h3>
+<p><code>syncBatchId</code>首次创建也必填，由调用方在发送前生成并保存UUID，例如<code>550e8400-e29b-41d4-a716-446655440001</code>。121通过该批次识别本轮请求，供P02查询结果及C01删除通知关联使用，避免旧批次通知影响重新同步后的采购单。</p>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>场景</th>
+<th>sourceOrderId</th>
+<th>syncBatchId</th>
+<th>Idempotency-Key</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>首次创建</td>
+<td>使用已有采购记录ID，或生成UUID并保存</td>
+<td>生成新的UUID并保存</td>
+<td>生成本轮请求的幂等键并保存</td>
+</tr>
+<tr>
+<td>本轮超时重试</td>
+<td>保持不变</td>
+<td>保持不变</td>
+<td>保持不变，使用原始正文重试</td>
+</tr>
+<tr>
+<td>确认旧单DELETED后重新同步</td>
+<td>保持不变</td>
+<td>生成新的UUID</td>
+<td>生成新的幂等键</td>
+</tr>
+</tbody>
+</table></div>
+<p><code>sourceOrderId</code>标识采购记录，<code>syncBatchId</code>标识该记录的一轮同步，<code>Idempotency-Key</code>用于P01重复提交去重。首次创建可同时准备三者；不同采购记录或新的同步轮次不得复用已使用的批次ID和幂等键。</p>
+<h3 id="section-4-5">草稿保存及失败处理</h3>
 <p>同步成功表示采购草稿及全部明细已保存。预算是否超额、超预算说明是否填写不影响保存结果。生成采购单、锁单及导出不属于本接口的处理范围。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1421,7 +1462,7 @@
 <span class="code-line">    <span class="token-key">&quot;field&quot;</span>: <span class="token-string">&quot;details[1].materialCode&quot;</span></span>
 <span class="code-line">  }</span>
 <span class="code-line">}</span></code></pre></div></details>
-<h3 id="section-4-4">可选审批人员</h3>
+<h3 id="section-4-6">可选审批人员</h3>
 <p>以下都是string类型、可选、正整数用户ID；提供时用户须启用未删且具有相应有效角色。仅产品经理须属于当前部门，其他审批角色允许跨部门。通过D01的approval-users取得ID，不能直接传姓名；deptIds可能为空数组，不代表该跨部门审批人无效。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1469,7 +1510,7 @@
 </tr>
 </tbody>
 </table></div>
-<h3 id="section-4-5">明细请求参数</h3>
+<h3 id="section-4-7">明细请求参数</h3>
 <p>以下字段位于 <code>details[]</code> 中。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1569,7 +1610,7 @@
 </tbody>
 </table></div>
 <p>供应商按supplierId、物料按materialCode匹配。供应商不存在时返回422 <code>REFERENCE_INVALID</code>；物料不存在时返回422 <code>MATERIAL_NOT_FOUND</code>，列出全部缺失编码；物料编码匹配多条记录时返回422 <code>MATERIAL_AMBIGUOUS</code>。</p>
-<h3 id="section-4-6">返回字段</h3>
+<h3 id="section-4-8">返回字段</h3>
 <p>P01、P02、P03和P04使用相同业务对象。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1598,7 +1639,7 @@
 <tr>
 <td><code>data.sourceOrderId</code></td>
 <td>string</td>
-<td>来源订单号</td>
+<td>创建时提交的来源采购记录ID</td>
 </tr>
 <tr>
 <td><code>data.syncBatchId</code></td>
@@ -1627,7 +1668,7 @@
 </tr>
 </tbody>
 </table></div>
-<h3 id="section-4-7">采购单状态值</h3>
+<h3 id="section-4-9">采购单状态值</h3>
 <p>下面是P01、P02、P03、P04的 <code>data.status</code>，与响应外层 <code>code</code> 含义不同。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1678,11 +1719,11 @@
 </tbody>
 </table></div>
 <p>已删除标记优先于其他状态。只有确认旧批次为 <code>DELETED</code> 后，调用方才能使用新批次和新幂等键重新同步。锁单及退单仍保留来源有效关联。</p>
-<h3 id="section-4-8">请求与响应示例</h3>
-<p>除公共鉴权头外再带 <code>Idempotency-Key: intelligent-office:PC202611170001:550e8400-e29b-41d4-a716-446655440001</code>。</p>
+<h3 id="section-4-10">请求与响应示例</h3>
+<p>除公共鉴权头外再带 <code>Idempotency-Key: intelligent-office:a58161da-4499-4bee-8b26-374c31989150:550e8400-e29b-41d4-a716-446655440001</code>。</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
 <span class="code-line">  <span class="token-key">&quot;sourceSystem&quot;</span>: <span class="token-string">&quot;INTELLIGENT_OFFICE&quot;</span>,</span>
-<span class="code-line">  <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;PC202611170001&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;a58161da-4499-4bee-8b26-374c31989150&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;syncBatchId&quot;</span>: <span class="token-string">&quot;550e8400-e29b-41d4-a716-446655440001&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;deptId&quot;</span>: <span class="token-string">&quot;80001&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;supplierId&quot;</span>: <span class="token-string">&quot;1001&quot;</span>,</span>
@@ -1719,7 +1760,7 @@
 <span class="code-line">    <span class="token-key">&quot;draftId&quot;</span>: <span class="token-string">&quot;12345&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;purchaseOrderNo&quot;</span>: <span class="token-string">&quot;12345&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;sourceSystem&quot;</span>: <span class="token-string">&quot;INTELLIGENT_OFFICE&quot;</span>,</span>
-<span class="code-line">    <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;PC202611170001&quot;</span>,</span>
+<span class="code-line">    <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;a58161da-4499-4bee-8b26-374c31989150&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;syncBatchId&quot;</span>: <span class="token-string">&quot;550e8400-e29b-41d4-a716-446655440001&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;status&quot;</span>: <span class="token-string">&quot;DRAFT&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;details&quot;</span>: [{<span class="token-key">&quot;sourceDetailId&quot;</span>:<span class="token-string">&quot;line-1&quot;</span>,<span class="token-key">&quot;detailId&quot;</span>:<span class="token-string">&quot;67890&quot;</span>}]</span>
@@ -1746,7 +1787,7 @@
 <span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>:<span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>:{<span class="token-key">&quot;field&quot;</span>:<span class="token-string">&quot;details[0].purchaseAmount&quot;</span>,<span class="token-key">&quot;sourceDetailId&quot;</span>:<span class="token-string">&quot;line-1&quot;</span>,<span class="token-key">&quot;provided&quot;</span>:<span class="token-literal">99</span>,<span class="token-key">&quot;calculated&quot;</span>:<span class="token-literal">100.00</span>}</span>
 <span class="code-line">}</span></code></pre></div></details>
-<h3 id="section-4-9">幂等、超时与重新同步</h3>
+<h3 id="section-4-11">幂等、超时与重新同步</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -1778,7 +1819,7 @@
 </tbody>
 </table></div>
 <p>同一批次重试须保持loginAccount、幂等键及原始正文一致，包括正文空格、属性顺序和可选字段。结果未知时先查询P02。幂等键示例：<code>purchase:&lt;sourceOrderId&gt;:&lt;syncBatchId&gt;</code>。</p>
-<h3 id="section-4-10">业务返回码</h3>
+<h3 id="section-4-12">业务返回码</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -1927,11 +1968,11 @@
 </tr>
 <tr>
 <td><code>sourceOrderId</code></td>
-<td>来源订单号</td>
+<td>来源采购记录ID</td>
 <td>Query</td>
 <td>string</td>
 <td>是</td>
-<td>使用创建时的来源订单号；非空且≤128码点</td>
+<td>使用创建时提交的sourceOrderId；非空且≤128码点</td>
 </tr>
 <tr>
 <td><code>syncBatchId</code></td>
@@ -1971,7 +2012,7 @@
 <tr>
 <td><code>data.sourceOrderId</code></td>
 <td>string</td>
-<td>来源订单号</td>
+<td>创建时提交的来源采购记录ID</td>
 </tr>
 <tr>
 <td><code>data.syncBatchId</code></td>
@@ -2002,7 +2043,7 @@
 </table></div>
 <h3 id="section-5-4">请求与响应示例</h3>
 <p><code>data</code>字段逐项见P01“返回字段”；<code>data.status</code>的所有值见P01“采购单状态值”。仅查询本客户端及授权部门范围内的批次。删除后仍返回原ID和明细映射，状态为DELETED。</p>
-<details class="code-example" open><summary><span>HTTP 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-http"><span class="code-line">GET /open-api/v1/purchase-drafts/by-source?sourceSystem=INTELLIGENT_OFFICE&amp;sourceOrderId=PC202611170001&amp;syncBatchId=550e8400-e29b-41d4-a716-446655440001</span></code></pre></div></details>
+<details class="code-example" open><summary><span>HTTP 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-http"><span class="code-line">GET /open-api/v1/purchase-drafts/by-source?sourceSystem=INTELLIGENT_OFFICE&amp;sourceOrderId=a58161da-4499-4bee-8b26-374c31989150&amp;syncBatchId=550e8400-e29b-41d4-a716-446655440001</span></code></pre></div></details>
 <p>HTTP 200：</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
 <span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-literal">200</span>, <span class="token-key">&quot;errorCode&quot;</span>: <span class="token-literal">null</span>,</span>
@@ -2010,7 +2051,7 @@
 <span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>: <span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: {</span>
 <span class="code-line">    <span class="token-key">&quot;draftId&quot;</span>: <span class="token-string">&quot;12345&quot;</span>, <span class="token-key">&quot;purchaseOrderNo&quot;</span>: <span class="token-string">&quot;12345&quot;</span>,</span>
-<span class="code-line">    <span class="token-key">&quot;sourceSystem&quot;</span>: <span class="token-string">&quot;INTELLIGENT_OFFICE&quot;</span>, <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;PC202611170001&quot;</span>,</span>
+<span class="code-line">    <span class="token-key">&quot;sourceSystem&quot;</span>: <span class="token-string">&quot;INTELLIGENT_OFFICE&quot;</span>, <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;a58161da-4499-4bee-8b26-374c31989150&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;syncBatchId&quot;</span>: <span class="token-string">&quot;550e8400-e29b-41d4-a716-446655440001&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;status&quot;</span>: <span class="token-string">&quot;DRAFT&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;details&quot;</span>: [{<span class="token-key">&quot;sourceDetailId&quot;</span>:<span class="token-string">&quot;line-1&quot;</span>,<span class="token-key">&quot;detailId&quot;</span>:<span class="token-string">&quot;67890&quot;</span>}]</span>
@@ -2127,7 +2168,7 @@
 <tr>
 <td><code>data.sourceOrderId</code></td>
 <td>string</td>
-<td>来源订单号</td>
+<td>创建时提交的来源采购记录ID</td>
 </tr>
 <tr>
 <td><code>data.syncBatchId</code></td>
@@ -2165,7 +2206,7 @@
 <span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>: <span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: {</span>
 <span class="code-line">    <span class="token-key">&quot;draftId&quot;</span>: <span class="token-string">&quot;12345&quot;</span>, <span class="token-key">&quot;purchaseOrderNo&quot;</span>: <span class="token-string">&quot;12345&quot;</span>,</span>
-<span class="code-line">    <span class="token-key">&quot;sourceSystem&quot;</span>: <span class="token-string">&quot;INTELLIGENT_OFFICE&quot;</span>, <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;PC202611170001&quot;</span>,</span>
+<span class="code-line">    <span class="token-key">&quot;sourceSystem&quot;</span>: <span class="token-string">&quot;INTELLIGENT_OFFICE&quot;</span>, <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;a58161da-4499-4bee-8b26-374c31989150&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;syncBatchId&quot;</span>: <span class="token-string">&quot;550e8400-e29b-41d4-a716-446655440001&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;status&quot;</span>: <span class="token-string">&quot;LOCKED&quot;</span>, <span class="token-key">&quot;details&quot;</span>: [{<span class="token-key">&quot;sourceDetailId&quot;</span>:<span class="token-string">&quot;line-1&quot;</span>,<span class="token-key">&quot;detailId&quot;</span>:<span class="token-string">&quot;67890&quot;</span>}]</span>
 <span class="code-line">  }</span>
@@ -2298,7 +2339,7 @@
 <tr>
 <td><code>data.sourceOrderId</code></td>
 <td>string</td>
-<td>来源订单号</td>
+<td>创建时提交的来源采购记录ID</td>
 </tr>
 <tr>
 <td><code>data.syncBatchId</code></td>
@@ -2335,7 +2376,7 @@
 <span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>: <span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: {</span>
 <span class="code-line">    <span class="token-key">&quot;draftId&quot;</span>: <span class="token-string">&quot;12345&quot;</span>, <span class="token-key">&quot;purchaseOrderNo&quot;</span>: <span class="token-string">&quot;12345&quot;</span>,</span>
-<span class="code-line">    <span class="token-key">&quot;sourceSystem&quot;</span>: <span class="token-string">&quot;INTELLIGENT_OFFICE&quot;</span>, <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;PC202611170001&quot;</span>,</span>
+<span class="code-line">    <span class="token-key">&quot;sourceSystem&quot;</span>: <span class="token-string">&quot;INTELLIGENT_OFFICE&quot;</span>, <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;a58161da-4499-4bee-8b26-374c31989150&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;syncBatchId&quot;</span>: <span class="token-string">&quot;550e8400-e29b-41d4-a716-446655440001&quot;</span>,</span>
 <span class="code-line">    <span class="token-key">&quot;status&quot;</span>: <span class="token-string">&quot;DELETED&quot;</span>, <span class="token-key">&quot;details&quot;</span>: [{<span class="token-key">&quot;sourceDetailId&quot;</span>:<span class="token-string">&quot;line-1&quot;</span>,<span class="token-key">&quot;detailId&quot;</span>:<span class="token-string">&quot;67890&quot;</span>}]</span>
 <span class="code-line">  }</span>
@@ -2490,10 +2531,10 @@
 </tr>
 <tr>
 <td><code>sourceOrderId</code></td>
-<td>来源订单号</td>
+<td>来源采购记录ID</td>
 <td>string</td>
 <td>是</td>
-<td>来源系统原订单号</td>
+<td>创建时提交的sourceOrderId</td>
 </tr>
 <tr>
 <td><code>syncBatchId</code></td>
@@ -2538,7 +2579,7 @@
 <span class="code-line">  <span class="token-key">&quot;eventType&quot;</span>: <span class="token-string">&quot;PURCHASE_DRAFT_DELETED&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;eventTime&quot;</span>: <span class="token-string">&quot;2026-11-17T02:00:00Z&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;sourceSystem&quot;</span>: <span class="token-string">&quot;INTELLIGENT_OFFICE&quot;</span>,</span>
-<span class="code-line">  <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;PC202611170001&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;a58161da-4499-4bee-8b26-374c31989150&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;syncBatchId&quot;</span>: <span class="token-string">&quot;550e8400-e29b-41d4-a716-446655440001&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;draftId&quot;</span>: <span class="token-string">&quot;12345&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;purchaseOrderNo&quot;</span>: <span class="token-string">&quot;12345&quot;</span>,</span>
@@ -2946,7 +2987,7 @@
 </table></div>
 <p>反馈问题时提供环境、接口、HTTP状态、errorCode、requestId和时间，请勿提供密钥或完整人员信息。</p>
 </section>
-    <footer class="document-footer"><span>121系统 · 开放接口 v2.7.1</span><a href="#top">返回顶部 ↑</a></footer>
+    <footer class="document-footer"><span>121系统 · 开放接口 v2.7.2</span><a href="#top">返回顶部 ↑</a></footer>
   </main>
 </body>
 </html>

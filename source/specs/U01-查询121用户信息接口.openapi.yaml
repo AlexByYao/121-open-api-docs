@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 121 User Verification API
-  version: 2.7.1
+  version: 2.7.2
   description: >-
     查询请求头loginAccount对应的121用户信息及可用部门。请求须携带有效的App-Id、App-Secret和loginAccount；返回部门为账号所属有效部门与应用授权部门的交集。
 servers:
