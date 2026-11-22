@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "121 开放接口",
-    "version": "2.7.0",
+    "version": "2.7.1",
     "description": "121开放接口，提供用户及字典查询、采购草稿创建与查询、取消及删除通知。请求使用App-Id、App-Secret和loginAccount；数据访问受账号所属部门及应用授权范围约束。"
   },
   "servers": [
@@ -1367,7 +1367,7 @@
         "name": "loginAccount",
         "in": "header",
         "required": true,
-        "description": "当前已绑定的121账号，存在且启用；非ASCII或%先UTF-8百分号编码，如张三为%E5%BC%A0%E4%B8%89。严格解码一次，+不作空格，不接受重复头、非法UTF-8或换行。解码后原始输入最多128码点，清理首尾ASCII空格后1—30码点，无内部空白、控制和格式字符。此项是操作人声明，不是独立登录凭据。",
+        "description": "当前121操作人账号，存在且启用；非ASCII或%先UTF-8百分号编码，如张三为%E5%BC%A0%E4%B8%89。严格解码一次，+不作空格，不接受重复头、非法UTF-8或换行。解码后原始输入最多128码点，清理首尾ASCII空格后1—30码点，无内部空白、控制和格式字符。",
         "schema": {
           "type": "string",
           "minLength": 1,
@@ -1390,7 +1390,7 @@
             ],
             "maxLength": 128,
             "deprecated": true,
-            "description": "可选字段，建议省略。提供非null值时须与请求头loginAccount规范化后相同，否则返回403 OPERATOR_FORBIDDEN。"
+            "description": "可选字段。提供非null值时须与请求头loginAccount规范化后相同，否则返回403 OPERATOR_FORBIDDEN。"
           }
         }
       },
@@ -1459,7 +1459,7 @@
           },
           "phoneNumber": {
             "type": "string",
-            "description": "手机号；未维护时为空字符串，不影响账号校验"
+            "description": "手机号；未维护时为空字符串"
           },
           "status": {
             "type": "string",

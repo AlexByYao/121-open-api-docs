@@ -2,7 +2,7 @@
   "info": {
     "name": "121 开放接口 · 外部测试",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "121开放接口2.7.0联调集合。请求使用App-Id、App-Secret和loginAccount。请填写环境变量，依次执行账号、字典、草稿创建、查询和取消请求。创建及取消会修改测试数据，请逐项执行。"
+    "description": "121开放接口2.7.1联调集合。请求使用App-Id、App-Secret和loginAccount。请填写环境变量，依次执行账号、字典、草稿创建、查询和取消请求。创建及取消会修改测试数据，请逐项执行。"
   },
   "auth": {
     "type": "noauth"

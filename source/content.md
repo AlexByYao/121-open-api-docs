@@ -1,6 +1,6 @@
 # 121 接口交接文档
 
-版本 **2.7.0** · 文档更新 **2026-11-22** · 服务提供方 **121系统**
+版本 **2.7.1** · 文档更新 **2026-11-22** · 服务提供方 **121系统**
 
 本文定义121开放接口的请求方式、鉴权规则、参数、响应、状态及错误码。示例数据仅用于说明报文格式；接入凭据和测试数据由121服务提供方提供。
 
@@ -36,7 +36,7 @@
 | 测试环境 | `http://testfcst.chinaptac.com/open-api/v1` | 允许HTTP联调，使用测试凭据 |
 | 正式环境 | `https://fcst.chinaptac.com/open-api/v1` | 使用HTTPS和正式凭据 |
 
-调用地址 = API基础地址 + 接口路径。例如用户查询为`POST http://testfcst.chinaptac.com/open-api/v1/users/verify`。测试、正式凭据分别交付；文档网站仅供查阅，不接收业务请求。C01由接收方提供固定回调地址，正式使用HTTPS，测试可按双方约定使用HTTP。
+调用地址 = API基础地址 + 接口路径。例如用户查询为`POST http://testfcst.chinaptac.com/open-api/v1/users/verify`。C01由接收方提供固定回调地址，正式使用HTTPS，测试可按双方约定使用HTTP。
 
 ### 接口目录
 
@@ -79,7 +79,7 @@
 - 供应商与项目、库位的关联按D01字典及P01字段约束校验；一张采购单只提交一个saleChannelId。
 - 采购草稿的供应商和所属部门不可修改。P04仅允许取消草稿，已锁单及退单状态不可取消。
 
-六个121入口均使用App-Id、App-Secret和公共loginAccount。每次请求携带121交付的两项固定凭据及当前操作人账号，无需员工密码或Token。应用密钥仅在服务器端保存。正式环境使用HTTPS，测试允许HTTP；HTTP会明文传输凭据和正文，仅使用测试凭据与测试数据。
+六个121入口均使用App-Id、App-Secret和公共loginAccount。正式环境使用HTTPS，测试允许HTTP；HTTP会明文传输凭据和正文，仅使用测试凭据与测试数据。
 
 ### 公共请求头参数
 
@@ -95,8 +95,6 @@
 Header名称不区分大小写，两项凭据的值区分大小写。凭据为1—256个可打印ASCII字符（不含空格），不得重复传头或附加空格、换行；不得放入URL、正文、客户端代码或日志。
 
 loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode码点，禁止内部空白、控制及格式字符；解码前输入最长1536字符，解码后原输入最多128码点。普通ASCII账号直接传；含中文、百分号等字符时先做UTF-8百分号编码（JavaScript用`encodeURIComponent(account)`）。例如张三传`%E5%BC%A0%E4%B8%89`，`a%b`传`a%25b`，`a+b`可传`a%2Bb`。121严格解码一次，加号不当空格，不接受非法UTF-8或重复loginAccount请求头。
-
-每次先校验应用凭据，再查验账号与有效部门交集，最后执行接口业务。loginAccount用于声明本次操作人，不能单独作为登录凭据；账号使用权限由调用方验证。公共校验失败时不会进入业务处理。
 
 ### 正文与重试
 
@@ -186,9 +184,7 @@ loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode�
 | 参数名 | 名称 | 类型 | 是否必填 | 说明 |
 | --- | --- | --- | --- | --- |
 | `loginAccount`（Header） | 当前121账号 | string | 是 | 公共参数，规则见“公共请求头参数”；本接口返回此账号信息 |
-| `loginAccount`（Body） | 可选账号 | string / null | 否 | 建议省略；提供非null值时必须与请求头loginAccount规范化后相同，否则403 OPERATOR_FORBIDDEN |
-
-账号匹配区分原始写法，不执行大小写转换。传姓名、手机号或用户ID不能替代登录账号。返回成功只表示该账号有效，不提供账号归属认证。
+| `loginAccount`（Body） | 可选账号 | string / null | 否 | 提供非null值时必须与请求头loginAccount规范化后相同，否则403 OPERATOR_FORBIDDEN |
 
 ### 返回字段
 
@@ -199,16 +195,14 @@ loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode�
 | `userId` | string | 121用户唯一ID |
 | `loginAccount` | string | 121记录中的规范登录账号 |
 | `userName` | string | 姓名或昵称；未维护时为空字符串 |
-| `phoneNumber` | string | 手机号；未维护时为空字符串，不影响账号校验 |
-| `status` | string | 成功时固定 `ACTIVE`，表示启用；停用账号返回错误，不返回DISABLED对象 |
+| `phoneNumber` | string | 手机号；未维护时为空字符串 |
+| `status` | string | 固定 `ACTIVE`，表示账号启用 |
 | `departments` | array | 账号所属有效部门与应用授权部门的交集；成功响应至少包含1项 |
 | `departments[].deptId` | string | 部门唯一ID，创建草稿时作为deptId |
 | `departments[].code` | string | 业务部门编码，缺失时为空字符串 |
 | `departments[].name` | string | 部门名称 |
 | `departments[].companyId` | string | 所属公司ID；未关联有效公司时为空字符串 |
 | `departments[].companyName` | string | 所属公司名称；未关联有效公司时为空字符串 |
-
-上述字段每次成功均返回，手机号未维护时保留字段并返回`""`。用户可能有多个部门，部门对象含ID、编码和名称；不能假定其上次登录所选部门就是本次采购部门。
 
 ### 请求与响应示例
 
@@ -253,7 +247,7 @@ loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode�
 | --- | --- | --- | --- |
 | 200 | `null` | 账号启用且至少一个可用授权部门 | 保存必要关联信息 |
 | 400 | `PARAM_INVALID` | 账号、JSON、查询参数或幂等键不符合要求 | 修正参数 |
-| 403 | `OPERATOR_FORBIDDEN` | 没有可用授权部门 | 核对用户有效成员部门及客户端授权模式/白名单 |
+| 403 | `OPERATOR_FORBIDDEN` | 没有可用授权部门 | 核对用户所属部门及应用授权范围 |
 | 404 | `USER_NOT_FOUND` | 账号不存在或已删除 | 核对loginAccount并使用有效账号 |
 | 422 | `USER_DISABLED` | 账号存在但已停用 | 使用启用账号 |
 
@@ -363,7 +357,7 @@ HTTP 200，省份示例：
 
 以下仅展示不同字典的 `items[]` 结构；仍使用同样的分页响应外壳。
 
-部门的所属公司为其有效直属上级公司；返回项本身为公司时，companyId和companyName为该公司自身信息。公司字段用于标识部门归属，不代表调用方取得该公司下其他部门的访问权限。
+部门的所属公司为其有效直属上级公司；返回项本身为公司时，companyId和companyName为该公司自身信息。
 
 ```json
 {
@@ -399,7 +393,7 @@ HTTP 200，省份示例：
 | 传参位置 | Body JSON；不接受查询参数；Header必须带Idempotency-Key |
 | Content-Type | `application/json` |
 
-本接口创建采购草稿及全部明细，并返回采购单ID和明细ID映射。首次创建成功的状态为`DRAFT`。所有数据在同一事务中保存；任一步骤失败均整体回滚。供应商和物料须预先存在。
+本接口创建采购草稿及全部明细，并返回采购单ID和明细ID映射。首次创建成功的状态为`DRAFT`；任一步骤失败均整体回滚。供应商和物料须预先存在。
 
 ### 主单请求参数
 
@@ -444,7 +438,7 @@ HTTP 200，省份示例：
 | 主单未保存成功或未返回主单ID | 422 ORDER_CREATE_FAILED，message说明具体原因，data.stage=ORDER_CREATE |
 | 明细未添加成功或未返回明细ID | 422 DETAIL_CREATE_FAILED，message说明来源明细，data包含sourceDetailId、field及stage=DETAIL_CREATE |
 | 字段、物料、供应商或金额校验失败 | 按对应PARAM_INVALID、MATERIAL_NOT_FOUND、REFERENCE_INVALID、AMOUNT_MISMATCH等错误码返回具体原因 |
-| 主单及全部明细保存成功 | 200，返回DRAFT及主单、明细ID；预算生成条件不影响本次同步成功 |
+| 主单及全部明细保存成功 | 200，返回DRAFT及主单、明细ID |
 
 保存失败时主单、全部明细、来源、批次和明细映射一起回滚。data.rolledBack=true表示本次已整体回滚，不存在可使用的本次单据ID；明细错误通过sourceDetailId和field定位。系统异常返回HTTP 500，调用方可通过requestId联系121查询原因。
 
@@ -470,8 +464,6 @@ HTTP 200，省份示例：
 ### 可选审批人员
 
 以下都是string类型、可选、正整数用户ID；提供时用户须启用未删且具有相应有效角色。仅产品经理须属于当前部门，其他审批角色允许跨部门。通过D01的approval-users取得ID，不能直接传姓名；deptIds可能为空数组，不代表该跨部门审批人无效。
-
-审批人须通过D01查询获得，并满足对应角色及部门条件。
 
 | 参数名 | 名称 | D01 roleCode |
 | --- | --- | --- |
@@ -502,9 +494,7 @@ HTTP 200，省份示例：
 | `brandName` | 品牌名称 | string | 否 | 最长100，不更新品牌主数据 |
 | `remark` | 明细备注 | string | 否 | 最长500 |
 
-多个物料编码不存在时一次返回全部缺失编码；编码对应多个物料时报 `MATERIAL_AMBIGUOUS`。未命中物料不能自行创建或按名称匹配。
-
-供应商ID不存在时返回422 `REFERENCE_INVALID`，message为“供应商xxx，在121系统未找到，请先核实供应商再推送至121”；xxx优先使用supplierName，未提供名称时使用supplierId，名称不参与匹配。物料缺失返回422 `MATERIAL_NOT_FOUND`，message为“物料编码xxx、xxx在121系统未找到，请先核实物料编码再推送至121”，一次列出全部缺失编码。
+供应商按supplierId、物料按materialCode匹配。供应商不存在时返回422 `REFERENCE_INVALID`；物料不存在时返回422 `MATERIAL_NOT_FOUND`，列出全部缺失编码；物料编码匹配多条记录时返回422 `MATERIAL_AMBIGUOUS`。
 
 ### 返回字段
 
@@ -630,7 +620,6 @@ P01、P02、P03和P04使用相同业务对象。
 | 批次或幂等键与原请求组合/内容不一致 | 409 IDEMPOTENCY_CONFLICT |
 | 同sourceSystem+sourceOrderId仍有有效121关联 | 409 SOURCE_ALREADY_SYNCED，data返回可访问原单及原批次，按返回draftId调用P03查询 |
 | 创建超时、网关502/504、网络中断 | 先P02查本批次；查不到再用原批次、原键、原始正文重试 |
-| 每次HTTP重试 | 沿用本环境的App-Id与App-Secret；无需额外鉴权参数 |
 | 原草稿已确认DELETED | 新批次UUID、新幂等键再创建；旧批次保留历史可查询 |
 
 同一批次重试须保持loginAccount、幂等键及原始正文一致，包括正文空格、属性顺序和可选字段。结果未知时先查询P02。幂等键示例：`purchase:<sourceOrderId>:<syncBatchId>`。
@@ -886,8 +875,6 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 | 鉴权 | 仅使用App-Id、App-Secret反向请求头，不要求员工loginAccount；接收方提供独立凭据 |
 | 幂等 | eventId业务幂等；不带Idempotency-Key；重试沿用该目标的App-Id、App-Secret |
 
-接收方应提供固定回调URL及独立的App-Id、App-Secret，并在开始接收通知前完成连通性验证。
-
 ### 通知正文参数
 
 | 参数名 | 名称 | 类型 | 是否必填 | 含义与取值 |
@@ -936,8 +923,8 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 
 ### 重试、乱序与本地清理
 
-- 至少一次投递。默认每10秒轮询，连接超时5秒、读取超时10秒；首次发送失败后按30秒、2分钟、10分钟、30分钟间隔重试，最多5次发送，随后转人工补偿队列。
-- 同一事件重试保持eventId和正文，沿用该回调目标的App-Id、App-Secret。进程崩溃也可能导致重投。
+- 通知可能重复投递。连接超时5秒、读取超时10秒；首次发送失败后按30秒、2分钟、10分钟、30分钟间隔重试，最多5次发送。
+- 同一事件重试保持eventId和正文，沿用该回调目标的App-Id、App-Secret。
 - 先校验两项系统凭据，再按eventId幂等处理。必须同时核对sourceOrderId、syncBatchId、draftId，仅清除完全匹配的当前主单/明细映射。
 - 旧批次通知不能清除重新同步的新单；即使不匹配当前关联，也应将该旧事件记为已处理并回2xx。
 - 通知可能早于P01响应到达。接收方须保留批次已删记录，迟到的创建响应不得恢复已删除批次的关联。
