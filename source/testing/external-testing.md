@@ -1,6 +1,6 @@
 # 121开放接口联调指南
 
-适用接口版本：**2.6.0** · 更新日期：**2026-11-21**
+适用接口版本：**2.7.0** · 更新日期：**2026-11-22**
 
 本指南用于验证用户查询、基础字典、采购草稿及删除通知。接口字段、约束和错误码以《121接口交接文档》及OpenAPI定义为准。
 
@@ -22,7 +22,7 @@
 1. 导入`121-open-api-external.postman_collection.json`和`121-open-api-test.postman_environment.json`。
 2. 选择测试环境，填写appId、appSecret和loginAccount。baseUrl为上述基础地址，末尾不加斜杠。
 3. 发送U01。成功响应应为HTTP 200、code=200、errorCode=null。
-4. 从`data.departments`中选择本次业务部门，将其id填入deptId变量。
+4. 从`data.departments`中选择本次业务部门，将其deptId填入deptId变量。
 5. 依次查询D01字典，填写采购草稿所需的业务ID。审批人员按roleCode查询；库位可按projectId筛选。
 
 loginAccount为普通ASCII账号时直接填写；包含中文或百分号时，使用UTF-8百分号编码。例如“张三”填写`%E5%BC%A0%E4%B8%89`，`a%b`填写`a%25b`。请勿重复编码。

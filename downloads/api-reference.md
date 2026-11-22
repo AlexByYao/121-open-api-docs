@@ -1,6 +1,6 @@
 # 121 接口交接文档
 
-版本 **2.6.0** · 文档更新 **2026-11-21** · 服务提供方 **121系统**
+版本 **2.7.0** · 文档更新 **2026-11-22** · 服务提供方 **121系统**
 
 本文定义121开放接口的请求方式、鉴权规则、参数、响应、状态及错误码。示例数据仅用于说明报文格式；接入凭据和测试数据由121服务提供方提供。
 
@@ -60,7 +60,7 @@
 
 | 接口或字段 | 部门参数规则 |
 | --- | --- |
-| U01用户查询 | 不传deptId；返回departments数组，部门对象自身仍使用id |
+| U01用户查询 | 不传deptId；返回departments数组，部门标识为deptId |
 | D01部门字典 | 不要求deptId，返回当前账号可用部门 |
 | D01其他字典 | Query必填deptId；库位返回relation.deptId，审批人员返回deptIds |
 | P01创建草稿 | Body必填deptId，确定本单所属部门 |
@@ -71,7 +71,7 @@
 
 ### 数据约定
 
-- ID使用JSON字符串，避免大整数丢精度；必填ID为正整数形式。字典中的 `code` 是业务编码，不能替代 `id`。
+- ID使用JSON字符串，避免大整数丢精度；必填ID为正整数形式。字典中的 `code` 是业务编码，不能替代部门的 `deptId` 或其他字典的 `id`。
 - 所有金额以人民币元计，使用十进制数，非负、最多两位小数；单价、金额及采购合计最大 `9999999999999.99`。
 - 数量使用整数，最大 `999999999`。税率传比例：`0.13` 表示13%，不能传 `13`。
 - `cashCycle`为采购变现周期值，按字典返回值提交；`budgetMonth` 为 `YYYY-MM`；`purchaseDate` 为 `yyyy-MM-dd`。回调 `eventTime` 为UTC ISO 8601，例如 `2026-11-17T02:00:00Z`。
@@ -202,7 +202,7 @@ loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode�
 | `phoneNumber` | string | 手机号；未维护时为空字符串，不影响账号校验 |
 | `status` | string | 成功时固定 `ACTIVE`，表示启用；停用账号返回错误，不返回DISABLED对象 |
 | `departments` | array | 账号所属有效部门与应用授权部门的交集；成功响应至少包含1项 |
-| `departments[].id` | string | 部门唯一ID，创建草稿时作为deptId |
+| `departments[].deptId` | string | 部门唯一ID，创建草稿时作为deptId |
 | `departments[].code` | string | 业务部门编码，缺失时为空字符串 |
 | `departments[].name` | string | 部门名称 |
 | `departments[].companyId` | string | 所属公司ID；未关联有效公司时为空字符串 |
@@ -231,7 +231,7 @@ loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode�
     "userName": "张三",
     "phoneNumber": "13800000000",
     "status": "ACTIVE",
-    "departments": [{"id":"80001","code":"","name":"示例业务部","companyId":"80000","companyName":"示例公司"}]
+    "departments": [{"deptId":"80001","code":"","name":"示例业务部","companyId":"80000","companyName":"示例公司"}]
   }
 }
 ```
@@ -277,7 +277,7 @@ loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode�
 | `type` | 字典类型 | Path | string | 是 | 取值见下表 |
 | `deptId` | 部门ID | Query | string | 条件 | 除departments外均必填，且在公共用户有效成员部门与应用授权的交集中 |
 | `projectId` | 项目筛选 | Query | string | 否 | 传入须为正整数ID；仅stores按库位关联项目精确筛选，其他类型忽略；省略返回该部门全部库位 |
-| `parentId` | 父部门筛选 | Query | string | 否 | 正整数ID，按返回项parentId精确过滤；只建议departments使用，其他字典通常得到空列表 |
+| `parentId` | 父部门筛选 | Query | string | 否 | 正整数ID，按父部门ID精确筛选；只适用于departments，其他字典通常得到空列表 |
 | `roleCode` | 人员角色 | Query | string | 条件 | approval-users必填且须符合角色表；其他字典类型忽略 |
 | `keyword` | 名称关键词 | Query | string | 否 | 最长100；名称包含匹配 |
 | `pageNum` | 页码 | Query | integer | 否 | 默认1，范围1—1000000 |
@@ -289,7 +289,7 @@ loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode�
 
 | type | 名称 | 返回/联动规则 | 创建时使用 |
 | --- | --- | --- | --- |
-| `departments` | 部门 | 本次公共用户可用交集内的有效部门；可按parentId筛选 | `deptId = id` |
+| `departments` | 部门 | 本次公共用户可用交集内的有效部门；可按parentId筛选 | `deptId` |
 | `suppliers` | 供应商 | 全局供应商及具有供应商角色的合作商；额外返回requiresProject | `supplierId = id` |
 | `projects` | 项目 | 全局项目字典 | `projectId = id` |
 | `stores` | 库位 | 按deptId，可选按projectId筛选；返回relation | `storeId = id` |
@@ -324,11 +324,11 @@ loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode�
 | `data.pageSize` | integer | 始终 | 本次每页条数 |
 | `data.total` | integer | 始终 | 全部筛选结果总条数，不是总页数 |
 | `data.items` | array | 始终 | 当前页数据；无匹配或超出末页时为 `[]` |
-| `items[].id` | string | 所有字典 | 字典项标识；税率ID是比例字符串，不应按普通正整数ID解析 |
+| `items[].deptId` | string | 部门 | 部门唯一ID |
+| `items[].id` | string | 非部门字典 | 字典项标识；税率ID是比例字符串，不应按普通正整数ID解析 |
 | `items[].code` | string | 所有字典 | 业务编码；未维护时为空字符串 |
 | `items[].name` | string | 所有字典 | 显示名称 |
 | `items[].status` | string | 所有字典 | 固定 `ACTIVE`，表示本次返回的有效项 |
-| `items[].parentId` | string | 部门 | 父部门ID；根层级可能为 `"0"` |
 | `items[].companyId` | string | 部门 | 所属公司ID；未关联有效公司时为空字符串 |
 | `items[].companyName` | string | 部门 | 所属公司名称；未关联有效公司时为空字符串 |
 | `items[].requiresProject` | boolean | 供应商 | true：创建必须带projectId；false：项目可选 |
@@ -367,7 +367,7 @@ HTTP 200，省份示例：
 
 ```json
 {
-  "departmentItem": {"id":"80001","code":"D001","name":"示例业务部","status":"ACTIVE","parentId":"80000","companyId":"80000","companyName":"示例公司"},
+  "departmentItem": {"deptId":"80001","code":"D001","name":"示例业务部","status":"ACTIVE","companyId":"80000","companyName":"示例公司"},
   "supplierItem": {"id":"1001","code":"","name":"示例供应商","status":"ACTIVE","requiresProject":true},
   "storeItem": {"id":"3001","code":"","name":"示例直运库","status":"ACTIVE","relation":{"deptId":"80001","projectId":"2001"}},
   "taxRateItem": {"id":"0.13","code":"","name":"13%","status":"ACTIVE","value":0.13,"unit":"RATIO"},

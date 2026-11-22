@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 121 开放接口
-  version: 2.6.0
+  version: 2.7.0
   description: 121开放接口，提供用户及字典查询、采购草稿创建与查询、取消及删除通知。请求使用App-Id、App-Secret和loginAccount；数据访问受账号所属部门及应用授权范围约束。
 servers:
   - url: 'http://testfcst.chinaptac.com/open-api/v1'
@@ -64,7 +64,7 @@ paths:
                       phoneNumber: '13800000000'
                       status: ACTIVE
                       departments:
-                        - id: '80001'
+                        - deptId: '80001'
                           code: EXAMPLE_DEPT_80001
                           name: 示例业务部
                           companyId: '80000'
@@ -192,7 +192,7 @@ paths:
             minLength: 1
             maxLength: 19
             pattern: '^[1-9][0-9]{0,18}$'
-            description: 按返回项parentId过滤；只建议departments使用，其他字典通常为空列表
+            description: 按父部门ID筛选；只建议departments使用，其他字典通常为空列表
         - name: keyword
           in: query
           required: false
@@ -893,13 +893,13 @@ components:
       type: object
       additionalProperties: true
       required:
-        - id
+        - deptId
         - code
         - name
         - companyId
         - companyName
       properties:
-        id:
+        deptId:
           type: string
           minLength: 1
           maxLength: 64
@@ -1422,15 +1422,34 @@ components:
     DictionaryItem:
       type: object
       required:
-        - id
         - code
         - name
         - status
+      oneOf:
+        - required:
+            - deptId
+            - companyId
+            - companyName
+          not:
+            required:
+              - id
+        - required:
+            - id
+          not:
+            required:
+              - deptId
       properties:
+        deptId:
+          type: string
+          minLength: 1
+          maxLength: 19
+          pattern: '^[1-9][0-9]{0,18}$'
+          description: 部门唯一ID；仅部门字典返回
         id:
           type: string
           minLength: 1
           maxLength: 64
+          description: 字典项标识；仅非部门字典返回
         code:
           type: string
         name:
@@ -1438,8 +1457,6 @@ components:
         status:
           type: string
           const: ACTIVE
-        parentId:
-          type: string
         relation:
           type: object
           properties:

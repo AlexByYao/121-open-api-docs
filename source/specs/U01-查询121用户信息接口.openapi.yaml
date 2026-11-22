@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 121 User Verification API
-  version: 2.6.0
+  version: 2.7.0
   description: >-
     查询请求头loginAccount对应的121用户信息及可用部门。请求须携带有效的App-Id、App-Secret和loginAccount；返回部门为账号所属有效部门与应用授权部门的交集。
 servers:
@@ -64,7 +64,7 @@ paths:
                       phoneNumber: '13800000000'
                       status: ACTIVE
                       departments:
-                        - id: '80001'
+                        - deptId: '80001'
                           code: EXAMPLE_DEPT_80001
                           name: 示例业务部
                           companyId: '80000'
@@ -203,13 +203,13 @@ components:
       type: object
       additionalProperties: true
       required:
-        - id
+        - deptId
         - code
         - name
         - companyId
         - companyName
       properties:
-        id:
+        deptId:
           type: string
           minLength: 1
           maxLength: 64
