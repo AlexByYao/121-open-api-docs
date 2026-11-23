@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "121 开放接口",
-    "version": "2.9.2",
+    "version": "2.9.3",
     "description": "121开放接口，提供用户及字典查询、采购草稿创建与查询、取消及删除通知。请求使用App-Id、App-Secret和loginAccount；数据访问受账号所属部门及应用授权范围约束。"
   },
   "servers": [
