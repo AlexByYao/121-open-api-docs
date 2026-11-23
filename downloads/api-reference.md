@@ -1,6 +1,6 @@
 # 121 接口交接文档
 
-版本 **2.8.2** · 文档更新 **2026-11-23** · 服务提供方 **121系统**
+版本 **2.9.0** · 文档更新 **2026-11-23** · 服务提供方 **121系统**
 
 本文定义121开放接口的请求方式、鉴权规则、参数、响应、状态及错误码。示例数据仅用于说明报文格式；接入凭据和测试数据由121服务提供方提供。
 
@@ -28,9 +28,9 @@
 
 同一创建请求的重复提交须使用相同的幂等键和原始正文。结果未知时先调用P02；返回404时，应核对查询参数和访问范围，再使用原来源记录ID、原幂等键及原始正文重试。
 
-### 变现周期单位
+### 变现周期单位与小数
 
-2.8.2将变现周期单位代码由旧版`DAY`更正为`MONTH`（月）。调用方按月展示及传入`cashCycle`，不要因单位更正自动乘除30；既有字典数值原样返回。测试及正式服务均需升级对应后端后，才能返回新的单位代码。
+变现周期单位为`MONTH`（月）。2.9.0支持小数月份：`cashCycle: 1.5`表示1.5个月，`0.5`表示半个月；最小0.01，最多两位有效小数，超出精度直接报错，不自动四舍五入；原整数传值仍兼容。调用方按月展示和传值，不自动乘除30。测试及正式服务须先升级数据库两列为DECIMAL(21,2)，再部署新版后端；文档更新不代表接口已部署。
 
 ### 调用地址
 
@@ -77,7 +77,7 @@
 - ID使用JSON字符串，避免大整数丢精度；必填ID为正整数形式。字典中的 `code` 是业务编码，不能替代部门的 `deptId` 或其他字典的 `id`。
 - 所有金额以人民币元计，使用十进制数，非负、最多两位小数；单价、金额及采购合计最大 `9999999999999.99`。
 - 数量使用整数，最大 `999999999`。税率传比例：`0.13` 表示13%，不能传 `13`。
-- `cashCycle`为采购变现周期，单位为月，例如3表示3个月；按字典返回的`value`或手填正整数提交，不将天数直接作为月数传入。字典同时返回`unit=MONTH`，没有中文单位字段，展示端可按unit显示“个月”；`budgetMonth` 为 `YYYY-MM`；`purchaseDate` 为 `yyyy-MM-dd`。回调 `eventTime` 为UTC ISO 8601，例如 `2026-11-17T02:00:00Z`。
+- `cashCycle`为采购变现周期，单位为月，例如1.5表示1.5个月；按字典返回的`value`或手填正数提交，最小0.01，最多两位有效小数，不将天数直接作为月数传入。字典同时返回`unit=MONTH`，没有中文单位字段，展示端可按unit显示“个月”；`budgetMonth` 为 `YYYY-MM`；`purchaseDate` 为 `yyyy-MM-dd`。回调 `eventTime` 为UTC ISO 8601，例如 `2026-11-17T02:00:00Z`。
 - P01必填预算月份、销售数量、销售单价和当日库存。明细提交价格保存于采购草稿，不更新物料基础价格。
 - 供应商与项目、库位的关联按D01字典及P01字段约束校验；一张采购单只提交一个saleChannelId。
 - 采购草稿的供应商和所属部门不可修改。P04仅允许取消草稿，已锁单及退单状态不可取消。
@@ -296,10 +296,10 @@ loginAccount最多30个字符，按账号原值匹配，清理首尾ASCII空格�
 | `fund-plans` | 资金计划 | 部门资金计划 | `fundPlanId = id` |
 | `transport-costs` | 运费成本 | 部门字典中可解析的非负金额；额外value、unit | `transportCost = value` |
 | `tax-rates` | 税率 | 主单下拉固定0、0.06、0.13；明细不受该枚举限制；额外value、unit | `taxRate = value` |
-| `cash-cycles` | 变现周期 | 部门变现周期字典，单位为月；提交value，不根据unit自行换算；返回unit=`MONTH`，没有中文单位字段 | `cashCycle = value` |
+| `cash-cycles` | 变现周期 | 部门变现周期字典，单位为月，value为number，支持小数；提交value，不根据unit自行换算；返回unit=`MONTH`，没有中文单位字段 | `cashCycle = value` |
 | `approval-users` | 审批人员 | 具有指定有效角色的启用用户；仅PRODUCT_MANAGER限定本部门，其他角色允许跨部门 | 对应人员字段 `= id` |
 
-省份必须用121字典ID，例如 `"6"`；不能使用 `"110000"` 等行政区划编码代替。供应商名称在121业务入口中不得重复，智能化应按完整名称精确匹配字典后保存对应`supplierId`，不能对模糊结果取第一条。供应商 `requiresProject=true` 时P01必须提交项目；`requiresProject=false`时，即使库位绑定项目，`projectId`也可以留空，121不会自动带出库位项目；如果主动传入项目，选定库位的非零项目关联必须与提交项目一致。按projectId筛选时，只返回精确匹配的库位。
+省份必须用121字典ID，例如 `"6"`；不能使用 `"110000"` 等行政区划编码代替。供应商名称在121业务入口中不得重复，智能化应按完整名称精确匹配字典后保存对应`supplierId`，不能对模糊结果取第一条。与121手工建单一致：供应商 `requiresProject=true`（外部供应商）时P01必须提交有效项目；`requiresProject=false`（事业部/分公司）时项目禁用，P01忽略传入的projectId并保存为空（内部projectId=0），不从库位带出项目。项目为全局字典，不按供应商筛选；库位按deptId选择，建单不强制匹配库位关联项目。D01可选的projectId筛选仅用于调用方便，传入时只返回精确匹配的库位；复现手工页面时应省略该筛选。
 
 ### 审批角色枚举
 
@@ -324,14 +324,14 @@ loginAccount最多30个字符，按账号原值匹配，清理首尾ASCII空格�
 | `items[].deptId` | string | 部门 | 部门唯一ID |
 | `items[].id` | string | 非部门字典 | 字典项标识；税率ID是比例字符串，不应按普通正整数ID解析 |
 | `items[].code` | string | 所有字典 | 业务编码；未维护时为空字符串；当前供应商code固定为空，不能作为共同唯一供应商编码 |
-| `items[].name` | string | 所有字典 | 显示名称；变现周期返回数字文本，例如"3"，不拼接"个月" |
+| `items[].name` | string | 所有字典 | 显示名称；变现周期返回数字文本，例如"1.5"或"3"，去除无意义的末尾0，不拼接"个月" |
 | `items[].status` | string | 所有字典 | 固定 `ACTIVE`，表示本次返回的有效项 |
 | `items[].companyId` | string | 部门 | 所属公司ID；未关联有效公司时为空字符串 |
 | `items[].companyName` | string | 部门 | 所属公司名称；未关联有效公司时为空字符串 |
-| `items[].requiresProject` | boolean | 供应商 | true：创建必须带projectId；false：项目可选 |
+| `items[].requiresProject` | boolean | 供应商 | true：外部供应商，创建必须带有效projectId；false：事业部/分公司，项目禁用，传入值忽略并清空 |
 | `items[].relation.deptId` | string | 库位 | 库位所属部门ID |
 | `items[].relation.projectId` | string | 库位且存在值 | 关联项目ID；`"0"` 表示未绑定具体项目 |
-| `items[].value` | number / string | 运费、税率、变现周期 | 实际业务值，创建时传value；不能把字典项ID当金额/月数 |
+| `items[].value` | number / string | 运费、税率、变现周期 | 实际业务值，创建时传value；变现周期为number，如1.5表示1.5个月；不能把字典项ID当金额/月数 |
 | `items[].unit` | string | 同上 | `CNY`=人民币元；`RATIO`=比例；`MONTH`=月。这是单位代码，没有额外中文单位字段；展示端自行映射中文 |
 | `items[].loginAccount` | string | 审批人员 | 人员的121登录账号 |
 | `items[].deptIds` | array of string | 审批人员 | 人员成员部门与客户本次部门范围交集中的ID；跨部门审批人可为空数组，不代表不可选 |
@@ -368,7 +368,7 @@ HTTP 200，省份示例：
   "supplierItem": {"id":"1001","code":"","name":"示例供应商","status":"ACTIVE","requiresProject":true},
   "storeItem": {"id":"3001","code":"","name":"示例直运库","status":"ACTIVE","relation":{"deptId":"80001","projectId":"2001"}},
   "taxRateItem": {"id":"0.13","code":"","name":"13%","status":"ACTIVE","value":0.13,"unit":"RATIO"},
-  "cashCycleItem": {"id":"7","code":"","name":"3","status":"ACTIVE","value":3,"unit":"MONTH"},
+  "cashCycleItem": {"id":"7","code":"","name":"1.5","status":"ACTIVE","value":1.5,"unit":"MONTH"},
   "approvalUserItem": {"id":"101","code":"","name":"张三","status":"ACTIVE","loginAccount":"zhangsan","deptIds":["80001"]}
 }
 ```
@@ -410,15 +410,15 @@ HTTP 200，省份示例：
 | `supplierId` | 供应商 | string | 是 | D01 suppliers返回的ID；同步后不可改供应商 |
 | `supplierName` | 供应商名称 | string | 否 | 最长100，不作为建单匹配条件；供应商名称按121规则唯一，建议先按完整名称查字典取得`supplierId`；ID不存在时仅用于错误信息 |
 | `authorized` | 是否授权 | boolean | 是 | true=授权；false=未授权，false是合法值，不等同未填 |
-| `projectId` | 项目 | string | 条件 | 供应商requiresProject=true时必填；requiresProject=false时可省略，即使库位绑定项目也不会自动带出；提供时必须有效且与库位非零项目一致 |
-| `storeId` | 库位 | string | 是 | 属deptId；存在非零项目关联时与提交项目一致 |
+| `projectId` | 项目 | string | 条件 | 供应商requiresProject=true时必填且须为有效项目；false时忽略传入值并保存为空（内部ID=0）；不从库位带出项目，不强制匹配库位关联项目 |
+| `storeId` | 库位 | string | 是 | 须为deptId下的有效库位；不按供应商筛选，不强制匹配所选项目 |
 | `provinceId` | 省份 | string | 是 | 当前部门省份字典ID，不是行政区划编码 |
 | `saleChannelId` | 销售渠道 | string | 是 | 当前部门渠道字典ID |
 | `paymentMethodId` | 付款方式 | string | 否 | 提供时为当前部门有效付款方式ID |
 | `fundPlanId` | 资金计划 | string | 是 | 当前部门资金计划字典ID |
 | `transportCost` | 运费成本 | number | 是 | 可手填的非负金额，单位元；不要求必须等于transport-costs字典值，最多两位小数，最大9999999999999.99 |
 | `taxRate` | 主单税率 | number | 是 | 0=0%；0.06=6%；0.13=13% |
-| `cashCycle` | 变现周期 | integer | 是 | 单位为月，正整数，范围1—9223372036854775807；例如3表示3个月；可取D01字典value或手填正整数，不强制匹配字典，不自动将天换算成月；字典unit=`MONTH`，展示“个月”由调用方处理 |
+| `cashCycle` | 变现周期 | number | 是 | 单位为月，范围0.01—9999999999999999999.99，最多两位有效小数；例如1.5表示1.5个月，0.5表示半个月，整数3仍支持。传JSON数字，不能传字符串；1.500可接收，1.501返回400、errorCode=INVALID_ARGUMENT、data.field=cashCycle，不四舍五入。可取D01字典value或手填，不强制匹配字典，不换算天/月；字典unit=`MONTH`，展示“个月”由调用方处理 |
 | `budgetMonth` | 预算月份 | string | 是 | 2000—2099年有效 `YYYY-MM`，由调用方传入 |
 | `purchaseDate` | 采购日期 | string | 是 | 有效 `yyyy-MM-dd`，显式传入，不由121自动取日期 |
 | `contractNo` | 合同号 | string | 否 | 最长64 |
@@ -431,7 +431,7 @@ HTTP 200，省份示例：
 
 不要提交状态、创建人、121主单ID等额外字段。字符串拒绝控制字符和尖括号。未填写的可选ID应省略，不传空字符串。
 
-例如供应商`requiresProject=false`，库位`storeId="3001"`关联项目A（`projectId="2001"`）：创建时可以省略`projectId`，121仅保存库位，不会自动将项目A写到采购单；若主动提交`projectId="2001"`则允许，若提交其他项目则返回422 `REFERENCE_INVALID`。供应商`requiresProject=true`时仍必须明确提交项目。
+例如供应商`requiresProject=false`，库位`storeId="3001"`关联项目A（`projectId="2001"`）：无论省略项目还是提交项目A/其他项目，采购单项目均保存为空，不自动带出。供应商`requiresProject=true`时必须明确提交有效项目；即使提交项目B而库位关联项目A，只要库位属于本次部门，也允许建单。
 
 ### 首次创建时的来源采购记录ID
 
@@ -574,7 +574,7 @@ P01、P02、P03和P04使用相同业务对象。
   "fundPlanId": "6001",
   "transportCost": 0,
   "taxRate": 0.13,
-  "cashCycle": 3,
+  "cashCycle": 1.5,
   "budgetMonth": "2026-11",
   "purchaseDate": "2026-11-17",
   "details": [
@@ -976,7 +976,7 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 | 413 | `PAYLOAD_TOO_LARGE` | 请求体过大 | U01超过8KiB，其他超过2MiB | 缩小请求体；P01同时最多500条 |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | 媒体类型或编码不支持 | 非JSON、非UTF-8声明或携带Content-Encoding压缩头 | 使用未压缩UTF-8 JSON |
 | 422 | `USER_DISABLED` | 用户已停用 | 账号存在但状态非启用 | 使用启用账号 |
-| 422 | `REFERENCE_INVALID` | 引用数据无效 | 供应商不存在、字典/审批人失效、部门停用或库位项目联动不符 | 供应商缺失时message提示名称（未传名称则提示ID）；核实并补齐后重新查询字典 |
+| 422 | `REFERENCE_INVALID` | 引用数据无效 | 供应商不存在、字典/审批人失效、部门停用或库位不属于所选部门 | 供应商缺失时message提示名称（未传名称则提示ID）；核实并补齐后重新查询字典 |
 | 422 | `MATERIAL_NOT_FOUND` | 物料不存在 | 一个或多个materialCode无匹配 | 核对message中的全部编码，121补齐后再推 |
 | 422 | `MATERIAL_AMBIGUOUS` | 物料编码不唯一 | materialCode匹配多条物料 | 121修复重复数据 |
 | 422 | `AMOUNT_MISMATCH` | 采购金额不一致 | purchaseAmount不等于quantity×purchasePrice | 修正金额或省略该字段 |

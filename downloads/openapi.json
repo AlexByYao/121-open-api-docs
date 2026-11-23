@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "121 开放接口",
-    "version": "2.8.2",
+    "version": "2.9.0",
     "description": "121开放接口，提供用户及字典查询、采购草稿创建与查询、取消及删除通知。请求使用App-Id、App-Secret和loginAccount；数据访问受账号所属部门及应用授权范围约束。"
   },
   "servers": [
@@ -1853,14 +1853,14 @@
             "minLength": 1,
             "maxLength": 19,
             "pattern": "^[1-9][0-9]{0,18}$",
-            "description": "requiresProject=true时必填，否则可省略/null，即使库位绑定项目也不自动带出；提供时须与库位非零项目一致"
+            "description": "与手工建单一致：requiresProject=true时须为有效项目；false时忽略传入值并清空（内部ID=0）。不从库位带出项目，不强制匹配库位关联项目"
           },
           "storeId": {
             "type": "string",
             "minLength": 1,
             "maxLength": 19,
             "pattern": "^[1-9][0-9]{0,18}$",
-            "description": "属于本次deptId；仅在主动提供projectId时校验库位非零项目一致"
+            "description": "须为本次deptId下的有效库位；不按供应商筛选，不强制匹配所选项目"
           },
           "provinceId": {
             "type": "string",
@@ -1902,10 +1902,11 @@
             ]
           },
           "cashCycle": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 1,
-            "description": "单位为月，正整数，最大9223372036854775807；例如3表示3个月；可取字典value或手填正整数，不强制匹配字典；字典name如3、unit=MONTH，没有中文单位字段，展示端映射个月，不自动将天换算成月"
+            "type": "number",
+            "minimum": 0.01,
+            "exclusiveMaximum": 10000000000000000000,
+            "multipleOf": 0.01,
+            "description": "单位为月，范围0.01至9999999999999999999.99，最多两位有效小数，不四舍五入。1.5表示1.5个月、0.5表示半个月，整数仍兼容；须传JSON数字，不能传字符串。1.500可接收，1.501返回400 INVALID_ARGUMENT且data.field=cashCycle。可取字典value或手填，不强制匹配；字典name如1.5、unit=MONTH，没有中文单位字段，展示端映射个月，不自动将天换算成月"
           },
           "budgetMonth": {
             "type": "string",
@@ -2124,7 +2125,7 @@
           },
           "name": {
             "type": "string",
-            "description": "显示名称；变现周期name是数字文本，如3，不含个月"
+            "description": "显示名称；变现周期name是数字文本，如1.5或3，去除无意义的末尾0，不含个月"
           },
           "status": {
             "type": "string",
@@ -2145,13 +2146,15 @@
             }
           },
           "requiresProject": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "仅供应商返回；true表示外部供应商，项目必填；false表示事业部/分公司，项目禁用并清空"
           },
           "value": {
             "type": [
               "number",
               "string"
-            ]
+            ],
+            "description": "变现周期为number，支持小数月份，如1.5表示1.5个月"
           },
           "unit": {
             "type": "string",
