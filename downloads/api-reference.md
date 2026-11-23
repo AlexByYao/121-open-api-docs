@@ -1,6 +1,6 @@
 # 121 接口交接文档
 
-版本 **2.8.1** · 文档更新 **2026-11-23** · 服务提供方 **121系统**
+版本 **2.8.2** · 文档更新 **2026-11-23** · 服务提供方 **121系统**
 
 本文定义121开放接口的请求方式、鉴权规则、参数、响应、状态及错误码。示例数据仅用于说明报文格式；接入凭据和测试数据由121服务提供方提供。
 
@@ -27,6 +27,10 @@
 | eventId | 121生成的C01事件去重键 | 同一事件重试不变；接收方按eventId幂等处理 |
 
 同一创建请求的重复提交须使用相同的幂等键和原始正文。结果未知时先调用P02；返回404时，应核对查询参数和访问范围，再使用原来源记录ID、原幂等键及原始正文重试。
+
+### 变现周期单位
+
+2.8.2将变现周期单位代码由旧版`DAY`更正为`MONTH`（月）。调用方按月展示及传入`cashCycle`，不要因单位更正自动乘除30；既有字典数值原样返回。测试及正式服务均需升级对应后端后，才能返回新的单位代码。
 
 ### 调用地址
 
@@ -73,7 +77,7 @@
 - ID使用JSON字符串，避免大整数丢精度；必填ID为正整数形式。字典中的 `code` 是业务编码，不能替代部门的 `deptId` 或其他字典的 `id`。
 - 所有金额以人民币元计，使用十进制数，非负、最多两位小数；单价、金额及采购合计最大 `9999999999999.99`。
 - 数量使用整数，最大 `999999999`。税率传比例：`0.13` 表示13%，不能传 `13`。
-- `cashCycle`为采购变现周期值，按字典返回的`value`提交；字典同时返回`unit=DAY`，没有“天”中文字段，展示端可按unit显示“天”；`budgetMonth` 为 `YYYY-MM`；`purchaseDate` 为 `yyyy-MM-dd`。回调 `eventTime` 为UTC ISO 8601，例如 `2026-11-17T02:00:00Z`。
+- `cashCycle`为采购变现周期，单位为月，例如3表示3个月；按字典返回的`value`或手填正整数提交，不将天数直接作为月数传入。字典同时返回`unit=MONTH`，没有中文单位字段，展示端可按unit显示“个月”；`budgetMonth` 为 `YYYY-MM`；`purchaseDate` 为 `yyyy-MM-dd`。回调 `eventTime` 为UTC ISO 8601，例如 `2026-11-17T02:00:00Z`。
 - P01必填预算月份、销售数量、销售单价和当日库存。明细提交价格保存于采购草稿，不更新物料基础价格。
 - 供应商与项目、库位的关联按D01字典及P01字段约束校验；一张采购单只提交一个saleChannelId。
 - 采购草稿的供应商和所属部门不可修改。P04仅允许取消草稿，已锁单及退单状态不可取消。
@@ -292,7 +296,7 @@ loginAccount最多30个字符，按账号原值匹配，清理首尾ASCII空格�
 | `fund-plans` | 资金计划 | 部门资金计划 | `fundPlanId = id` |
 | `transport-costs` | 运费成本 | 部门字典中可解析的非负金额；额外value、unit | `transportCost = value` |
 | `tax-rates` | 税率 | 主单下拉固定0、0.06、0.13；明细不受该枚举限制；额外value、unit | `taxRate = value` |
-| `cash-cycles` | 变现周期 | 部门变现周期字典；提交value，不根据unit自行换算；返回unit=`DAY`，没有“天”中文字段 | `cashCycle = value` |
+| `cash-cycles` | 变现周期 | 部门变现周期字典，单位为月；提交value，不根据unit自行换算；返回unit=`MONTH`，没有中文单位字段 | `cashCycle = value` |
 | `approval-users` | 审批人员 | 具有指定有效角色的启用用户；仅PRODUCT_MANAGER限定本部门，其他角色允许跨部门 | 对应人员字段 `= id` |
 
 省份必须用121字典ID，例如 `"6"`；不能使用 `"110000"` 等行政区划编码代替。供应商名称在121业务入口中不得重复，智能化应按完整名称精确匹配字典后保存对应`supplierId`，不能对模糊结果取第一条。供应商 `requiresProject=true` 时P01必须提交项目；`requiresProject=false`时，即使库位绑定项目，`projectId`也可以留空，121不会自动带出库位项目；如果主动传入项目，选定库位的非零项目关联必须与提交项目一致。按projectId筛选时，只返回精确匹配的库位。
@@ -320,15 +324,15 @@ loginAccount最多30个字符，按账号原值匹配，清理首尾ASCII空格�
 | `items[].deptId` | string | 部门 | 部门唯一ID |
 | `items[].id` | string | 非部门字典 | 字典项标识；税率ID是比例字符串，不应按普通正整数ID解析 |
 | `items[].code` | string | 所有字典 | 业务编码；未维护时为空字符串；当前供应商code固定为空，不能作为共同唯一供应商编码 |
-| `items[].name` | string | 所有字典 | 显示名称；变现周期返回数字文本，例如"30"，不拼接"天" |
+| `items[].name` | string | 所有字典 | 显示名称；变现周期返回数字文本，例如"3"，不拼接"个月" |
 | `items[].status` | string | 所有字典 | 固定 `ACTIVE`，表示本次返回的有效项 |
 | `items[].companyId` | string | 部门 | 所属公司ID；未关联有效公司时为空字符串 |
 | `items[].companyName` | string | 部门 | 所属公司名称；未关联有效公司时为空字符串 |
 | `items[].requiresProject` | boolean | 供应商 | true：创建必须带projectId；false：项目可选 |
 | `items[].relation.deptId` | string | 库位 | 库位所属部门ID |
 | `items[].relation.projectId` | string | 库位且存在值 | 关联项目ID；`"0"` 表示未绑定具体项目 |
-| `items[].value` | number / string | 运费、税率、变现周期 | 实际业务值，创建时传value；不能把字典项ID当金额/天数 |
-| `items[].unit` | string | 同上 | `CNY`=人民币元；`RATIO`=比例；`DAY`=天。这是单位代码，没有额外中文单位字段；展示端自行映射中文 |
+| `items[].value` | number / string | 运费、税率、变现周期 | 实际业务值，创建时传value；不能把字典项ID当金额/月数 |
+| `items[].unit` | string | 同上 | `CNY`=人民币元；`RATIO`=比例；`MONTH`=月。这是单位代码，没有额外中文单位字段；展示端自行映射中文 |
 | `items[].loginAccount` | string | 审批人员 | 人员的121登录账号 |
 | `items[].deptIds` | array of string | 审批人员 | 人员成员部门与客户本次部门范围交集中的ID；跨部门审批人可为空数组，不代表不可选 |
 
@@ -364,7 +368,7 @@ HTTP 200，省份示例：
   "supplierItem": {"id":"1001","code":"","name":"示例供应商","status":"ACTIVE","requiresProject":true},
   "storeItem": {"id":"3001","code":"","name":"示例直运库","status":"ACTIVE","relation":{"deptId":"80001","projectId":"2001"}},
   "taxRateItem": {"id":"0.13","code":"","name":"13%","status":"ACTIVE","value":0.13,"unit":"RATIO"},
-  "cashCycleItem": {"id":"7","code":"","name":"30","status":"ACTIVE","value":30,"unit":"DAY"},
+  "cashCycleItem": {"id":"7","code":"","name":"3","status":"ACTIVE","value":3,"unit":"MONTH"},
   "approvalUserItem": {"id":"101","code":"","name":"张三","status":"ACTIVE","loginAccount":"zhangsan","deptIds":["80001"]}
 }
 ```
@@ -414,7 +418,7 @@ HTTP 200，省份示例：
 | `fundPlanId` | 资金计划 | string | 是 | 当前部门资金计划字典ID |
 | `transportCost` | 运费成本 | number | 是 | 可手填的非负金额，单位元；不要求必须等于transport-costs字典值，最多两位小数，最大9999999999999.99 |
 | `taxRate` | 主单税率 | number | 是 | 0=0%；0.06=6%；0.13=13% |
-| `cashCycle` | 变现周期 | integer | 是 | 正整数，范围1—9223372036854775807；可取D01字典value或手填正整数，不强制匹配字典，不自动换算单位；字典unit=`DAY`，展示“天”由调用方处理 |
+| `cashCycle` | 变现周期 | integer | 是 | 单位为月，正整数，范围1—9223372036854775807；例如3表示3个月；可取D01字典value或手填正整数，不强制匹配字典，不自动将天换算成月；字典unit=`MONTH`，展示“个月”由调用方处理 |
 | `budgetMonth` | 预算月份 | string | 是 | 2000—2099年有效 `YYYY-MM`，由调用方传入 |
 | `purchaseDate` | 采购日期 | string | 是 | 有效 `yyyy-MM-dd`，显式传入，不由121自动取日期 |
 | `contractNo` | 合同号 | string | 否 | 最长64 |
@@ -570,7 +574,7 @@ P01、P02、P03和P04使用相同业务对象。
   "fundPlanId": "6001",
   "transportCost": 0,
   "taxRate": 0.13,
-  "cashCycle": 30,
+  "cashCycle": 3,
   "budgetMonth": "2026-11",
   "purchaseDate": "2026-11-17",
   "details": [

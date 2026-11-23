@@ -15,7 +15,7 @@
   <a class="skip-link" href="#content">跳到文档正文</a>
   <header class="site-header">
     <a class="brand" href="#top"><span class="brand-mark">121</span><span>接口交接文档<small>用户、字典与采购草稿</small></span></a>
-    <div class="header-actions"><span class="version">v2.8.1</span><a href="./downloads/openapi.yaml" download>下载 OpenAPI</a><button id="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">目录</button></div>
+    <div class="header-actions"><span class="version">v2.8.2</span><a href="./downloads/openapi.yaml" download>下载 OpenAPI</a><button id="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">目录</button></div>
   </header>
   <aside id="sidebar" class="sidebar" aria-label="文档目录">
     <label class="search-label" for="doc-search">查找文档</label>
@@ -38,7 +38,7 @@
     <div class="overview"><details><summary>展开完整章节目录</summary><ol><li><a href="#section-1">接入说明</a></li><li><a href="#section-2">U01 查询121用户信息（POST）</a></li><li><a href="#section-3">D01 查询基础字典（GET）</a></li><li><a href="#section-4">P01 创建采购草稿（POST）</a></li><li><a href="#section-5">P02 按来源记录和幂等键查询草稿（GET）</a></li><li><a href="#section-6">P03 按121采购单ID查询草稿（GET）</a></li><li><a href="#section-7">P04 取消同步并删除草稿（POST）</a></li><li><a href="#section-8">C01 采购草稿删除通知（POST）</a></li><li><a href="#section-9">返回码说明</a></li><li><a href="#section-10">附录</a></li></ol></details></div>
     <div id="no-results" hidden>未找到匹配内容。请尝试接口编号（如 P01）、参数名或错误码。</div>
     <div class="document-intro"><h1 id="top">121 接口交接文档</h1>
-<p>版本 <strong>2.8.1</strong> · 文档更新 <strong>2026-11-23</strong> · 服务提供方 <strong>121系统</strong></p>
+<p>版本 <strong>2.8.2</strong> · 文档更新 <strong>2026-11-23</strong> · 服务提供方 <strong>121系统</strong></p>
 <p>本文定义121开放接口的请求方式、鉴权规则、参数、响应、状态及错误码。示例数据仅用于说明报文格式；接入凭据和测试数据由121服务提供方提供。</p>
 </div><section class="doc-section" data-section="section-1"><h2 id="section-1">接入说明</h2>
 <h3 id="section-1-1">联调顺序</h3>
@@ -93,7 +93,9 @@
 </tbody>
 </table></div>
 <p>同一创建请求的重复提交须使用相同的幂等键和原始正文。结果未知时先调用P02；返回404时，应核对查询参数和访问范围，再使用原来源记录ID、原幂等键及原始正文重试。</p>
-<h3 id="section-1-3">调用地址</h3>
+<h3 id="section-1-3">变现周期单位</h3>
+<p>2.8.2将变现周期单位代码由旧版<code>DAY</code>更正为<code>MONTH</code>（月）。调用方按月展示及传入<code>cashCycle</code>，不要因单位更正自动乘除30；既有字典数值原样返回。测试及正式服务均需升级对应后端后，才能返回新的单位代码。</p>
+<h3 id="section-1-4">调用地址</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -116,7 +118,7 @@
 </tbody>
 </table></div>
 <p>调用地址 = API基础地址 + 接口路径。例如用户查询为<code>POST http://testfcst.chinaptac.com/open-api/v1/users/verify</code>。C01由接收方提供固定回调地址，正式使用HTTPS，测试可按双方约定使用HTTP。</p>
-<h3 id="section-1-4">接口目录</h3>
+<h3 id="section-1-5">接口目录</h3>
 <p>以下路径相对于基础地址 <code>/open-api/v1</code>。C01是121主动发送的删除通知。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -173,7 +175,7 @@
 </tbody>
 </table></div>
 <p>请求须携带有效的应用凭据和121操作人账号。可访问的部门范围为该账号所属有效部门与应用授权部门的交集。采购单操作人和发起人均为请求头中的<code>loginAccount</code>。</p>
-<h3 id="section-1-5">部门参数与权限规则</h3>
+<h3 id="section-1-6">部门参数与权限规则</h3>
 <p>部门参数使用<code>deptId</code>，部门ID列表使用<code>deptIds</code>。各接口的传参位置及要求如下。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -210,18 +212,18 @@
 </tbody>
 </table></div>
 <p>业务部门须处于“账号有效所属部门 ∩ 应用授权部门”范围；多部门账号创建时须明确提交一个deptId。查询、取消均校验原单所属部门，不能通过传入其他部门改变单据归属。</p>
-<h3 id="section-1-6">数据约定</h3>
+<h3 id="section-1-7">数据约定</h3>
 <ul>
 <li>ID使用JSON字符串，避免大整数丢精度；必填ID为正整数形式。字典中的 <code>code</code> 是业务编码，不能替代部门的 <code>deptId</code> 或其他字典的 <code>id</code>。</li>
 <li>所有金额以人民币元计，使用十进制数，非负、最多两位小数；单价、金额及采购合计最大 <code>9999999999999.99</code>。</li>
 <li>数量使用整数，最大 <code>999999999</code>。税率传比例：<code>0.13</code> 表示13%，不能传 <code>13</code>。</li>
-<li><code>cashCycle</code>为采购变现周期值，按字典返回的<code>value</code>提交；字典同时返回<code>unit=DAY</code>，没有“天”中文字段，展示端可按unit显示“天”；<code>budgetMonth</code> 为 <code>YYYY-MM</code>；<code>purchaseDate</code> 为 <code>yyyy-MM-dd</code>。回调 <code>eventTime</code> 为UTC ISO 8601，例如 <code>2026-11-17T02:00:00Z</code>。</li>
+<li><code>cashCycle</code>为采购变现周期，单位为月，例如3表示3个月；按字典返回的<code>value</code>或手填正整数提交，不将天数直接作为月数传入。字典同时返回<code>unit=MONTH</code>，没有中文单位字段，展示端可按unit显示“个月”；<code>budgetMonth</code> 为 <code>YYYY-MM</code>；<code>purchaseDate</code> 为 <code>yyyy-MM-dd</code>。回调 <code>eventTime</code> 为UTC ISO 8601，例如 <code>2026-11-17T02:00:00Z</code>。</li>
 <li>P01必填预算月份、销售数量、销售单价和当日库存。明细提交价格保存于采购草稿，不更新物料基础价格。</li>
 <li>供应商与项目、库位的关联按D01字典及P01字段约束校验；一张采购单只提交一个saleChannelId。</li>
 <li>采购草稿的供应商和所属部门不可修改。P04仅允许取消草稿，已锁单及退单状态不可取消。</li>
 </ul>
 <p>六个121入口均使用App-Id、App-Secret和公共loginAccount。正式环境使用HTTPS，测试允许HTTP；HTTP会明文传输凭据和正文，仅使用测试凭据与测试数据。</p>
-<h3 id="section-1-7">公共请求头参数</h3>
+<h3 id="section-1-8">公共请求头参数</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -279,7 +281,7 @@
 </table></div>
 <p>Header名称不区分大小写，两项凭据的值区分大小写。凭据为1—256个可打印ASCII字符（不含空格），不得重复传头或附加空格、换行；不得放入URL、正文、客户端代码或日志。</p>
 <p>loginAccount最多30个字符，按账号原值匹配，清理首尾ASCII空格后须非空；禁止内部空白、控制及格式字符。普通ASCII账号直接传；含中文、百分号等字符时先做UTF-8百分号编码（JavaScript用<code>encodeURIComponent(account)</code>）。例如张三传<code>%E5%BC%A0%E4%B8%89</code>，<code>a%b</code>传<code>a%25b</code>，<code>a+b</code>可传<code>a%2Bb</code>。121严格解码一次，加号不当空格，不接受非法UTF-8或重复loginAccount请求头。</p>
-<h3 id="section-1-8">正文与重试</h3>
+<h3 id="section-1-9">正文与重试</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -314,7 +316,7 @@
 </tr>
 </tbody>
 </table></div>
-<h3 id="section-1-9">统一响应字段</h3>
+<h3 id="section-1-10">统一响应字段</h3>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
 <span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-literal">200</span>, <span class="token-key">&quot;errorCode&quot;</span>: <span class="token-literal">null</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;message&quot;</span>: <span class="token-string">&quot;success&quot;</span>,</span>
@@ -365,7 +367,7 @@
 </table></div>
 <p>成功HTTP为200；失败使用实际HTTP状态码。所有应用响应带 <code>Cache-Control: no-store</code>；401额外带 <code>WWW-Authenticate: AppKey realm=&quot;121-open-api&quot;</code>。网关502/504可能没有JSON正文，应按HTTP失败处理。</p>
 <p>响应体<code>code</code>为数字，表示本次处理结果；字典项中的<code>code</code>为字符串，表示业务编码。调用方应结合HTTP状态和<code>errorCode</code>判断结果，使用<code>message</code>及<code>data</code>定位原因。</p>
-<h3 id="section-1-10">错误详情字段与取值</h3>
+<h3 id="section-1-11">错误详情字段与取值</h3>
 <p>以下字段按错误场景选择返回，不保证每次失败都有详情。明细下标从0开始，<code>sourceDetailId</code>便于调用方定位自己的明细。未知异常、鉴权错误等仍可能<code>data=null</code>，请保留requestId用于问题查询。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -892,7 +894,7 @@
 <tr>
 <td><code>cash-cycles</code></td>
 <td>变现周期</td>
-<td>部门变现周期字典；提交value，不根据unit自行换算；返回unit=<code>DAY</code>，没有“天”中文字段</td>
+<td>部门变现周期字典，单位为月；提交value，不根据unit自行换算；返回unit=<code>MONTH</code>，没有中文单位字段</td>
 <td><code>cashCycle = value</code></td>
 </tr>
 <tr>
@@ -1008,7 +1010,7 @@
 <td><code>items[].name</code></td>
 <td>string</td>
 <td>所有字典</td>
-<td>显示名称；变现周期返回数字文本，例如&quot;30&quot;，不拼接&quot;天&quot;</td>
+<td>显示名称；变现周期返回数字文本，例如&quot;3&quot;，不拼接&quot;个月&quot;</td>
 </tr>
 <tr>
 <td><code>items[].status</code></td>
@@ -1050,13 +1052,13 @@
 <td><code>items[].value</code></td>
 <td>number / string</td>
 <td>运费、税率、变现周期</td>
-<td>实际业务值，创建时传value；不能把字典项ID当金额/天数</td>
+<td>实际业务值，创建时传value；不能把字典项ID当金额/月数</td>
 </tr>
 <tr>
 <td><code>items[].unit</code></td>
 <td>string</td>
 <td>同上</td>
-<td><code>CNY</code>=人民币元；<code>RATIO</code>=比例；<code>DAY</code>=天。这是单位代码，没有额外中文单位字段；展示端自行映射中文</td>
+<td><code>CNY</code>=人民币元；<code>RATIO</code>=比例；<code>MONTH</code>=月。这是单位代码，没有额外中文单位字段；展示端自行映射中文</td>
 </tr>
 <tr>
 <td><code>items[].loginAccount</code></td>
@@ -1093,7 +1095,7 @@
 <span class="code-line">  <span class="token-key">&quot;supplierItem&quot;</span>: {<span class="token-key">&quot;id&quot;</span>:<span class="token-string">&quot;1001&quot;</span>,<span class="token-key">&quot;code&quot;</span>:<span class="token-string">&quot;&quot;</span>,<span class="token-key">&quot;name&quot;</span>:<span class="token-string">&quot;示例供应商&quot;</span>,<span class="token-key">&quot;status&quot;</span>:<span class="token-string">&quot;ACTIVE&quot;</span>,<span class="token-key">&quot;requiresProject&quot;</span>:<span class="token-literal">true</span>},</span>
 <span class="code-line">  <span class="token-key">&quot;storeItem&quot;</span>: {<span class="token-key">&quot;id&quot;</span>:<span class="token-string">&quot;3001&quot;</span>,<span class="token-key">&quot;code&quot;</span>:<span class="token-string">&quot;&quot;</span>,<span class="token-key">&quot;name&quot;</span>:<span class="token-string">&quot;示例直运库&quot;</span>,<span class="token-key">&quot;status&quot;</span>:<span class="token-string">&quot;ACTIVE&quot;</span>,<span class="token-key">&quot;relation&quot;</span>:{<span class="token-key">&quot;deptId&quot;</span>:<span class="token-string">&quot;80001&quot;</span>,<span class="token-key">&quot;projectId&quot;</span>:<span class="token-string">&quot;2001&quot;</span>}},</span>
 <span class="code-line">  <span class="token-key">&quot;taxRateItem&quot;</span>: {<span class="token-key">&quot;id&quot;</span>:<span class="token-string">&quot;0.13&quot;</span>,<span class="token-key">&quot;code&quot;</span>:<span class="token-string">&quot;&quot;</span>,<span class="token-key">&quot;name&quot;</span>:<span class="token-string">&quot;13%&quot;</span>,<span class="token-key">&quot;status&quot;</span>:<span class="token-string">&quot;ACTIVE&quot;</span>,<span class="token-key">&quot;value&quot;</span>:<span class="token-literal">0.13</span>,<span class="token-key">&quot;unit&quot;</span>:<span class="token-string">&quot;RATIO&quot;</span>},</span>
-<span class="code-line">  <span class="token-key">&quot;cashCycleItem&quot;</span>: {<span class="token-key">&quot;id&quot;</span>:<span class="token-string">&quot;7&quot;</span>,<span class="token-key">&quot;code&quot;</span>:<span class="token-string">&quot;&quot;</span>,<span class="token-key">&quot;name&quot;</span>:<span class="token-string">&quot;30&quot;</span>,<span class="token-key">&quot;status&quot;</span>:<span class="token-string">&quot;ACTIVE&quot;</span>,<span class="token-key">&quot;value&quot;</span>:<span class="token-literal">30</span>,<span class="token-key">&quot;unit&quot;</span>:<span class="token-string">&quot;DAY&quot;</span>},</span>
+<span class="code-line">  <span class="token-key">&quot;cashCycleItem&quot;</span>: {<span class="token-key">&quot;id&quot;</span>:<span class="token-string">&quot;7&quot;</span>,<span class="token-key">&quot;code&quot;</span>:<span class="token-string">&quot;&quot;</span>,<span class="token-key">&quot;name&quot;</span>:<span class="token-string">&quot;3&quot;</span>,<span class="token-key">&quot;status&quot;</span>:<span class="token-string">&quot;ACTIVE&quot;</span>,<span class="token-key">&quot;value&quot;</span>:<span class="token-literal">3</span>,<span class="token-key">&quot;unit&quot;</span>:<span class="token-string">&quot;MONTH&quot;</span>},</span>
 <span class="code-line">  <span class="token-key">&quot;approvalUserItem&quot;</span>: {<span class="token-key">&quot;id&quot;</span>:<span class="token-string">&quot;101&quot;</span>,<span class="token-key">&quot;code&quot;</span>:<span class="token-string">&quot;&quot;</span>,<span class="token-key">&quot;name&quot;</span>:<span class="token-string">&quot;张三&quot;</span>,<span class="token-key">&quot;status&quot;</span>:<span class="token-string">&quot;ACTIVE&quot;</span>,<span class="token-key">&quot;loginAccount&quot;</span>:<span class="token-string">&quot;zhangsan&quot;</span>,<span class="token-key">&quot;deptIds&quot;</span>:[<span class="token-string">&quot;80001&quot;</span>]}</span>
 <span class="code-line">}</span></code></pre></div></details>
 <h3 id="section-3-7">业务返回码</h3>
@@ -1298,7 +1300,7 @@
 <td>变现周期</td>
 <td>integer</td>
 <td>是</td>
-<td>正整数，范围1—9223372036854775807；可取D01字典value或手填正整数，不强制匹配字典，不自动换算单位；字典unit=<code>DAY</code>，展示“天”由调用方处理</td>
+<td>单位为月，正整数，范围1—9223372036854775807；例如3表示3个月；可取D01字典value或手填正整数，不强制匹配字典，不自动将天换算成月；字典unit=<code>MONTH</code>，展示“个月”由调用方处理</td>
 </tr>
 <tr>
 <td><code>budgetMonth</code></td>
@@ -1722,7 +1724,7 @@
 <span class="code-line">  <span class="token-key">&quot;fundPlanId&quot;</span>: <span class="token-string">&quot;6001&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;transportCost&quot;</span>: <span class="token-literal">0</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;taxRate&quot;</span>: <span class="token-literal">0.13</span>,</span>
-<span class="code-line">  <span class="token-key">&quot;cashCycle&quot;</span>: <span class="token-literal">30</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;cashCycle&quot;</span>: <span class="token-literal">3</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;budgetMonth&quot;</span>: <span class="token-string">&quot;2026-11&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;purchaseDate&quot;</span>: <span class="token-string">&quot;2026-11-17&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;details&quot;</span>: [</span>
@@ -2962,7 +2964,7 @@
 </table></div>
 <p>反馈问题时提供环境、接口、HTTP状态、errorCode、requestId和时间，请勿提供密钥或完整人员信息。</p>
 </section>
-    <footer class="document-footer"><span>121系统 · 开放接口 v2.8.1</span><a href="#top">返回顶部 ↑</a></footer>
+    <footer class="document-footer"><span>121系统 · 开放接口 v2.8.2</span><a href="#top">返回顶部 ↑</a></footer>
   </main>
 </body>
 </html>
