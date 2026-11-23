@@ -80,7 +80,7 @@ def build(output: Path):
     output.mkdir(parents=True, exist_ok=True)
     (output / 'index.html').write_text(page, encoding='utf-8', newline='\n')
     (output / '.nojekyll').write_text('', encoding='utf-8')
-    (output / 'robots.txt').write_text('User-agent: *\nAllow: /\n', encoding='utf-8')
+    (output / 'robots.txt').write_text('User-agent: *\nAllow: /\n', encoding='utf-8', newline='\n')
     for asset in ['styles.css', 'app.js']:
         shutil.copy2(ROOT / asset, output / asset)
     downloads = output / 'downloads'

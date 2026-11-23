@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 121 开放接口
-  version: 2.8.0
+  version: 2.8.1
   description: 121开放接口，提供用户及字典查询、采购草稿创建与查询、取消及删除通知。请求使用App-Id、App-Secret和loginAccount；数据访问受账号所属部门及应用授权范围约束。
 servers:
   - url: 'http://testfcst.chinaptac.com/open-api/v1'
@@ -402,7 +402,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: 参见Markdown错误码表
+          description: USER_NOT_FOUND，或原单不存在/不可访问时DRAFT_NOT_FOUND；不返回不可见原单详情
           content:
             application/json:
               schema:
@@ -414,7 +414,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: 参见Markdown错误码表
+          description: IDEMPOTENCY_CONFLICT表示键与原请求内容冲突，先于原单访问判断；SOURCE_ALREADY_SYNCED仅在有效原单可访问时返回并附原单
           content:
             application/json:
               schema:
@@ -455,6 +455,9 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateDraftRequest'
+      description: >-
+        同幂等键同正文重试返回原单；先发现幂等内容冲突返回409 IDEMPOTENCY_CONFLICT，原单不可访问或不存在返回404 DRAFT_NOT_FOUND，同来源有效原单可访问返回409
+        SOURCE_ALREADY_SYNCED；本次部门越权可提前403。
   /purchase-drafts/by-source:
     get:
       operationId: getDraftBySource
@@ -831,6 +834,9 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CancelRequest'
+      description: >-
+        仅草稿可取消；当前DRAFT_NOT_EDITABLE的message可能为英文，按errorCode处理。Only an existing draft can be
+        deleted表示仅草稿可取消，Procurement order changed表示状态已变化。
 components:
   securitySchemes:
     AppId:
@@ -869,7 +875,7 @@ components:
       in: header
       required: true
       description: >-
-        当前121操作人账号，存在且启用；非ASCII或%先UTF-8百分号编码，如张三为%E5%BC%A0%E4%B8%89。严格解码一次，+不作空格，不接受重复头、非法UTF-8或换行。解码后原始输入最多128码点，清理首尾ASCII空格后1—30码点，无内部空白、控制和格式字符。
+        当前121操作人账号，存在且启用，实际账号最多30个字符；非ASCII或%先UTF-8百分号编码，如张三为%E5%BC%A0%E4%B8%89。严格解码一次，+不作空格，不接受重复头、非法UTF-8或换行。数据库字段为VARCHAR(30)；128码点和1536字符为服务端保护上限，不是录入长度。解码后原始输入最多128码点，清理首尾ASCII空格后1—30码点，无内部空白、控制和格式字符。
       schema:
         type: string
         minLength: 1
@@ -1147,10 +1153,15 @@ components:
           maximum: 9999999999999.99
           multipleOf: 0.01
         purchaseAmount:
-          type: number
+          type:
+            - number
+            - 'null'
           minimum: 0
           maximum: 9999999999999.99
           multipleOf: 0.01
+          description: >-
+            选填；省略或null由121按quantity×purchasePrice计算。提供时精确相等，不四舍五入或容差，100与100.00相等；不一致422
+            AMOUNT_MISMATCH，data包含provided/calculated及明细定位
         salesQuantity:
           type: integer
           minimum: 0
@@ -1236,19 +1247,23 @@ components:
         supplierName:
           type: string
           maxLength: 100
-          description: 不用于匹配或更新主数据；供应商ID不存在时用于错误提示，未传名称则提示ID
+          description: 供应商名称按121规则唯一，可先完整名称精确匹配D01取得supplierId；本字段不参与建单匹配或更新主数据，仅用于错误提示
         authorized:
           type: boolean
         projectId:
-          type: string
+          type:
+            - string
+            - 'null'
           minLength: 1
           maxLength: 19
           pattern: '^[1-9][0-9]{0,18}$'
+          description: requiresProject=true时必填，否则可省略/null，即使库位绑定项目也不自动带出；提供时须与库位非零项目一致
         storeId:
           type: string
           minLength: 1
           maxLength: 19
           pattern: '^[1-9][0-9]{0,18}$'
+          description: 属于本次deptId；仅在主动提供projectId时校验库位非零项目一致
         provinceId:
           type: string
           minLength: 1
@@ -1274,6 +1289,7 @@ components:
           minimum: 0
           maximum: 9999999999999.99
           multipleOf: 0.01
+          description: 可手填非负金额，最多两位小数，最大9999999999999.99；不要求存在于transport-costs字典，不自动新增字典
         taxRate:
           type: number
           enum:
@@ -1284,7 +1300,7 @@ components:
           type: integer
           format: int64
           minimum: 1
-          description: 正整数，最大9223372036854775807；按字典value提交，不自动换算单位
+          description: 正整数，最大9223372036854775807；可取字典value或手填正整数，不强制匹配字典；字典name如30、unit=DAY，没有中文单位字段，展示端映射天，不自动换算单位
         budgetMonth:
           type: string
           pattern: '^20[0-9]{2}-(0[1-9]|1[0-2])$'
@@ -1450,8 +1466,10 @@ components:
           description: 字典项标识；仅非部门字典返回
         code:
           type: string
+          description: 业务编码；当前供应商code为空，不是共同唯一供应商编码
         name:
           type: string
+          description: 显示名称；变现周期name是数字文本，如30，不含天
         status:
           type: string
           const: ACTIVE
@@ -1477,6 +1495,7 @@ components:
             - DAY
             - CNY
             - RATIO
+          description: 单位代码，DAY表示天；没有中文单位字段，展示端自行映射
         loginAccount:
           type: string
           minLength: 1

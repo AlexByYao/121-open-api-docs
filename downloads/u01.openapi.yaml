@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 121 User Verification API
-  version: 2.8.0
+  version: 2.8.1
   description: >-
     查询请求头loginAccount对应的121用户信息及可用部门。请求须携带有效的App-Id、App-Secret和loginAccount；返回部门为账号所属有效部门与应用授权部门的交集。
 servers:
@@ -179,7 +179,7 @@ components:
       in: header
       required: true
       description: >-
-        当前121操作人账号，存在且启用；非ASCII或%先UTF-8百分号编码，如张三为%E5%BC%A0%E4%B8%89。严格解码一次，+不作空格，不接受重复头、非法UTF-8或换行。解码后原始输入最多128码点，清理首尾ASCII空格后1—30码点，无内部空白、控制和格式字符。
+        当前121操作人账号，存在且启用，实际账号最多30个字符；非ASCII或%先UTF-8百分号编码，如张三为%E5%BC%A0%E4%B8%89。严格解码一次，+不作空格，不接受重复头、非法UTF-8或换行。数据库字段为VARCHAR(30)；128码点和1536字符为服务端保护上限，不是录入长度。解码后原始输入最多128码点，清理首尾ASCII空格后1—30码点，无内部空白、控制和格式字符。
       schema:
         type: string
         minLength: 1

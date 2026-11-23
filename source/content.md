@@ -1,6 +1,6 @@
 # 121 接口交接文档
 
-版本 **2.8.0** · 文档更新 **2026-11-22** · 服务提供方 **121系统**
+版本 **2.8.1** · 文档更新 **2026-11-23** · 服务提供方 **121系统**
 
 本文定义121开放接口的请求方式、鉴权规则、参数、响应、状态及错误码。示例数据仅用于说明报文格式；接入凭据和测试数据由121服务提供方提供。
 
@@ -73,7 +73,7 @@
 - ID使用JSON字符串，避免大整数丢精度；必填ID为正整数形式。字典中的 `code` 是业务编码，不能替代部门的 `deptId` 或其他字典的 `id`。
 - 所有金额以人民币元计，使用十进制数，非负、最多两位小数；单价、金额及采购合计最大 `9999999999999.99`。
 - 数量使用整数，最大 `999999999`。税率传比例：`0.13` 表示13%，不能传 `13`。
-- `cashCycle`为采购变现周期值，按字典返回值提交；`budgetMonth` 为 `YYYY-MM`；`purchaseDate` 为 `yyyy-MM-dd`。回调 `eventTime` 为UTC ISO 8601，例如 `2026-11-17T02:00:00Z`。
+- `cashCycle`为采购变现周期值，按字典返回的`value`提交；字典同时返回`unit=DAY`，没有“天”中文字段，展示端可按unit显示“天”；`budgetMonth` 为 `YYYY-MM`；`purchaseDate` 为 `yyyy-MM-dd`。回调 `eventTime` 为UTC ISO 8601，例如 `2026-11-17T02:00:00Z`。
 - P01必填预算月份、销售数量、销售单价和当日库存。明细提交价格保存于采购草稿，不更新物料基础价格。
 - 供应商与项目、库位的关联按D01字典及P01字段约束校验；一张采购单只提交一个saleChannelId。
 - 采购草稿的供应商和所属部门不可修改。P04仅允许取消草稿，已锁单及退单状态不可取消。
@@ -93,7 +93,7 @@
 
 Header名称不区分大小写，两项凭据的值区分大小写。凭据为1—256个可打印ASCII字符（不含空格），不得重复传头或附加空格、换行；不得放入URL、正文、客户端代码或日志。
 
-loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode码点，禁止内部空白、控制及格式字符；解码前输入最长1536字符，解码后原输入最多128码点。普通ASCII账号直接传；含中文、百分号等字符时先做UTF-8百分号编码（JavaScript用`encodeURIComponent(account)`）。例如张三传`%E5%BC%A0%E4%B8%89`，`a%b`传`a%25b`，`a+b`可传`a%2Bb`。121严格解码一次，加号不当空格，不接受非法UTF-8或重复loginAccount请求头。
+loginAccount最多30个字符，按账号原值匹配，清理首尾ASCII空格后须非空；禁止内部空白、控制及格式字符。普通ASCII账号直接传；含中文、百分号等字符时先做UTF-8百分号编码（JavaScript用`encodeURIComponent(account)`）。例如张三传`%E5%BC%A0%E4%B8%89`，`a%b`传`a%25b`，`a+b`可传`a%2Bb`。121严格解码一次，加号不当空格，不接受非法UTF-8或重复loginAccount请求头。
 
 ### 正文与重试
 
@@ -283,7 +283,7 @@ loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode�
 | type | 名称 | 返回/联动规则 | 创建时使用 |
 | --- | --- | --- | --- |
 | `departments` | 部门 | 本次公共用户可用交集内的有效部门；可按parentId筛选 | `deptId` |
-| `suppliers` | 供应商 | 全局供应商及具有供应商角色的合作商；额外返回requiresProject | `supplierId = id` |
+| `suppliers` | 供应商 | 全局供应商及具有供应商角色的合作商；名称按121规则唯一，额外返回requiresProject | `supplierId = id` |
 | `projects` | 项目 | 全局项目字典 | `projectId = id` |
 | `stores` | 库位 | 按deptId，可选按projectId筛选；返回relation | `storeId = id` |
 | `provinces` | 省份 | 部门省份字典；没有外部行政区划编码 | `provinceId = id` |
@@ -292,10 +292,10 @@ loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode�
 | `fund-plans` | 资金计划 | 部门资金计划 | `fundPlanId = id` |
 | `transport-costs` | 运费成本 | 部门字典中可解析的非负金额；额外value、unit | `transportCost = value` |
 | `tax-rates` | 税率 | 主单下拉固定0、0.06、0.13；明细不受该枚举限制；额外value、unit | `taxRate = value` |
-| `cash-cycles` | 变现周期 | 部门变现周期字典；提交value，不根据unit自行换算 | `cashCycle = value` |
+| `cash-cycles` | 变现周期 | 部门变现周期字典；提交value，不根据unit自行换算；返回unit=`DAY`，没有“天”中文字段 | `cashCycle = value` |
 | `approval-users` | 审批人员 | 具有指定有效角色的启用用户；仅PRODUCT_MANAGER限定本部门，其他角色允许跨部门 | 对应人员字段 `= id` |
 
-省份必须用121字典ID，例如 `"6"`；不能使用 `"110000"` 等行政区划编码代替。供应商 `requiresProject=true` 时P01必须提交项目；选定库位的非零项目关联应与提交项目一致。按projectId筛选时，只返回精确匹配的库位。
+省份必须用121字典ID，例如 `"6"`；不能使用 `"110000"` 等行政区划编码代替。供应商名称在121业务入口中不得重复，智能化应按完整名称精确匹配字典后保存对应`supplierId`，不能对模糊结果取第一条。供应商 `requiresProject=true` 时P01必须提交项目；`requiresProject=false`时，即使库位绑定项目，`projectId`也可以留空，121不会自动带出库位项目；如果主动传入项目，选定库位的非零项目关联必须与提交项目一致。按projectId筛选时，只返回精确匹配的库位。
 
 ### 审批角色枚举
 
@@ -319,8 +319,8 @@ loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode�
 | `data.items` | array | 始终 | 当前页数据；无匹配或超出末页时为 `[]` |
 | `items[].deptId` | string | 部门 | 部门唯一ID |
 | `items[].id` | string | 非部门字典 | 字典项标识；税率ID是比例字符串，不应按普通正整数ID解析 |
-| `items[].code` | string | 所有字典 | 业务编码；未维护时为空字符串 |
-| `items[].name` | string | 所有字典 | 显示名称 |
+| `items[].code` | string | 所有字典 | 业务编码；未维护时为空字符串；当前供应商code固定为空，不能作为共同唯一供应商编码 |
+| `items[].name` | string | 所有字典 | 显示名称；变现周期返回数字文本，例如"30"，不拼接"天" |
 | `items[].status` | string | 所有字典 | 固定 `ACTIVE`，表示本次返回的有效项 |
 | `items[].companyId` | string | 部门 | 所属公司ID；未关联有效公司时为空字符串 |
 | `items[].companyName` | string | 部门 | 所属公司名称；未关联有效公司时为空字符串 |
@@ -328,7 +328,7 @@ loginAccount按账号原值匹配，清理首尾ASCII空格后1—30个Unicode�
 | `items[].relation.deptId` | string | 库位 | 库位所属部门ID |
 | `items[].relation.projectId` | string | 库位且存在值 | 关联项目ID；`"0"` 表示未绑定具体项目 |
 | `items[].value` | number / string | 运费、税率、变现周期 | 实际业务值，创建时传value；不能把字典项ID当金额/天数 |
-| `items[].unit` | string | 同上 | `CNY`=人民币元；`RATIO`=比例；`DAY`=天 |
+| `items[].unit` | string | 同上 | `CNY`=人民币元；`RATIO`=比例；`DAY`=天。这是单位代码，没有额外中文单位字段；展示端自行映射中文 |
 | `items[].loginAccount` | string | 审批人员 | 人员的121登录账号 |
 | `items[].deptIds` | array of string | 审批人员 | 人员成员部门与客户本次部门范围交集中的ID；跨部门审批人可为空数组，不代表不可选 |
 
@@ -404,17 +404,17 @@ HTTP 200，省份示例：
 | `initiatorLoginAccount` | 可选发起人 | string / null | 否 | 建议省略，由公共loginAccount取得；非null时须与公共账号相同，不支持代发 |
 | `deptId` | 业务部门 | string | 是 | 用户所属、客户端授权且启用的121部门ID |
 | `supplierId` | 供应商 | string | 是 | D01 suppliers返回的ID；同步后不可改供应商 |
-| `supplierName` | 供应商名称 | string | 否 | 最长100，不用于查找、不更新主数据；ID不存在时用于错误信息，未提供名称则使用ID；有效时以ID对应名称为准 |
+| `supplierName` | 供应商名称 | string | 否 | 最长100，不作为建单匹配条件；供应商名称按121规则唯一，建议先按完整名称查字典取得`supplierId`；ID不存在时仅用于错误信息 |
 | `authorized` | 是否授权 | boolean | 是 | true=授权；false=未授权，false是合法值，不等同未填 |
-| `projectId` | 项目 | string | 条件 | 供应商requiresProject=true时必填；提供时必须有效 |
+| `projectId` | 项目 | string | 条件 | 供应商requiresProject=true时必填；requiresProject=false时可省略，即使库位绑定项目也不会自动带出；提供时必须有效且与库位非零项目一致 |
 | `storeId` | 库位 | string | 是 | 属deptId；存在非零项目关联时与提交项目一致 |
 | `provinceId` | 省份 | string | 是 | 当前部门省份字典ID，不是行政区划编码 |
 | `saleChannelId` | 销售渠道 | string | 是 | 当前部门渠道字典ID |
 | `paymentMethodId` | 付款方式 | string | 否 | 提供时为当前部门有效付款方式ID |
 | `fundPlanId` | 资金计划 | string | 是 | 当前部门资金计划字典ID |
-| `transportCost` | 运费成本 | number | 是 | 非负金额，单位元 |
+| `transportCost` | 运费成本 | number | 是 | 可手填的非负金额，单位元；不要求必须等于transport-costs字典值，最多两位小数，最大9999999999999.99 |
 | `taxRate` | 主单税率 | number | 是 | 0=0%；0.06=6%；0.13=13% |
-| `cashCycle` | 变现周期 | integer | 是 | 正整数，范围1—9223372036854775807；按D01变现周期字典的value提交，不自动换算单位 |
+| `cashCycle` | 变现周期 | integer | 是 | 正整数，范围1—9223372036854775807；可取D01字典value或手填正整数，不强制匹配字典，不自动换算单位；字典unit=`DAY`，展示“天”由调用方处理 |
 | `budgetMonth` | 预算月份 | string | 是 | 2000—2099年有效 `YYYY-MM`，由调用方传入 |
 | `purchaseDate` | 采购日期 | string | 是 | 有效 `yyyy-MM-dd`，显式传入，不由121自动取日期 |
 | `contractNo` | 合同号 | string | 否 | 最长64 |
@@ -426,6 +426,8 @@ HTTP 200，省份示例：
 | `details` | 采购明细 | array | 是 | 1—500条，字段见“明细请求参数” |
 
 不要提交状态、创建人、121主单ID等额外字段。字符串拒绝控制字符和尖括号。未填写的可选ID应省略，不传空字符串。
+
+例如供应商`requiresProject=false`，库位`storeId="3001"`关联项目A（`projectId="2001"`）：创建时可以省略`projectId`，121仅保存库位，不会自动将项目A写到采购单；若主动提交`projectId="2001"`则允许，若提交其他项目则返回422 `REFERENCE_INVALID`。供应商`requiresProject=true`时仍必须明确提交项目。
 
 ### 首次创建时的来源采购记录ID
 
@@ -505,6 +507,7 @@ HTTP 200，省份示例：
 | `materialCode` | 物料编码 | string | 是 | 最长64，必须唯一匹配121现有物料 |
 | `quantity` | 采购数量 | integer | 是 | 1—999999999 |
 | `purchasePrice` | 采购单价 | number | 是 | 非负金额，单位元 |
+| `purchaseAmount` | 采购金额 | number | 否 | 不传或传null时由121按quantity×purchasePrice计算；传入时必须完全相等，非负、最多两位小数，最大9999999999999.99；不一致返回422 AMOUNT_MISMATCH |
 | `salesQuantity` | 销售数量 | integer | 是 | 0—999999999 |
 | `salesPrice` | 销售单价 | number | 是 | 非负金额，销售金额由121计算 |
 | `inventoryQuantity` | 当日库存 | integer | 是 | 0—999999999，由调用方提供 |
@@ -515,6 +518,10 @@ HTTP 200，省份示例：
 | `remark` | 明细备注 | string | 否 | 最长500 |
 
 供应商按supplierId、物料按materialCode匹配。供应商不存在时返回422 `REFERENCE_INVALID`；物料不存在时返回422 `MATERIAL_NOT_FOUND`，列出全部缺失编码；物料编码匹配多条记录时返回422 `MATERIAL_AMBIGUOUS`。
+
+建议省略`purchaseAmount`，由121统一计算。传入时按十进制精确比较，不自动四舍五入，不设误差容忍；`100`与`100.00`数值相等。金额错误会在`data.field`及`data.sourceDetailId`定位明细，并返回`provided`与`calculated`。
+
+`detailTaxRate`保持121原DECIMAL(15,2)字段范围，不额外限定0—1，也不限定主单税率字典；例如`0.09`表示9%，负数或大于1也会通过当前范围校验。主单`taxRate`仍只允许0、0.06、0.13，两者规则不同。
 
 ### 返回字段
 
@@ -634,11 +641,14 @@ P01、P02、P03和P04使用相同业务对象。
 | --- | --- |
 | 同应用、同操作人、同来源记录ID、同幂等键、同原始正文 | 返回已有单当前状态及原ID，不重复创建；可能返回DELETED |
 | 幂等键已用于其他来源记录或不同请求内容 | 409 IDEMPOTENCY_CONFLICT |
-| 同sourceSystem+sourceOrderId仍有有效121关联 | 409 SOURCE_ALREADY_SYNCED，data返回可访问原单，按返回draftId调用P03查询 |
+| 同sourceSystem+sourceOrderId仍有有效121关联且原单可访问 | 409 SOURCE_ALREADY_SYNCED，data返回可访问原单，按返回draftId调用P03查询 |
+| 同来源记录对应原单不存在、不可见或不在当前应用/用户授权范围 | 404 DRAFT_NOT_FOUND，不返回原单详情 |
 | 创建超时、网关502/504、网络中断 | 先用原来源记录ID和原幂等键调用P02；查不到再用原键、原始正文重试 |
 | 原草稿已确认DELETED | 保留sourceOrderId，使用新幂等键再创建；原键仍可查询旧单 |
 
 重试须保持loginAccount、sourceOrderId、幂等键及原始正文一致，包括正文空格、属性顺序和可选字段。结果未知时先查询P02。幂等键可以直接使用UUID，例如`550e8400-e29b-41d4-a716-446655440001`。
+
+返回码按实际校验顺序决定：先校验本次请求的用户、部门和幂等内容；幂等键与来源记录或正文冲突时先返回409 `IDEMPOTENCY_CONFLICT`。幂等内容一致后查询原单，或同来源已有有效关联而查询原单时，原单不存在或无权访问返回404 `DRAFT_NOT_FOUND`；只有原单可访问时才返回409 `SOURCE_ALREADY_SYNCED`及原单详情。本次提交部门越权可提前返回403 `OPERATOR_FORBIDDEN`，不能把所有原单相关失败统一解释为409。
 
 ### 业务返回码
 
@@ -648,6 +658,7 @@ P01、P02、P03和P04使用相同业务对象。
 | 400 | `PARAM_INVALID` | 缺字段、格式/类型/金额精度/范围或幂等键不合法 | 修正完整正文 |
 | 403 | `OPERATOR_FORBIDDEN` | 部门越权、用户不属部门、操作人与发起人不同 | 核对授权，不自动重试 |
 | 404 | `USER_NOT_FOUND` | 操作人不存在或已删除 | 核对loginAccount并使用有效账号 |
+| 404 | `DRAFT_NOT_FOUND` | 命中历史请求或已有有效来源关联，但原单不存在或不可访问 | 核对原参数及授权，不返回原单详情；不据此直接换键重复创建 |
 | 409 | `IDEMPOTENCY_CONFLICT` | 幂等键已用于不一致请求 | 查询原请求，不能覆盖原结果 |
 | 409 | `SOURCE_ALREADY_SYNCED` | 来源订单存在有效121单据 | 按data.draftId查询原单，勿重复创建 |
 | 422 | `USER_DISABLED` | 操作人已停用 | 更换可用账号 |
@@ -849,7 +860,7 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 ```json
 {
   "code": 409, "errorCode": "DRAFT_NOT_EDITABLE",
-  "message": "Only an active draft can be deleted",
+  "message": "Only an existing draft can be deleted",
   "requestId": "7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41",
   "data": null
 }
@@ -857,7 +868,7 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 
 ### 取消规则及返回码
 
-仅DRAFT可删除；已DELETED重复调用返回同样结果，不再生成重复事件。主单、明细及同步关联一并删除，并发送C01通知。退单状态不等同于删除。
+仅DRAFT可删除；已DELETED重复调用返回同样结果，不再生成重复事件。主单、明细及同步关联一并删除，并发送C01通知。退单状态不等同于删除。当前非草稿取消提示为`Only an existing draft can be deleted`（仅草稿允许取消）；并发状态变化时可能提示`Procurement order changed`（采购单状态已变化）。提示尚未全部中文化，调用方必须按`errorCode=DRAFT_NOT_EDITABLE`判断，不能解析message。
 
 | HTTP | errorCode | 含义 | 调用方处理 |
 | --- | --- | --- | --- |
@@ -951,7 +962,7 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 | 401 | `AUTH_INVALID` | 系统凭据无效 | App-Id/App-Secret缺失、重复、错误，应用停用或入口关闭 | 核对本环境的App-Id和App-Secret |
 | 403 | `OPERATOR_FORBIDDEN` | 业务操作越权 | 公共用户无可用部门，deptId越权，正文账号与请求头loginAccount不一致，禁止代发或变更来源单部门 | 修正用户/部门并确认授权 |
 | 404 | `USER_NOT_FOUND` | 用户不存在 | 账号不存在或已删除 | 核对loginAccount并使用有效账号 |
-| 404 | `DRAFT_NOT_FOUND` | 同步采购单不可见 | 没有来源记录、主单不存在、其他客户或非授权部门 | 核对采购单ID、来源记录ID、幂等键与授权 |
+| 404 | `DRAFT_NOT_FOUND` | 同步采购单不可见 | 没有来源记录、主单不存在或其他客户/非授权部门不可见；P01在原单不可访问时也使用此码 | 核对采购单ID、来源记录ID、幂等键与授权 |
 | 404 | `NOT_FOUND` | 字典类型不存在 | D01 type不在支持列表 | 使用D01“字典类型及联动”枚举 |
 | 405 | `METHOD_NOT_ALLOWED` | 请求方法不支持 | 对已匹配路径使用不支持的HTTP方法 | 按接口约定使用GET/POST |
 | 409 | `IDEMPOTENCY_CONFLICT` | 幂等冲突 | 幂等键已绑定不同来源记录或不同请求内容 | 查询原请求，不覆盖、不随意换幂等键 |
@@ -1061,6 +1072,12 @@ Accept: application/json
 java OpenApiExample.java user
 java OpenApiExample.java departments
 ```
+
+### 字典并发与调用超时
+
+当前开放接口代码没有专门的每秒请求数或并发数限制；实际容量及Nginx/上层网关限制需以部署环境为准，不能视为无限并发。弹窗需要多个字典时，建议每个弹窗同时发4—6个请求，其余排队；相同账号和部门下避免重复加载，字典按分页读取完整结果。
+
+建议初始联调使用连接超时5秒、P01等待响应超时30秒，网关超时须配套核对。这些是客户端建议值，不是已验证的服务器时延承诺；P01实际耗时需结合明细数、数据库负载和锁等待测量。同来源创建会串行处理，超时后先用原sourceOrderId与原Idempotency-Key调用P02查询，查不到再以原键、原始正文重试，不要直接更换键。
 
 ### 常见问题
 

@@ -2,7 +2,7 @@
   "info": {
     "name": "121 开放接口 · 外部测试",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "121开放接口2.8.0联调集合。请求使用App-Id、App-Secret和loginAccount。请填写环境变量，依次执行账号、字典、草稿创建、查询和取消请求。创建及取消会修改测试数据，请逐项执行。"
+    "description": "121开放接口2.8.1联调集合。请求使用App-Id、App-Secret和loginAccount。请填写环境变量，依次执行账号、字典、草稿创建、查询和取消请求。创建及取消会修改测试数据，请逐项执行。"
   },
   "auth": {
     "type": "noauth"
@@ -119,7 +119,7 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/users/verify",
@@ -157,7 +157,7 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/departments?pageNum=1&pageSize=100",
@@ -186,11 +186,11 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/suppliers?deptId={{deptId}}&pageNum=1&pageSize=100",
-            "description": "查询供应商，预期HTTP 200、数字code=200；按分页遍历全部结果。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
+            "description": "查询供应商，预期HTTP 200、数字code=200；按分页遍历全部结果。\n公共loginAccount必填，仅可查询和操作该用户可用部门。\n供应商名称按121规则唯一，模糊查询后须按完整名称精确匹配，再使用id建单；code当前为空。",
             "auth": {
               "type": "noauth"
             }
@@ -215,7 +215,7 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/projects?deptId={{deptId}}&pageNum=1&pageSize=100",
@@ -244,7 +244,7 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/stores?deptId={{deptId}}&projectId={{projectId}}&pageNum=1&pageSize=100",
@@ -273,7 +273,7 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/provinces?deptId={{deptId}}&pageNum=1&pageSize=100",
@@ -302,7 +302,7 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/sale-channels?deptId={{deptId}}&pageNum=1&pageSize=100",
@@ -331,7 +331,7 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/payment-methods?deptId={{deptId}}&pageNum=1&pageSize=100",
@@ -360,7 +360,7 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/fund-plans?deptId={{deptId}}&pageNum=1&pageSize=100",
@@ -389,7 +389,7 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/transport-costs?deptId={{deptId}}&pageNum=1&pageSize=100",
@@ -418,7 +418,7 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/tax-rates?deptId={{deptId}}&pageNum=1&pageSize=100",
@@ -447,11 +447,11 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/cash-cycles?deptId={{deptId}}&pageNum=1&pageSize=100",
-            "description": "查询变现周期，预期HTTP 200、数字code=200；按分页遍历全部结果。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
+            "description": "查询变现周期，预期HTTP 200、数字code=200；按分页遍历全部结果。\n公共loginAccount必填，仅可查询和操作该用户可用部门。\nname为数字文本如30，value=30，unit=DAY，没有中文单位字段，展示端映射为天。",
             "auth": {
               "type": "noauth"
             }
@@ -476,7 +476,7 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{deptId}}&roleCode=PRODUCT_MANAGER&pageNum=1&pageSize=100",
@@ -505,7 +505,7 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{deptId}}&roleCode=DEPARTMENT_MANAGER&pageNum=1&pageSize=100",
@@ -534,7 +534,7 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{deptId}}&roleCode=DEPARTMENT_LEADER&pageNum=1&pageSize=100",
@@ -563,7 +563,7 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{deptId}}&roleCode=BUSINESS_REVIEWER&pageNum=1&pageSize=100",
@@ -592,7 +592,7 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{deptId}}&roleCode=BUDGET_REVIEWER&pageNum=1&pageSize=100",
@@ -621,7 +621,7 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{deptId}}&roleCode=CHIEF_ACCOUNTANT&pageNum=1&pageSize=100",
@@ -650,7 +650,7 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/dictionaries/approval-users?deptId={{deptId}}&roleCode=GENERAL_MANAGER&pageNum=1&pageSize=100",
@@ -690,11 +690,11 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/purchase-drafts",
-            "description": "sourceOrderId为调用方保存的采购记录ID；Idempotency-Key使用已保存的唯一键（可用UUID）。超时重试保持账号、来源记录ID、幂等键及原始正文不变。sourceSystem可省略。成功返回DRAFT及draftId，主单或明细失败整体回滚。",
+            "description": "sourceOrderId为调用方保存的采购记录ID；Idempotency-Key使用已保存的唯一键（可用UUID）。超时重试保持账号、来源记录ID、幂等键及原始正文不变。sourceSystem可省略。成功返回DRAFT及draftId，主单或明细失败整体回滚。\n2.8.1：purchaseAmount选填，省略/null由121计算，提供时须精确等于数量×单价。运费可手填。requiresProject=false允许省略项目，即使库位绑定项目也不会自动带出；主动传项目时须匹配库位。原单不可访问404 DRAFT_NOT_FOUND；同来源有效原单可访问409 SOURCE_ALREADY_SYNCED；幂等内容冲突优先409 IDEMPOTENCY_CONFLICT。",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"sourceOrderId\": \"{{sourceOrderId}}\",\n  \"deptId\": \"{{deptId}}\",\n  \"supplierId\": \"{{supplierId}}\",\n  \"authorized\": true,\n  \"storeId\": \"{{storeId}}\",\n  \"provinceId\": \"{{provinceId}}\",\n  \"saleChannelId\": \"{{saleChannelId}}\",\n  \"fundPlanId\": \"{{fundPlanId}}\",\n  \"transportCost\": 0,\n  \"taxRate\": 0.13,\n  \"cashCycle\": 30,\n  \"budgetMonth\": \"{{budgetMonth}}\",\n  \"purchaseDate\": \"{{purchaseDate}}\",\n  \"details\": [\n    {\n      \"sourceDetailId\": \"line-1\",\n      \"materialCode\": \"{{materialCode}}\",\n      \"quantity\": 10,\n      \"purchasePrice\": 100,\n      \"purchaseAmount\": 1000,\n      \"salesQuantity\": 10,\n      \"salesPrice\": 120,\n      \"inventoryQuantity\": 50\n    }\n  ],\n  \"discount\": 0,\n  \"advance\": 0\n}",
@@ -728,7 +728,7 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               },
               {
                 "key": "Idempotency-Key",
@@ -762,7 +762,7 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/purchase-drafts/{{draftId}}",
@@ -791,11 +791,11 @@
                 "key": "loginAccount",
                 "value": "{{loginAccount}}",
                 "type": "text",
-                "description": "每次必填的121操作人；非ASCII账号请先UTF-8百分号编码"
+                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
               }
             ],
             "url": "{{baseUrl}}/purchase-drafts/{{draftId}}/cancel",
-            "description": "仅手动取消本次创建的未锁单测试草稿，预期DELETED；锁单等状态应409/DRAFT_NOT_EDITABLE。\n公共loginAccount必填，仅可查询和操作该用户可用部门。",
+            "description": "仅手动取消本次创建的未锁单测试草稿，预期DELETED；锁单等状态应409/DRAFT_NOT_EDITABLE。\n公共loginAccount必填，仅可查询和操作该用户可用部门。\n当前失败message可能为英文，按errorCode处理；409 DRAFT_NOT_EDITABLE表示非草稿或状态已变化。",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"reason\": \"双方联调测试取消\"\n}",
