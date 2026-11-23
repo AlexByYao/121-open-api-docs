@@ -2,7 +2,7 @@
   "info": {
     "name": "121 开放接口 · 外部测试",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "121开放接口2.9.0联调集合。请求使用App-Id、App-Secret和loginAccount。请填写环境变量，依次执行账号、字典、草稿创建、查询和取消请求。创建及取消会修改测试数据，请逐项执行。"
+    "description": "121开放接口2.9.1联调集合。请求使用App-Id、App-Secret和loginAccount。请填写环境变量，依次执行账号、字典、草稿创建、查询和取消请求。创建及取消会修改测试数据，请逐项执行。"
   },
   "auth": {
     "type": "noauth"
@@ -429,35 +429,6 @@
           }
         },
         {
-          "name": "D01 变现周期",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "App-Id",
-                "value": "{{appId}}",
-                "type": "text"
-              },
-              {
-                "key": "App-Secret",
-                "value": "{{appSecret}}",
-                "type": "text"
-              },
-              {
-                "key": "loginAccount",
-                "value": "{{loginAccount}}",
-                "type": "text",
-                "description": "121账号最多30个字符；含中文或百分号时先UTF-8百分号编码"
-              }
-            ],
-            "url": "{{baseUrl}}/dictionaries/cash-cycles?deptId={{deptId}}&pageNum=1&pageSize=100",
-            "description": "查询变现周期，预期HTTP 200、数字code=200；按分页遍历全部结果。\n公共loginAccount必填，仅可查询和操作该用户可用部门。\nname为数字文本如1.5，value=1.5，unit=MONTH，单位为月，没有中文单位字段，展示端映射为“个月”；保留字典原值，不换算。",
-            "auth": {
-              "type": "noauth"
-            }
-          }
-        },
-        {
           "name": "D01 审批人员：产品经理",
           "request": {
             "method": "GET",
@@ -694,7 +665,7 @@
               }
             ],
             "url": "{{baseUrl}}/purchase-drafts",
-            "description": "sourceOrderId为调用方保存的采购记录ID；Idempotency-Key使用已保存的唯一键（可用UUID）。超时重试保持账号、来源记录ID、幂等键及原始正文不变。sourceSystem可省略。cashCycle为number，按月传值，例如1.5表示1.5个月，0.5表示半个月，整数仍兼容；最小0.01，最多两位有效小数；1.500可接收，1.501返回400 INVALID_ARGUMENT且data.field=cashCycle，不四舍五入，不接受数字字符串，不进行天/月换算；D01对应unit=MONTH。成功返回DRAFT及draftId，主单或明细失败整体回滚。\n2.9.0：purchaseAmount选填，省略/null由121计算，提供时须精确等于数量×单价。运费可手填。requiresProject=true须传有效项目；false时忽略传入项目并清空，不从库位带出；不强制匹配库位关联项目。原单不可访问404 DRAFT_NOT_FOUND；同来源有效原单可访问409 SOURCE_ALREADY_SYNCED；幂等内容冲突优先409 IDEMPOTENCY_CONFLICT。",
+            "description": "sourceOrderId为调用方保存的采购记录ID；Idempotency-Key使用已保存的唯一键（可用UUID）。超时重试保持账号、来源记录ID、幂等键及原始正文不变。sourceSystem可省略。cashCycle为number，按月传值，例如1.5表示1.5个月，0.5表示半个月，整数仍兼容；最小0.01，最多两位有效小数；1.500可接收，1.501返回400 INVALID_ARGUMENT且data.field=cashCycle，不四舍五入，不接受数字字符串，不进行天/月换算；直接填写月份，无需查询字典。成功返回DRAFT及draftId，主单或明细失败整体回滚。\n2.9.0：purchaseAmount选填，省略/null由121计算，提供时须精确等于数量×单价。运费可手填。requiresProject=true须传有效项目；false时忽略传入项目并清空，不从库位带出；不强制匹配库位关联项目。原单不可访问404 DRAFT_NOT_FOUND；同来源有效原单可访问409 SOURCE_ALREADY_SYNCED；幂等内容冲突优先409 IDEMPOTENCY_CONFLICT。",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"sourceOrderId\": \"{{sourceOrderId}}\",\n  \"deptId\": \"{{deptId}}\",\n  \"supplierId\": \"{{supplierId}}\",\n  \"authorized\": true,\n  \"storeId\": \"{{storeId}}\",\n  \"provinceId\": \"{{provinceId}}\",\n  \"saleChannelId\": \"{{saleChannelId}}\",\n  \"fundPlanId\": \"{{fundPlanId}}\",\n  \"transportCost\": 0,\n  \"taxRate\": 0.13,\n  \"cashCycle\": 1.5,\n  \"budgetMonth\": \"{{budgetMonth}}\",\n  \"purchaseDate\": \"{{purchaseDate}}\",\n  \"details\": [\n    {\n      \"sourceDetailId\": \"line-1\",\n      \"materialCode\": \"{{materialCode}}\",\n      \"quantity\": 10,\n      \"purchasePrice\": 100,\n      \"purchaseAmount\": 1000,\n      \"salesQuantity\": 10,\n      \"salesPrice\": 120,\n      \"inventoryQuantity\": 50\n    }\n  ],\n  \"discount\": 0,\n  \"advance\": 0\n}",

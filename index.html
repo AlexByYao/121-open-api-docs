@@ -15,7 +15,7 @@
   <a class="skip-link" href="#content">跳到文档正文</a>
   <header class="site-header">
     <a class="brand" href="#top"><span class="brand-mark">121</span><span>接口交接文档<small>用户、字典与采购草稿</small></span></a>
-    <div class="header-actions"><span class="version">v2.9.0</span><a href="./downloads/openapi.yaml" download>下载 OpenAPI</a><button id="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">目录</button></div>
+    <div class="header-actions"><span class="version">v2.9.1</span><a href="./downloads/openapi.yaml" download>下载 OpenAPI</a><button id="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">目录</button></div>
   </header>
   <aside id="sidebar" class="sidebar" aria-label="文档目录">
     <label class="search-label" for="doc-search">查找文档</label>
@@ -38,7 +38,7 @@
     <div class="overview"><details><summary>展开完整章节目录</summary><ol><li><a href="#section-1">接入说明</a></li><li><a href="#section-2">U01 查询121用户信息（POST）</a></li><li><a href="#section-3">D01 查询基础字典（GET）</a></li><li><a href="#section-4">P01 创建采购草稿（POST）</a></li><li><a href="#section-5">P02 按来源记录和幂等键查询草稿（GET）</a></li><li><a href="#section-6">P03 按121采购单ID查询草稿（GET）</a></li><li><a href="#section-7">P04 取消同步并删除草稿（POST）</a></li><li><a href="#section-8">C01 采购草稿删除通知（POST）</a></li><li><a href="#section-9">返回码说明</a></li><li><a href="#section-10">附录</a></li></ol></details></div>
     <div id="no-results" hidden>未找到匹配内容。请尝试接口编号（如 P01）、参数名或错误码。</div>
     <div class="document-intro"><h1 id="top">121 接口交接文档</h1>
-<p>版本 <strong>2.9.0</strong> · 文档更新 <strong>2026-11-23</strong> · 服务提供方 <strong>121系统</strong></p>
+<p>版本 <strong>2.9.1</strong> · 文档更新 <strong>2026-11-23</strong> · 服务提供方 <strong>121系统</strong></p>
 <p>本文定义121开放接口的请求方式、鉴权规则、参数、响应、状态及错误码。示例数据仅用于说明报文格式；接入凭据和测试数据由121服务提供方提供。</p>
 </div><section class="doc-section" data-section="section-1"><h2 id="section-1">接入说明</h2>
 <h3 id="section-1-1">联调顺序</h3>
@@ -94,7 +94,7 @@
 </table></div>
 <p>同一创建请求的重复提交须使用相同的幂等键和原始正文。结果未知时先调用P02；返回404时，应核对查询参数和访问范围，再使用原来源记录ID、原幂等键及原始正文重试。</p>
 <h3 id="section-1-3">变现周期单位与小数</h3>
-<p>变现周期单位为<code>MONTH</code>（月）。2.9.0支持小数月份：<code>cashCycle: 1.5</code>表示1.5个月，<code>0.5</code>表示半个月；最小0.01，最多两位有效小数，超出精度直接报错，不自动四舍五入；原整数传值仍兼容。调用方按月展示和传值，不自动乘除30。测试及正式服务须先升级数据库两列为DECIMAL(21,2)，再部署新版后端；文档更新不代表接口已部署。</p>
+<p>变现周期单位为月。2.9.0支持小数月份：<code>cashCycle: 1.5</code>表示1.5个月，<code>0.5</code>表示半个月；最小0.01，最多两位有效小数，超出精度直接报错，不自动四舍五入；原整数传值仍兼容。调用方按月展示和传值，不自动乘除30。测试及正式服务须先升级数据库两列为DECIMAL(21,2)，再部署新版后端；文档更新不代表接口已部署。</p>
 <h3 id="section-1-4">调用地址</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -217,9 +217,9 @@
 <li>ID使用JSON字符串，避免大整数丢精度；必填ID为正整数形式。字典中的 <code>code</code> 是业务编码，不能替代部门的 <code>deptId</code> 或其他字典的 <code>id</code>。</li>
 <li>所有金额以人民币元计，使用十进制数，非负、最多两位小数；单价、金额及采购合计最大 <code>9999999999999.99</code>。</li>
 <li>数量使用整数，最大 <code>999999999</code>。税率传比例：<code>0.13</code> 表示13%，不能传 <code>13</code>。</li>
-<li><code>cashCycle</code>为采购变现周期，单位为月，例如1.5表示1.5个月；按字典返回的<code>value</code>或手填正数提交，最小0.01，最多两位有效小数，不将天数直接作为月数传入。字典同时返回<code>unit=MONTH</code>，没有中文单位字段，展示端可按unit显示“个月”；<code>budgetMonth</code> 为 <code>YYYY-MM</code>；<code>purchaseDate</code> 为 <code>yyyy-MM-dd</code>。回调 <code>eventTime</code> 为UTC ISO 8601，例如 <code>2026-11-17T02:00:00Z</code>。</li>
+<li><code>cashCycle</code>为采购变现周期，单位为月，例如1.5表示1.5个月；直接输入正数提交，最小0.01，最多两位有效小数，不将天数直接作为月数传入。展示端显示“个月”；<code>budgetMonth</code> 为 <code>YYYY-MM</code>；<code>purchaseDate</code> 为 <code>yyyy-MM-dd</code>。回调 <code>eventTime</code> 为UTC ISO 8601，例如 <code>2026-11-17T02:00:00Z</code>。</li>
 <li>P01必填预算月份、销售数量、销售单价和当日库存。明细提交价格保存于采购草稿，不更新物料基础价格。</li>
-<li>供应商与项目、库位的关联按D01字典及P01字段约束校验；一张采购单只提交一个saleChannelId。</li>
+<li>供应商类型决定项目是否启用和必填，项目候选取全局字典；库位按deptId选择，不按供应商或项目强制筛选；一张采购单只提交一个saleChannelId。</li>
 <li>采购草稿的供应商和所属部门不可修改。P04仅允许取消草稿，已锁单及退单状态不可取消。</li>
 </ul>
 <p>六个121入口均使用App-Id、App-Secret和公共loginAccount。正式环境使用HTTPS，测试允许HTTP；HTTP会明文传输凭据和正文，仅使用测试凭据与测试数据。</p>
@@ -892,12 +892,6 @@
 <td><code>taxRate = value</code></td>
 </tr>
 <tr>
-<td><code>cash-cycles</code></td>
-<td>变现周期</td>
-<td>部门变现周期字典，单位为月，value为number，支持小数；提交value，不根据unit自行换算；返回unit=<code>MONTH</code>，没有中文单位字段</td>
-<td><code>cashCycle = value</code></td>
-</tr>
-<tr>
 <td><code>approval-users</code></td>
 <td>审批人员</td>
 <td>具有指定有效角色的启用用户；仅PRODUCT_MANAGER限定本部门，其他角色允许跨部门</td>
@@ -1010,7 +1004,7 @@
 <td><code>items[].name</code></td>
 <td>string</td>
 <td>所有字典</td>
-<td>显示名称；变现周期返回数字文本，例如&quot;1.5&quot;或&quot;3&quot;，去除无意义的末尾0，不拼接&quot;个月&quot;</td>
+<td>字典项显示名称</td>
 </tr>
 <tr>
 <td><code>items[].status</code></td>
@@ -1051,14 +1045,14 @@
 <tr>
 <td><code>items[].value</code></td>
 <td>number / string</td>
-<td>运费、税率、变现周期</td>
-<td>实际业务值，创建时传value；变现周期为number，如1.5表示1.5个月；不能把字典项ID当金额/月数</td>
+<td>运费、税率</td>
+<td>实际业务值，创建时传value；不能把字典项ID当金额或比例</td>
 </tr>
 <tr>
 <td><code>items[].unit</code></td>
 <td>string</td>
 <td>同上</td>
-<td><code>CNY</code>=人民币元；<code>RATIO</code>=比例；<code>MONTH</code>=月。这是单位代码，没有额外中文单位字段；展示端自行映射中文</td>
+<td><code>CNY</code>=人民币元；<code>RATIO</code>=比例。这是单位代码，没有额外中文单位字段；展示端自行映射中文</td>
 </tr>
 <tr>
 <td><code>items[].loginAccount</code></td>
@@ -1095,7 +1089,6 @@
 <span class="code-line">  <span class="token-key">&quot;supplierItem&quot;</span>: {<span class="token-key">&quot;id&quot;</span>:<span class="token-string">&quot;1001&quot;</span>,<span class="token-key">&quot;code&quot;</span>:<span class="token-string">&quot;&quot;</span>,<span class="token-key">&quot;name&quot;</span>:<span class="token-string">&quot;示例供应商&quot;</span>,<span class="token-key">&quot;status&quot;</span>:<span class="token-string">&quot;ACTIVE&quot;</span>,<span class="token-key">&quot;requiresProject&quot;</span>:<span class="token-literal">true</span>},</span>
 <span class="code-line">  <span class="token-key">&quot;storeItem&quot;</span>: {<span class="token-key">&quot;id&quot;</span>:<span class="token-string">&quot;3001&quot;</span>,<span class="token-key">&quot;code&quot;</span>:<span class="token-string">&quot;&quot;</span>,<span class="token-key">&quot;name&quot;</span>:<span class="token-string">&quot;示例直运库&quot;</span>,<span class="token-key">&quot;status&quot;</span>:<span class="token-string">&quot;ACTIVE&quot;</span>,<span class="token-key">&quot;relation&quot;</span>:{<span class="token-key">&quot;deptId&quot;</span>:<span class="token-string">&quot;80001&quot;</span>,<span class="token-key">&quot;projectId&quot;</span>:<span class="token-string">&quot;2001&quot;</span>}},</span>
 <span class="code-line">  <span class="token-key">&quot;taxRateItem&quot;</span>: {<span class="token-key">&quot;id&quot;</span>:<span class="token-string">&quot;0.13&quot;</span>,<span class="token-key">&quot;code&quot;</span>:<span class="token-string">&quot;&quot;</span>,<span class="token-key">&quot;name&quot;</span>:<span class="token-string">&quot;13%&quot;</span>,<span class="token-key">&quot;status&quot;</span>:<span class="token-string">&quot;ACTIVE&quot;</span>,<span class="token-key">&quot;value&quot;</span>:<span class="token-literal">0.13</span>,<span class="token-key">&quot;unit&quot;</span>:<span class="token-string">&quot;RATIO&quot;</span>},</span>
-<span class="code-line">  <span class="token-key">&quot;cashCycleItem&quot;</span>: {<span class="token-key">&quot;id&quot;</span>:<span class="token-string">&quot;7&quot;</span>,<span class="token-key">&quot;code&quot;</span>:<span class="token-string">&quot;&quot;</span>,<span class="token-key">&quot;name&quot;</span>:<span class="token-string">&quot;1.5&quot;</span>,<span class="token-key">&quot;status&quot;</span>:<span class="token-string">&quot;ACTIVE&quot;</span>,<span class="token-key">&quot;value&quot;</span>:<span class="token-literal">1.5</span>,<span class="token-key">&quot;unit&quot;</span>:<span class="token-string">&quot;MONTH&quot;</span>},</span>
 <span class="code-line">  <span class="token-key">&quot;approvalUserItem&quot;</span>: {<span class="token-key">&quot;id&quot;</span>:<span class="token-string">&quot;101&quot;</span>,<span class="token-key">&quot;code&quot;</span>:<span class="token-string">&quot;&quot;</span>,<span class="token-key">&quot;name&quot;</span>:<span class="token-string">&quot;张三&quot;</span>,<span class="token-key">&quot;status&quot;</span>:<span class="token-string">&quot;ACTIVE&quot;</span>,<span class="token-key">&quot;loginAccount&quot;</span>:<span class="token-string">&quot;zhangsan&quot;</span>,<span class="token-key">&quot;deptIds&quot;</span>:[<span class="token-string">&quot;80001&quot;</span>]}</span>
 <span class="code-line">}</span></code></pre></div></details>
 <h3 id="section-3-7">业务返回码</h3>
@@ -1301,7 +1294,7 @@
 <td>变现周期</td>
 <td>number</td>
 <td>是</td>
-<td>单位为月，范围0.01—9999999999999999999.99，最多两位有效小数；例如1.5表示1.5个月，0.5表示半个月，整数3仍支持。传JSON数字，不能传字符串；1.500可接收，1.501返回400、errorCode=INVALID_ARGUMENT、data.field=cashCycle，不四舍五入。可取D01字典value或手填，不强制匹配字典，不换算天/月；字典unit=<code>MONTH</code>，展示“个月”由调用方处理</td>
+<td>单位为月，范围0.01—9999999999999999999.99，最多两位有效小数；例如1.5表示1.5个月，0.5表示半个月，整数3仍支持。传JSON数字，不能传字符串；1.500可接收，1.501返回400、errorCode=INVALID_ARGUMENT、data.field=cashCycle，不四舍五入。直接输入月份，无需查询字典；不换算天/月，展示“个月”由调用方处理</td>
 </tr>
 <tr>
 <td><code>budgetMonth</code></td>
@@ -2882,7 +2875,7 @@
 <li><a href="./downloads/121-open-api-external.postman_collection.json">Postman测试集合</a></li>
 <li><a href="./downloads/121-open-api-test.postman_environment.json">Postman测试环境模板（无密钥）</a></li>
 </ul>
-<p>导入集合和环境模板，填写appId、appSecret、loginAccount及业务数据。集合包含23个请求，覆盖账号查询、字典查询和采购草稿操作。先执行查询，再逐项执行创建和取消。</p>
+<p>导入集合和环境模板，填写appId、appSecret、loginAccount及业务数据。集合包含22个请求，覆盖账号查询、字典查询和采购草稿操作。先执行查询，再逐项执行创建和取消。</p>
 <h3 id="section-10-3">HTTP调用示例</h3>
 <p>将示例凭据和业务ID替换为本环境的有效值。</p>
 <details class="code-example" open><summary><span>HTTP 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-http"><span class="code-line">POST /open-api/v1/users/verify HTTP/1.1</span>
@@ -2965,7 +2958,7 @@
 </table></div>
 <p>反馈问题时提供环境、接口、HTTP状态、errorCode、requestId和时间，请勿提供密钥或完整人员信息。</p>
 </section>
-    <footer class="document-footer"><span>121系统 · 开放接口 v2.9.0</span><a href="#top">返回顶部 ↑</a></footer>
+    <footer class="document-footer"><span>121系统 · 开放接口 v2.9.1</span><a href="#top">返回顶部 ↑</a></footer>
   </main>
 </body>
 </html>

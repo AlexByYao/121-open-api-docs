@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "121 开放接口",
-    "version": "2.9.0",
+    "version": "2.9.1",
     "description": "121开放接口，提供用户及字典查询、采购草稿创建与查询、取消及删除通知。请求使用App-Id、App-Secret和loginAccount；数据访问受账号所属部门及应用授权范围约束。"
   },
   "servers": [
@@ -256,7 +256,6 @@
                 "fund-plans",
                 "transport-costs",
                 "tax-rates",
-                "cash-cycles",
                 "approval-users"
               ]
             }
@@ -1906,7 +1905,7 @@
             "minimum": 0.01,
             "exclusiveMaximum": 10000000000000000000,
             "multipleOf": 0.01,
-            "description": "单位为月，范围0.01至9999999999999999999.99，最多两位有效小数，不四舍五入。1.5表示1.5个月、0.5表示半个月，整数仍兼容；须传JSON数字，不能传字符串。1.500可接收，1.501返回400 INVALID_ARGUMENT且data.field=cashCycle。可取字典value或手填，不强制匹配；字典name如1.5、unit=MONTH，没有中文单位字段，展示端映射个月，不自动将天换算成月"
+            "description": "单位为月，范围0.01至9999999999999999999.99，最多两位有效小数，不四舍五入。1.5表示1.5个月、0.5表示半个月，整数仍兼容；须传JSON数字，不能传字符串。1.500可接收，1.501返回400 INVALID_ARGUMENT且data.field=cashCycle。直接输入月份，无需查询字典；展示端显示个月，不自动将天换算成月"
           },
           "budgetMonth": {
             "type": "string",
@@ -2125,7 +2124,7 @@
           },
           "name": {
             "type": "string",
-            "description": "显示名称；变现周期name是数字文本，如1.5或3，去除无意义的末尾0，不含个月"
+            "description": "字典项显示名称"
           },
           "status": {
             "type": "string",
@@ -2154,16 +2153,15 @@
               "number",
               "string"
             ],
-            "description": "变现周期为number，支持小数月份，如1.5表示1.5个月"
+            "description": "运费金额或税率比例，创建时传实际业务值"
           },
           "unit": {
             "type": "string",
             "enum": [
-              "MONTH",
               "CNY",
               "RATIO"
             ],
-            "description": "单位代码，MONTH表示月；没有中文单位字段，展示端自行映射"
+            "description": "单位代码：CNY表示人民币元，RATIO表示比例；展示端自行映射"
           },
           "loginAccount": {
             "type": "string",
