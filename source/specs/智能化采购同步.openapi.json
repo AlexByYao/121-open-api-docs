@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "121 开放接口",
-    "version": "2.9.1",
+    "version": "2.9.2",
     "description": "121开放接口，提供用户及字典查询、采购草稿创建与查询、取消及删除通知。请求使用App-Id、App-Secret和loginAccount；数据访问受账号所属部门及应用授权范围约束。"
   },
   "servers": [
@@ -268,7 +268,8 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 19,
-              "pattern": "^[1-9][0-9]{0,18}$"
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "description": "正整数字符串，不带前导0，最大9223372036854775807"
             }
           },
           {
@@ -711,7 +712,7 @@
             }
           }
         },
-        "description": "同幂等键同正文重试返回原单；先发现幂等内容冲突返回409 IDEMPOTENCY_CONFLICT，原单不可访问或不存在返回404 DRAFT_NOT_FOUND，同来源有效原单可访问返回409 SOURCE_ALREADY_SYNCED；本次部门越权可提前403。"
+        "description": "同幂等键同正文重试返回原单；先发现幂等内容冲突返回409 IDEMPOTENCY_CONFLICT，原单不可访问或不存在返回404 DRAFT_NOT_FOUND，同来源有效原单可访问返回409 SOURCE_ALREADY_SYNCED；本次部门越权可提前403。正文按原始字节比较，重试须保留字段顺序、空白及数字写法。可选字段可省略或传null，空字符串不等于null，可选ID不传空字符串。"
       }
     },
     "/purchase-drafts/by-source": {
@@ -950,7 +951,8 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 19,
-              "pattern": "^[1-9][0-9]{0,18}$"
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "description": "正整数字符串，不带前导0，最大9223372036854775807"
             }
           }
         ],
@@ -1142,7 +1144,8 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 19,
-              "pattern": "^[1-9][0-9]{0,18}$"
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "description": "正整数字符串，不带前导0，最大9223372036854775807"
             }
           }
         ],
@@ -1633,7 +1636,8 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 19,
-            "pattern": "^[1-9][0-9]{0,18}$"
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "description": "正整数字符串，不带前导0，最大9223372036854775807"
           },
           "roleCode": {
             "type": "string"
@@ -1703,15 +1707,24 @@
             "maxLength": 64
           },
           "materialName": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "maxLength": 100
           },
           "productCode": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "maxLength": 64
           },
           "brandName": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "maxLength": 100
           },
           "quantity": {
@@ -1762,10 +1775,14 @@
             "description": "数值范围-9999999999999.99至9999999999999.99，最多两位小数；0.09表示9%；省略或null使用主单税率"
           },
           "remark": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "maxLength": 500
           }
-        }
+        },
+        "description": "quantity须使用JSON整数字面量（1合法，1.0不合法）。采购金额、销售金额（对应数量×单价）及整单采购金额合计均须在0至9999999999999.99内。可选字段省略或null按未提供处理。"
       },
       "CreateDraftRequest": {
         "type": "object",
@@ -1828,16 +1845,21 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 19,
-            "pattern": "^[1-9][0-9]{0,18}$"
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "description": "正整数字符串，不带前导0，最大9223372036854775807"
           },
           "supplierId": {
             "type": "string",
             "minLength": 1,
             "maxLength": 19,
-            "pattern": "^[1-9][0-9]{0,18}$"
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "description": "正整数字符串，不带前导0，最大9223372036854775807"
           },
           "supplierName": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "maxLength": 100,
             "description": "供应商名称按121规则唯一，可先完整名称精确匹配D01取得supplierId；本字段不参与建单匹配或更新主数据，仅用于错误提示"
           },
@@ -1865,32 +1887,39 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 19,
-            "pattern": "^[1-9][0-9]{0,18}$"
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "description": "正整数字符串，不带前导0，最大9223372036854775807"
           },
           "saleChannelId": {
             "type": "string",
             "minLength": 1,
             "maxLength": 19,
-            "pattern": "^[1-9][0-9]{0,18}$"
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "description": "正整数字符串，不带前导0，最大9223372036854775807"
           },
           "paymentMethodId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "minLength": 1,
             "maxLength": 19,
-            "pattern": "^[1-9][0-9]{0,18}$"
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "description": "正整数字符串，不带前导0，最大9223372036854775807"
           },
           "fundPlanId": {
             "type": "string",
             "minLength": 1,
             "maxLength": 19,
-            "pattern": "^[1-9][0-9]{0,18}$"
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "description": "正整数字符串，不带前导0，最大9223372036854775807"
           },
           "transportCost": {
             "type": "number",
             "minimum": 0,
             "maximum": 9999999999999.99,
             "multipleOf": 0.01,
-            "description": "可手填非负金额，最多两位小数，最大9999999999999.99；不要求存在于transport-costs字典，不自动新增字典"
+            "description": "可手填的预计单台运费成本，单位元，非负、最多两位小数，最大9999999999999.99；不按采购数量自动分摊，不要求存在于transport-costs字典，不自动新增字典"
           },
           "taxRate": {
             "type": "number",
@@ -1905,7 +1934,7 @@
             "minimum": 0.01,
             "exclusiveMaximum": 10000000000000000000,
             "multipleOf": 0.01,
-            "description": "单位为月，范围0.01至9999999999999999999.99，最多两位有效小数，不四舍五入。1.5表示1.5个月、0.5表示半个月，整数仍兼容；须传JSON数字，不能传字符串。1.500可接收，1.501返回400 INVALID_ARGUMENT且data.field=cashCycle。直接输入月份，无需查询字典；展示端显示个月，不自动将天换算成月"
+            "description": "单位为月，范围0.01至9999999999999999999.99，最多两位有效小数，不四舍五入。1.5表示1.5个月、0.5表示半个月，整数仍兼容；须传JSON数字，不能传字符串。1.500可接收，1.501返回400 PARAM_INVALID且data.field=cashCycle。直接输入月份，无需查询字典；展示端显示个月，不自动将天换算成月"
           },
           "budgetMonth": {
             "type": "string",
@@ -1916,15 +1945,24 @@
             "format": "date"
           },
           "contractNo": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "maxLength": 64
           },
           "externalPurchaseOrderNo": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "maxLength": 64
           },
           "remark": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "maxLength": 500
           },
           "details": {
@@ -1936,66 +1974,98 @@
             }
           },
           "budgetExplanation": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "maxLength": 500,
             "description": "可选超预算说明，仅保存到草稿；不作为同步成功条件"
           },
           "discount": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "minimum": 0,
             "maximum": 9999999999999.99,
-            "multipleOf": 0.01
+            "multipleOf": 0.01,
+            "description": "非负金额，单位元；省略或null按0处理"
           },
           "advance": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "minimum": 0,
             "maximum": 9999999999999.99,
-            "multipleOf": 0.01
+            "multipleOf": 0.01,
+            "description": "非负金额，单位元；省略或null按0处理"
           },
           "productManagerUserId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "minLength": 1,
             "maxLength": 19,
             "pattern": "^[1-9][0-9]{0,18}$",
             "description": "须为本部门具有有效产品经理角色的启用用户"
           },
           "departmentManagerUserId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "minLength": 1,
             "maxLength": 19,
             "pattern": "^[1-9][0-9]{0,18}$",
             "description": "具有对应有效角色的启用用户，可跨部门选择"
           },
           "departmentLeaderUserId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "minLength": 1,
             "maxLength": 19,
             "pattern": "^[1-9][0-9]{0,18}$",
             "description": "具有对应有效角色的启用用户，可跨部门选择"
           },
           "businessReviewerUserId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "minLength": 1,
             "maxLength": 19,
             "pattern": "^[1-9][0-9]{0,18}$",
             "description": "具有对应有效角色的启用用户，可跨部门选择"
           },
           "budgetReviewerUserId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "minLength": 1,
             "maxLength": 19,
             "pattern": "^[1-9][0-9]{0,18}$",
             "description": "具有对应有效角色的启用用户，可跨部门选择"
           },
           "chiefAccountantUserId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "minLength": 1,
             "maxLength": 19,
             "pattern": "^[1-9][0-9]{0,18}$",
             "description": "具有对应有效角色的启用用户，可跨部门选择"
           },
           "generalManagerUserId": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "minLength": 1,
             "maxLength": 19,
             "pattern": "^[1-9][0-9]{0,18}$",
@@ -2018,7 +2088,8 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 19,
-            "pattern": "^[1-9][0-9]{0,18}$"
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "description": "121采购单主键applyId，以字符串返回"
           },
           "purchaseOrderNo": {
             "type": "string",
@@ -2066,10 +2137,12 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 19,
-                  "pattern": "^[1-9][0-9]{0,18}$"
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "description": "正整数字符串，不带前导0，最大9223372036854775807"
                 }
               }
-            }
+            },
+            "description": "首次同步时的来源明细与121明细ID映射，不是实时完整明细，不包含后续新增明细"
           }
         }
       },
@@ -2137,7 +2210,8 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 19,
-                "pattern": "^[1-9][0-9]{0,18}$"
+                "pattern": "^[1-9][0-9]{0,18}$",
+                "description": "正整数字符串，不带前导0，最大9223372036854775807"
               },
               "projectId": {
                 "type": "string"
@@ -2149,10 +2223,7 @@
             "description": "仅供应商返回；true表示外部供应商，项目必填；false表示事业部/分公司，项目禁用并清空"
           },
           "value": {
-            "type": [
-              "number",
-              "string"
-            ],
+            "type": "number",
             "description": "运费金额或税率比例，创建时传实际业务值"
           },
           "unit": {
@@ -2174,7 +2245,8 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 19,
-              "pattern": "^[1-9][0-9]{0,18}$"
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "description": "正整数字符串，不带前导0，最大9223372036854775807"
             },
             "description": "审批用户成员部门与调用用户本次有效授权交集；跨部门审批人可能为空数组，不代表不可选"
           },
@@ -2228,8 +2300,12 @@
             "description": "可选字段，建议省略；提供非null值时须与请求头loginAccount相同"
           },
           "reason": {
-            "type": "string",
-            "maxLength": 500
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500,
+            "description": "省略、null、空字符串或仅空格使用CANCEL_SYNC，非空原因原样写入删除事件"
           }
         }
       },
@@ -2274,7 +2350,8 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 19,
-            "pattern": "^[1-9][0-9]{0,18}$"
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "description": "正整数字符串，不带前导0，最大9223372036854775807"
           },
           "purchaseOrderNo": {
             "type": "string",
@@ -2362,8 +2439,8 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "事件已持久处理；重复eventId也返回2xx。非2xx会重试。"
+          "2XX": {
+            "description": "任意2xx均视为成功，不检查JSON业务码；推荐204。非2xx或超时进入失败重试，不跟随重定向。"
           }
         }
       }

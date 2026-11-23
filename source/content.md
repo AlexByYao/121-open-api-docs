@@ -1,6 +1,6 @@
 # 121 接口交接文档
 
-版本 **2.9.1** · 文档更新 **2026-11-23** · 服务提供方 **121系统**
+版本 **2.9.2** · 文档更新 **2026-11-23** · 服务提供方 **121系统**
 
 本文定义121开放接口的请求方式、鉴权规则、参数、响应、状态及错误码。示例数据仅用于说明报文格式；接入凭据和测试数据由121服务提供方提供。
 
@@ -26,7 +26,7 @@
 | sourceDetailId、detailId | 来源明细ID与121初始明细ID | 发送前固定来源行ID，成功后保存两者映射 |
 | eventId | 121生成的C01事件去重键 | 同一事件重试不变；接收方按eventId幂等处理 |
 
-同一创建请求的重复提交须使用相同的幂等键和原始正文。结果未知时先调用P02；返回404时，应核对查询参数和访问范围，再使用原来源记录ID、原幂等键及原始正文重试。
+同一创建请求的重复提交须使用相同的幂等键和原始正文；字段顺序、空白及数字写法均保持不变（例如不能将`1.50`改成`1.5`），否则可能返回409 IDEMPOTENCY_CONFLICT。结果未知时先调用P02；返回404时，应核对查询参数和访问范围，再使用原来源记录ID、原幂等键及原始正文重试。
 
 ### 变现周期单位与小数
 
@@ -74,9 +74,9 @@
 
 ### 数据约定
 
-- ID使用JSON字符串，避免大整数丢精度；必填ID为正整数形式。字典中的 `code` 是业务编码，不能替代部门的 `deptId` 或其他字典的 `id`。
+- ID使用JSON字符串，避免大整数丢精度；请求中的普通ID范围为1—9223372036854775807，须为不带前导0的正整数字符串。字典中的 `code` 是业务编码，不能替代部门的 `deptId` 或其他字典的 `id`。
 - 所有金额以人民币元计，使用十进制数，非负、最多两位小数；单价、金额及采购合计最大 `9999999999999.99`。
-- 数量使用整数，最大 `999999999`。税率传比例：`0.13` 表示13%，不能传 `13`。
+- 数量使用整数写法（如`1`，不传`1.0`或`1.5`），最大 `999999999`。主单税率仅允许`0`、`0.06`、`0.13`，其中`0.13`表示13%；明细税率`detailTaxRate`沿用121原字段范围，规则见P01，不套用主单枚举。
 - `cashCycle`为采购变现周期，单位为月，例如1.5表示1.5个月；直接输入正数提交，最小0.01，最多两位有效小数，不将天数直接作为月数传入。展示端显示“个月”；`budgetMonth` 为 `YYYY-MM`；`purchaseDate` 为 `yyyy-MM-dd`。回调 `eventTime` 为UTC ISO 8601，例如 `2026-11-17T02:00:00Z`。
 - P01必填预算月份、销售数量、销售单价和当日库存。明细提交价格保存于采购草稿，不更新物料基础价格。
 - 供应商类型决定项目是否启用和必填，项目候选取全局字典；库位按deptId选择，不按供应商或项目强制筛选；一张采购单只提交一个saleChannelId。
@@ -330,7 +330,7 @@ loginAccount最多30个字符，按账号原值匹配，清理首尾ASCII空格�
 | `items[].requiresProject` | boolean | 供应商 | true：外部供应商，创建必须带有效projectId；false：事业部/分公司，项目禁用，传入值忽略并清空 |
 | `items[].relation.deptId` | string | 库位 | 库位所属部门ID |
 | `items[].relation.projectId` | string | 库位且存在值 | 关联项目ID；`"0"` 表示未绑定具体项目 |
-| `items[].value` | number / string | 运费、税率 | 实际业务值，创建时传value；不能把字典项ID当金额或比例 |
+| `items[].value` | number | 运费、税率 | 实际业务值，创建时传value；不能把字典项ID当金额或比例 |
 | `items[].unit` | string | 同上 | `CNY`=人民币元；`RATIO`=比例。这是单位代码，没有额外中文单位字段；展示端自行映射中文 |
 | `items[].loginAccount` | string | 审批人员 | 人员的121登录账号 |
 | `items[].deptIds` | array of string | 审批人员 | 人员成员部门与客户本次部门范围交集中的ID；跨部门审批人可为空数组，不代表不可选 |
@@ -408,30 +408,50 @@ HTTP 200，省份示例：
 | `initiatorLoginAccount` | 可选发起人 | string / null | 否 | 建议省略，由公共loginAccount取得；非null时须与公共账号相同，不支持代发 |
 | `deptId` | 业务部门 | string | 是 | 用户所属、客户端授权且启用的121部门ID |
 | `supplierId` | 供应商 | string | 是 | D01 suppliers返回的ID；同步后不可改供应商 |
-| `supplierName` | 供应商名称 | string | 否 | 最长100，不作为建单匹配条件；供应商名称按121规则唯一，建议先按完整名称查字典取得`supplierId`；ID不存在时仅用于错误信息 |
+| `supplierName` | 供应商名称 | string / null | 否 | 最长100，不作为建单匹配条件；供应商名称按121规则唯一，建议先按完整名称查字典取得`supplierId`；ID不存在时仅用于错误信息 |
 | `authorized` | 是否授权 | boolean | 是 | true=授权；false=未授权，false是合法值，不等同未填 |
-| `projectId` | 项目 | string | 条件 | 供应商requiresProject=true时必填且须为有效项目；false时忽略传入值并保存为空（内部ID=0）；不从库位带出项目，不强制匹配库位关联项目 |
+| `projectId` | 项目 | string / null | 条件 | 供应商requiresProject=true时必填且须为有效项目；false时忽略传入值并保存为空（内部ID=0）；不从库位带出项目，不强制匹配库位关联项目 |
 | `storeId` | 库位 | string | 是 | 须为deptId下的有效库位；不按供应商筛选，不强制匹配所选项目 |
 | `provinceId` | 省份 | string | 是 | 当前部门省份字典ID，不是行政区划编码 |
 | `saleChannelId` | 销售渠道 | string | 是 | 当前部门渠道字典ID |
-| `paymentMethodId` | 付款方式 | string | 否 | 提供时为当前部门有效付款方式ID |
+| `paymentMethodId` | 付款方式 | string / null | 否 | 提供时为当前部门有效付款方式ID |
 | `fundPlanId` | 资金计划 | string | 是 | 当前部门资金计划字典ID |
-| `transportCost` | 运费成本 | number | 是 | 可手填的非负金额，单位元；不要求必须等于transport-costs字典值，最多两位小数，最大9999999999999.99 |
+| `transportCost` | 运费成本 | number | 是 | 可手填的预计单台运费成本，单位元，非负；沿用121计算口径，不按采购数量自动分摊，不要求必须等于transport-costs字典值，最多两位小数，最大9999999999999.99 |
 | `taxRate` | 主单税率 | number | 是 | 0=0%；0.06=6%；0.13=13% |
-| `cashCycle` | 变现周期 | number | 是 | 单位为月，范围0.01—9999999999999999999.99，最多两位有效小数；例如1.5表示1.5个月，0.5表示半个月，整数3仍支持。传JSON数字，不能传字符串；1.500可接收，1.501返回400、errorCode=INVALID_ARGUMENT、data.field=cashCycle，不四舍五入。直接输入月份，无需查询字典；不换算天/月，展示“个月”由调用方处理 |
+| `cashCycle` | 变现周期 | number | 是 | 单位为月，范围0.01—9999999999999999999.99，最多两位有效小数；例如1.5表示1.5个月，0.5表示半个月，整数3仍支持。传JSON数字，不能传字符串；1.500可接收，1.501返回400、errorCode=PARAM_INVALID、data.field=cashCycle，不四舍五入。直接输入月份，无需查询字典；不换算天/月，展示“个月”由调用方处理 |
 | `budgetMonth` | 预算月份 | string | 是 | 2000—2099年有效 `YYYY-MM`，由调用方传入 |
 | `purchaseDate` | 采购日期 | string | 是 | 有效 `yyyy-MM-dd`，显式传入，不由121自动取日期 |
-| `contractNo` | 合同号 | string | 否 | 最长64 |
-| `externalPurchaseOrderNo` | 外部采购单号 | string | 否 | 最长64，业务备注关联号；不等于121内部ID |
-| `remark` | 主单备注 | string | 否 | 最长500 |
-| `budgetExplanation` | 超预算说明 | string | 否 | 最长500；可选说明文本，保存于采购草稿 |
-| `discount` | 使用折让 | number | 否 | 非负金额，单位元；省略为0 |
-| `advance` | 使用预付款 | number | 否 | 非负金额，单位元；省略为0 |
+| `contractNo` | 合同号 | string / null | 否 | 最长64 |
+| `externalPurchaseOrderNo` | 外部采购单号 | string / null | 否 | 最长64，业务备注关联号；不等于121内部ID |
+| `remark` | 主单备注 | string / null | 否 | 最长500 |
+| `budgetExplanation` | 超预算说明 | string / null | 否 | 最长500；可选说明文本，保存于采购草稿 |
+| `discount` | 使用折让 | number / null | 否 | 非负金额，单位元；省略为0 |
+| `advance` | 使用预付款 | number / null | 否 | 非负金额，单位元；省略为0 |
 | `details` | 采购明细 | array | 是 | 1—500条，字段见“明细请求参数” |
 
-不要提交状态、创建人、121主单ID等额外字段。字符串拒绝控制字符和尖括号。未填写的可选ID应省略，不传空字符串。
+不要提交状态、创建人、121主单ID等额外字段。字符串拒绝控制字符和尖括号。未填写的可选字段可省略或传null；null按未提供处理（projectId仍受供应商项目必填规则约束）。空字符串不等于null，可选ID不传空字符串；可选文本可为空字符串，discount和advance省略或null均按0处理。
 
 例如供应商`requiresProject=false`，库位`storeId="3001"`关联项目A（`projectId="2001"`）：无论省略项目还是提交项目A/其他项目，采购单项目均保存为空，不自动带出。供应商`requiresProject=true`时必须明确提交有效项目；即使提交项目B而库位关联项目A，只要库位属于本次部门，也允许建单。
+
+### cashCycle常见错误
+
+| 传值或现象 | HTTP / errorCode | data.reason | 处理方式 |
+| --- | --- | --- | --- |
+| `"cashCycle": "1.5"`（字符串） | 400 / PARAM_INVALID | TYPE_INVALID | 改为JSON数字`"cashCycle": 1.5` |
+| `"cashCycle": 1.501`或`0` | 400 / PARAM_INVALID | INVALID_VALUE | 使用至少0.01、最多两位有效小数的月份，不自动舍入 |
+| 已传数字1.5，仍提示字段类型错误 | 400 / PARAM_INVALID | TYPE_INVALID | 核对实际请求正文，并确认目标服务已部署、重启支持小数月份的新版Jar；仅更新文档或数据库不能更新接口类型 |
+
+类型错误示例（requestId由121生成，用于查日志，不是调用方填写）：
+
+```json
+{
+  "code": 400,
+  "errorCode": "PARAM_INVALID",
+  "message": "cashCycle：字段类型错误，请按接口定义传值",
+  "requestId": "550e8400-e29b-41d4-a716-446655440000",
+  "data": {"field": "cashCycle", "reason": "TYPE_INVALID"}
+}
+```
 
 ### 首次创建时的来源采购记录ID
 
@@ -489,7 +509,7 @@ HTTP 200，省份示例：
 
 ### 可选审批人员
 
-以下都是string类型、可选、正整数用户ID；提供时用户须启用未删且具有相应有效角色。仅产品经理须属于当前部门，其他审批角色允许跨部门。通过D01的approval-users取得ID，不能直接传姓名；deptIds可能为空数组，不代表该跨部门审批人无效。
+以下都是string / null类型、可选、正整数用户ID；省略或null表示不选择。提供时用户须启用未删且具有相应有效角色。仅产品经理须属于当前部门，其他审批角色允许跨部门。通过D01的approval-users取得ID，不能直接传姓名；deptIds可能为空数组，不代表该跨部门审批人无效。
 
 | 参数名 | 名称 | D01 roleCode |
 | --- | --- | --- |
@@ -511,17 +531,19 @@ HTTP 200，省份示例：
 | `materialCode` | 物料编码 | string | 是 | 最长64，必须唯一匹配121现有物料 |
 | `quantity` | 采购数量 | integer | 是 | 1—999999999 |
 | `purchasePrice` | 采购单价 | number | 是 | 非负金额，单位元 |
-| `purchaseAmount` | 采购金额 | number | 否 | 不传或传null时由121按quantity×purchasePrice计算；传入时必须完全相等，非负、最多两位小数，最大9999999999999.99；不一致返回422 AMOUNT_MISMATCH |
+| `purchaseAmount` | 采购金额 | number / null | 否 | 不传或传null时由121按quantity×purchasePrice计算；传入时必须完全相等，非负、最多两位小数，最大9999999999999.99；不一致返回422 AMOUNT_MISMATCH |
 | `salesQuantity` | 销售数量 | integer | 是 | 0—999999999 |
 | `salesPrice` | 销售单价 | number | 是 | 非负金额，销售金额由121计算 |
 | `inventoryQuantity` | 当日库存 | integer | 是 | 0—999999999，由调用方提供 |
-| `detailTaxRate` | 明细税率 | number | 否 | 数值范围-9999999999999.99至9999999999999.99，最多两位小数；0.09表示9%；省略或null时使用主单taxRate |
-| `materialName` | 物料名称 | string | 否 | 最长100，仅接收校验，不更新物料描述 |
-| `productCode` | 产品编码 | string | 否 | 最长64，不更新物料主数据 |
-| `brandName` | 品牌名称 | string | 否 | 最长100，不更新品牌主数据 |
-| `remark` | 明细备注 | string | 否 | 最长500 |
+| `detailTaxRate` | 明细税率 | number / null | 否 | 数值范围-9999999999999.99至9999999999999.99，最多两位小数；0.09表示9%；省略或null时使用主单taxRate |
+| `materialName` | 物料名称 | string / null | 否 | 最长100，仅接收校验，不更新物料描述 |
+| `productCode` | 产品编码 | string / null | 否 | 最长64，不更新物料主数据 |
+| `brandName` | 品牌名称 | string / null | 否 | 最长100，不更新品牌主数据 |
+| `remark` | 明细备注 | string / null | 否 | 最长500 |
 
 供应商按supplierId、物料按materialCode匹配。供应商不存在时返回422 `REFERENCE_INVALID`；物料不存在时返回422 `MATERIAL_NOT_FOUND`，列出全部缺失编码；物料编码匹配多条记录时返回422 `MATERIAL_AMBIGUOUS`。
+
+采购数量×采购单价、销售数量×销售单价及全部明细采购金额之和，均须不超过9999999999999.99；单价合法但计算结果超出范围时仍返回400 PARAM_INVALID。
 
 建议省略`purchaseAmount`，由121统一计算。传入时按十进制精确比较，不自动四舍五入，不设误差容忍；`100`与`100.00`数值相等。金额错误会在`data.field`及`data.sourceDetailId`定位明细，并返回`provided`与`calculated`。
 
@@ -533,12 +555,12 @@ P01、P02、P03和P04使用相同业务对象。
 
 | 返回字段 | 类型 | 含义 |
 | --- | --- | --- |
-| `data.draftId` | string | 121采购单唯一ID |
+| `data.draftId` | string | 121采购单主键applyId，以字符串返回 |
 | `data.purchaseOrderNo` | string | 121采购单序号，与draftId相同 |
 | `data.sourceSystem` | string | 来源系统，当前为INTELLIGENT_OFFICE |
 | `data.sourceOrderId` | string | 创建时提交的来源采购记录ID |
 | `data.status` | string | 当前采购状态；全部取值和含义见P01“采购单状态值” |
-| `data.details` | array | 来源明细与121明细ID的映射 |
+| `data.details` | array | 首次同步时的来源明细与121明细ID映射，不是实时完整明细 |
 | `data.details[].sourceDetailId` | string | 创建时传入的来源明细号 |
 | `data.details[].detailId` | string | 121采购明细ID |
 
@@ -699,12 +721,12 @@ P01、P02、P03和P04使用相同业务对象。
 
 | 返回字段 | 类型 | 含义 |
 | --- | --- | --- |
-| `data.draftId` | string | 121采购单唯一ID |
+| `data.draftId` | string | 121采购单主键applyId，以字符串返回 |
 | `data.purchaseOrderNo` | string | 121采购单序号，与draftId相同 |
 | `data.sourceSystem` | string | 来源系统，当前为INTELLIGENT_OFFICE |
 | `data.sourceOrderId` | string | 创建时提交的来源采购记录ID |
 | `data.status` | string | 当前采购状态；全部取值和含义见P01“采购单状态值” |
-| `data.details` | array | 来源明细与121明细ID的映射 |
+| `data.details` | array | 首次同步时的来源明细与121明细ID映射，不是实时完整明细 |
 | `data.details[].sourceDetailId` | string | 创建时传入的来源明细号 |
 | `data.details[].detailId` | string | 121采购明细ID |
 
@@ -764,12 +786,12 @@ HTTP 200：
 
 | 返回字段 | 类型 | 含义 |
 | --- | --- | --- |
-| `data.draftId` | string | 121采购单唯一ID |
+| `data.draftId` | string | 121采购单主键applyId，以字符串返回 |
 | `data.purchaseOrderNo` | string | 121采购单序号，与draftId相同 |
 | `data.sourceSystem` | string | 来源系统，当前为INTELLIGENT_OFFICE |
 | `data.sourceOrderId` | string | 创建时提交的来源采购记录ID |
 | `data.status` | string | 当前采购状态；全部取值和含义见P01“采购单状态值” |
-| `data.details` | array | 来源明细与121明细ID的映射 |
+| `data.details` | array | 首次同步时的来源明细与121明细ID映射，不是实时完整明细 |
 | `data.details[].sourceDetailId` | string | 创建时传入的来源明细号 |
 | `data.details[].detailId` | string | 121采购明细ID |
 
@@ -818,24 +840,24 @@ HTTP 200，锁单示例：
 
 ### 请求参数
 
-取消等同软删除121对应采购草稿，并产生C01删除事件。
+取消等同软删除121对应采购草稿，并产生C01删除事件。Body必须为JSON对象；没有取消原因时传`{}`，不要发送空正文。
 
 | 参数名 | 名称 | 位置 | 类型 | 是否必填 | 说明 |
 | --- | --- | --- | --- | --- | --- |
 | `draftId` | 121采购单ID | Path | string | 是 | 本客户授权范围内的来源采购单ID |
 | `operatorLoginAccount` | 可选操作人 | Body | string / null | 否 | 建议省略，由公共loginAccount取得；非null时须与公共账号相同，用户须属于该单部门 |
-| `reason` | 取消原因 | Body | string | 否 | 最长500；省略或仅空格使用CANCEL_SYNC，非空原因原样写入事件 |
+| `reason` | 取消原因 | Body | string / null | 否 | 最长500；省略、null、空字符串或仅空格使用CANCEL_SYNC，非空原因原样写入事件 |
 
 ### 返回字段
 
 | 返回字段 | 类型 | 含义 |
 | --- | --- | --- |
-| `data.draftId` | string | 121采购单唯一ID |
+| `data.draftId` | string | 121采购单主键applyId，以字符串返回 |
 | `data.purchaseOrderNo` | string | 121采购单序号，与draftId相同 |
 | `data.sourceSystem` | string | 来源系统，当前为INTELLIGENT_OFFICE |
 | `data.sourceOrderId` | string | 创建时提交的来源采购记录ID |
 | `data.status` | string | 当前采购状态；全部取值和含义见P01“采购单状态值” |
-| `data.details` | array | 来源明细与121明细ID的映射 |
+| `data.details` | array | 首次同步时的来源明细与121明细ID映射，不是实时完整明细 |
 | `data.details[].sourceDetailId` | string | 创建时传入的来源明细号 |
 | `data.details[].detailId` | string | 121采购明细ID |
 
@@ -872,7 +894,7 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 
 ### 取消规则及返回码
 
-仅DRAFT可删除；已DELETED重复调用返回同样结果，不再生成重复事件。主单、明细及同步关联一并删除，并发送C01通知。退单状态不等同于删除。当前非草稿取消提示为`Only an existing draft can be deleted`（仅草稿允许取消）；并发状态变化时可能提示`Procurement order changed`（采购单状态已变化）。提示尚未全部中文化，调用方必须按`errorCode=DRAFT_NOT_EDITABLE`判断，不能解析message。
+仅DRAFT可删除；已DELETED重复调用返回同样结果，不再生成重复事件。主单和明细软删除，释放来源的当前有效关联；保留同步历史及明细ID映射，供P02/P03查询，并发送C01通知。退单状态不等同于删除。当前非草稿取消提示为`Only an existing draft can be deleted`（仅草稿允许取消）；并发状态变化时可能提示`Procurement order changed`（采购单状态已变化）。提示尚未全部中文化，调用方必须按`errorCode=DRAFT_NOT_EDITABLE`判断，不能解析message。
 
 | HTTP | errorCode | 含义 | 调用方处理 |
 | --- | --- | --- | --- |
@@ -947,7 +969,7 @@ HTTP 200；data完整字段见P01“返回字段”，成功取消返回DELETED�
 
 ### 重试、乱序与本地清理
 
-- 通知可能重复投递。连接超时5秒、读取超时10秒；首次发送失败后按30秒、2分钟、10分钟、30分钟间隔重试，最多5次发送。
+- 通知接收地址及凭据须在121配置并启用后才会投递。通知可能重复投递；连接超时5秒、读取超时10秒，首次发送失败后按30秒、2分钟、10分钟、30分钟间隔重试，最多5次发送。间隔受后台调度影响；连续5次失败后转人工处理，不再自动重试，双方需排查并协调补发。
 - 同一事件重试保持eventId和正文，沿用该回调目标的App-Id、App-Secret。
 - 先校验两项系统凭据，再按eventId幂等处理。必须同时核对sourceOrderId和draftId，仅清除完全匹配的当前主单/明细映射。
 - 旧采购单的删除通知不能清除重新同步的新单；即使不匹配当前关联，也应将该旧事件记为已处理并回2xx。

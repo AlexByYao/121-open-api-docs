@@ -15,7 +15,7 @@
   <a class="skip-link" href="#content">跳到文档正文</a>
   <header class="site-header">
     <a class="brand" href="#top"><span class="brand-mark">121</span><span>接口交接文档<small>用户、字典与采购草稿</small></span></a>
-    <div class="header-actions"><span class="version">v2.9.1</span><a href="./downloads/openapi.yaml" download>下载 OpenAPI</a><button id="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">目录</button></div>
+    <div class="header-actions"><span class="version">v2.9.2</span><a href="./downloads/openapi.yaml" download>下载 OpenAPI</a><button id="menu-button" type="button" aria-expanded="false" aria-controls="sidebar">目录</button></div>
   </header>
   <aside id="sidebar" class="sidebar" aria-label="文档目录">
     <label class="search-label" for="doc-search">查找文档</label>
@@ -38,7 +38,7 @@
     <div class="overview"><details><summary>展开完整章节目录</summary><ol><li><a href="#section-1">接入说明</a></li><li><a href="#section-2">U01 查询121用户信息（POST）</a></li><li><a href="#section-3">D01 查询基础字典（GET）</a></li><li><a href="#section-4">P01 创建采购草稿（POST）</a></li><li><a href="#section-5">P02 按来源记录和幂等键查询草稿（GET）</a></li><li><a href="#section-6">P03 按121采购单ID查询草稿（GET）</a></li><li><a href="#section-7">P04 取消同步并删除草稿（POST）</a></li><li><a href="#section-8">C01 采购草稿删除通知（POST）</a></li><li><a href="#section-9">返回码说明</a></li><li><a href="#section-10">附录</a></li></ol></details></div>
     <div id="no-results" hidden>未找到匹配内容。请尝试接口编号（如 P01）、参数名或错误码。</div>
     <div class="document-intro"><h1 id="top">121 接口交接文档</h1>
-<p>版本 <strong>2.9.1</strong> · 文档更新 <strong>2026-11-23</strong> · 服务提供方 <strong>121系统</strong></p>
+<p>版本 <strong>2.9.2</strong> · 文档更新 <strong>2026-11-23</strong> · 服务提供方 <strong>121系统</strong></p>
 <p>本文定义121开放接口的请求方式、鉴权规则、参数、响应、状态及错误码。示例数据仅用于说明报文格式；接入凭据和测试数据由121服务提供方提供。</p>
 </div><section class="doc-section" data-section="section-1"><h2 id="section-1">接入说明</h2>
 <h3 id="section-1-1">联调顺序</h3>
@@ -92,7 +92,7 @@
 </tr>
 </tbody>
 </table></div>
-<p>同一创建请求的重复提交须使用相同的幂等键和原始正文。结果未知时先调用P02；返回404时，应核对查询参数和访问范围，再使用原来源记录ID、原幂等键及原始正文重试。</p>
+<p>同一创建请求的重复提交须使用相同的幂等键和原始正文；字段顺序、空白及数字写法均保持不变（例如不能将<code>1.50</code>改成<code>1.5</code>），否则可能返回409 IDEMPOTENCY_CONFLICT。结果未知时先调用P02；返回404时，应核对查询参数和访问范围，再使用原来源记录ID、原幂等键及原始正文重试。</p>
 <h3 id="section-1-3">变现周期单位与小数</h3>
 <p>变现周期单位为月。2.9.0支持小数月份：<code>cashCycle: 1.5</code>表示1.5个月，<code>0.5</code>表示半个月；最小0.01，最多两位有效小数，超出精度直接报错，不自动四舍五入；原整数传值仍兼容。调用方按月展示和传值，不自动乘除30。测试及正式服务须先升级数据库两列为DECIMAL(21,2)，再部署新版后端；文档更新不代表接口已部署。</p>
 <h3 id="section-1-4">调用地址</h3>
@@ -214,9 +214,9 @@
 <p>业务部门须处于“账号有效所属部门 ∩ 应用授权部门”范围；多部门账号创建时须明确提交一个deptId。查询、取消均校验原单所属部门，不能通过传入其他部门改变单据归属。</p>
 <h3 id="section-1-7">数据约定</h3>
 <ul>
-<li>ID使用JSON字符串，避免大整数丢精度；必填ID为正整数形式。字典中的 <code>code</code> 是业务编码，不能替代部门的 <code>deptId</code> 或其他字典的 <code>id</code>。</li>
+<li>ID使用JSON字符串，避免大整数丢精度；请求中的普通ID范围为1—9223372036854775807，须为不带前导0的正整数字符串。字典中的 <code>code</code> 是业务编码，不能替代部门的 <code>deptId</code> 或其他字典的 <code>id</code>。</li>
 <li>所有金额以人民币元计，使用十进制数，非负、最多两位小数；单价、金额及采购合计最大 <code>9999999999999.99</code>。</li>
-<li>数量使用整数，最大 <code>999999999</code>。税率传比例：<code>0.13</code> 表示13%，不能传 <code>13</code>。</li>
+<li>数量使用整数写法（如<code>1</code>，不传<code>1.0</code>或<code>1.5</code>），最大 <code>999999999</code>。主单税率仅允许<code>0</code>、<code>0.06</code>、<code>0.13</code>，其中<code>0.13</code>表示13%；明细税率<code>detailTaxRate</code>沿用121原字段范围，规则见P01，不套用主单枚举。</li>
 <li><code>cashCycle</code>为采购变现周期，单位为月，例如1.5表示1.5个月；直接输入正数提交，最小0.01，最多两位有效小数，不将天数直接作为月数传入。展示端显示“个月”；<code>budgetMonth</code> 为 <code>YYYY-MM</code>；<code>purchaseDate</code> 为 <code>yyyy-MM-dd</code>。回调 <code>eventTime</code> 为UTC ISO 8601，例如 <code>2026-11-17T02:00:00Z</code>。</li>
 <li>P01必填预算月份、销售数量、销售单价和当日库存。明细提交价格保存于采购草稿，不更新物料基础价格。</li>
 <li>供应商类型决定项目是否启用和必填，项目候选取全局字典；库位按deptId选择，不按供应商或项目强制筛选；一张采购单只提交一个saleChannelId。</li>
@@ -1044,7 +1044,7 @@
 </tr>
 <tr>
 <td><code>items[].value</code></td>
-<td>number / string</td>
+<td>number</td>
 <td>运费、税率</td>
 <td>实际业务值，创建时传value；不能把字典项ID当金额或比例</td>
 </tr>
@@ -1222,7 +1222,7 @@
 <tr>
 <td><code>supplierName</code></td>
 <td>供应商名称</td>
-<td>string</td>
+<td>string / null</td>
 <td>否</td>
 <td>最长100，不作为建单匹配条件；供应商名称按121规则唯一，建议先按完整名称查字典取得<code>supplierId</code>；ID不存在时仅用于错误信息</td>
 </tr>
@@ -1236,7 +1236,7 @@
 <tr>
 <td><code>projectId</code></td>
 <td>项目</td>
-<td>string</td>
+<td>string / null</td>
 <td>条件</td>
 <td>供应商requiresProject=true时必填且须为有效项目；false时忽略传入值并保存为空（内部ID=0）；不从库位带出项目，不强制匹配库位关联项目</td>
 </tr>
@@ -1264,7 +1264,7 @@
 <tr>
 <td><code>paymentMethodId</code></td>
 <td>付款方式</td>
-<td>string</td>
+<td>string / null</td>
 <td>否</td>
 <td>提供时为当前部门有效付款方式ID</td>
 </tr>
@@ -1280,7 +1280,7 @@
 <td>运费成本</td>
 <td>number</td>
 <td>是</td>
-<td>可手填的非负金额，单位元；不要求必须等于transport-costs字典值，最多两位小数，最大9999999999999.99</td>
+<td>可手填的预计单台运费成本，单位元，非负；沿用121计算口径，不按采购数量自动分摊，不要求必须等于transport-costs字典值，最多两位小数，最大9999999999999.99</td>
 </tr>
 <tr>
 <td><code>taxRate</code></td>
@@ -1294,7 +1294,7 @@
 <td>变现周期</td>
 <td>number</td>
 <td>是</td>
-<td>单位为月，范围0.01—9999999999999999999.99，最多两位有效小数；例如1.5表示1.5个月，0.5表示半个月，整数3仍支持。传JSON数字，不能传字符串；1.500可接收，1.501返回400、errorCode=INVALID_ARGUMENT、data.field=cashCycle，不四舍五入。直接输入月份，无需查询字典；不换算天/月，展示“个月”由调用方处理</td>
+<td>单位为月，范围0.01—9999999999999999999.99，最多两位有效小数；例如1.5表示1.5个月，0.5表示半个月，整数3仍支持。传JSON数字，不能传字符串；1.500可接收，1.501返回400、errorCode=PARAM_INVALID、data.field=cashCycle，不四舍五入。直接输入月份，无需查询字典；不换算天/月，展示“个月”由调用方处理</td>
 </tr>
 <tr>
 <td><code>budgetMonth</code></td>
@@ -1313,42 +1313,42 @@
 <tr>
 <td><code>contractNo</code></td>
 <td>合同号</td>
-<td>string</td>
+<td>string / null</td>
 <td>否</td>
 <td>最长64</td>
 </tr>
 <tr>
 <td><code>externalPurchaseOrderNo</code></td>
 <td>外部采购单号</td>
-<td>string</td>
+<td>string / null</td>
 <td>否</td>
 <td>最长64，业务备注关联号；不等于121内部ID</td>
 </tr>
 <tr>
 <td><code>remark</code></td>
 <td>主单备注</td>
-<td>string</td>
+<td>string / null</td>
 <td>否</td>
 <td>最长500</td>
 </tr>
 <tr>
 <td><code>budgetExplanation</code></td>
 <td>超预算说明</td>
-<td>string</td>
+<td>string / null</td>
 <td>否</td>
 <td>最长500；可选说明文本，保存于采购草稿</td>
 </tr>
 <tr>
 <td><code>discount</code></td>
 <td>使用折让</td>
-<td>number</td>
+<td>number / null</td>
 <td>否</td>
 <td>非负金额，单位元；省略为0</td>
 </tr>
 <tr>
 <td><code>advance</code></td>
 <td>使用预付款</td>
-<td>number</td>
+<td>number / null</td>
 <td>否</td>
 <td>非负金额，单位元；省略为0</td>
 </tr>
@@ -1361,9 +1361,48 @@
 </tr>
 </tbody>
 </table></div>
-<p>不要提交状态、创建人、121主单ID等额外字段。字符串拒绝控制字符和尖括号。未填写的可选ID应省略，不传空字符串。</p>
+<p>不要提交状态、创建人、121主单ID等额外字段。字符串拒绝控制字符和尖括号。未填写的可选字段可省略或传null；null按未提供处理（projectId仍受供应商项目必填规则约束）。空字符串不等于null，可选ID不传空字符串；可选文本可为空字符串，discount和advance省略或null均按0处理。</p>
 <p>例如供应商<code>requiresProject=false</code>，库位<code>storeId=&quot;3001&quot;</code>关联项目A（<code>projectId=&quot;2001&quot;</code>）：无论省略项目还是提交项目A/其他项目，采购单项目均保存为空，不自动带出。供应商<code>requiresProject=true</code>时必须明确提交有效项目；即使提交项目B而库位关联项目A，只要库位属于本次部门，也允许建单。</p>
-<h3 id="section-4-3">首次创建时的来源采购记录ID</h3>
+<h3 id="section-4-3">cashCycle常见错误</h3>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>传值或现象</th>
+<th>HTTP / errorCode</th>
+<th>data.reason</th>
+<th>处理方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&quot;cashCycle&quot;: &quot;1.5&quot;</code>（字符串）</td>
+<td>400 / PARAM_INVALID</td>
+<td>TYPE_INVALID</td>
+<td>改为JSON数字<code>&quot;cashCycle&quot;: 1.5</code></td>
+</tr>
+<tr>
+<td><code>&quot;cashCycle&quot;: 1.501</code>或<code>0</code></td>
+<td>400 / PARAM_INVALID</td>
+<td>INVALID_VALUE</td>
+<td>使用至少0.01、最多两位有效小数的月份，不自动舍入</td>
+</tr>
+<tr>
+<td>已传数字1.5，仍提示字段类型错误</td>
+<td>400 / PARAM_INVALID</td>
+<td>TYPE_INVALID</td>
+<td>核对实际请求正文，并确认目标服务已部署、重启支持小数月份的新版Jar；仅更新文档或数据库不能更新接口类型</td>
+</tr>
+</tbody>
+</table></div>
+<p>类型错误示例（requestId由121生成，用于查日志，不是调用方填写）：</p>
+<details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
+<span class="code-line">  <span class="token-key">&quot;code&quot;</span>: <span class="token-literal">400</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;errorCode&quot;</span>: <span class="token-string">&quot;PARAM_INVALID&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;message&quot;</span>: <span class="token-string">&quot;cashCycle：字段类型错误，请按接口定义传值&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>: <span class="token-string">&quot;550e8400-e29b-41d4-a716-446655440000&quot;</span>,</span>
+<span class="code-line">  <span class="token-key">&quot;data&quot;</span>: {<span class="token-key">&quot;field&quot;</span>: <span class="token-string">&quot;cashCycle&quot;</span>, <span class="token-key">&quot;reason&quot;</span>: <span class="token-string">&quot;TYPE_INVALID&quot;</span>}</span>
+<span class="code-line">}</span></code></pre></div></details>
+<h3 id="section-4-4">首次创建时的来源采购记录ID</h3>
 <p><code>sourceOrderId</code>由调用方在首次调用P01前确定，用于识别同一笔来源采购、避免重复创建，并关联后续查询和删除通知。该字段不是121采购单号，也不要求调用方已有正式订单号。</p>
 <ul>
 <li>已有采购草稿或采购记录ID时，使用该ID，须符合上表格式。</li>
@@ -1371,7 +1410,7 @@
 <li>不同采购记录使用不同ID；同一记录超时重试或删除后重新同步时沿用原ID。确认旧单DELETED后重新创建时只更换<code>Idempotency-Key</code>。</li>
 </ul>
 <p>首次创建示例中的<code>sourceOrderId</code>为调用方生成的UUID；创建成功后，121返回自己的<code>draftId</code>和<code>purchaseOrderNo</code>。</p>
-<h3 id="section-4-4">来源记录与请求去重</h3>
+<h3 id="section-4-5">来源记录与请求去重</h3>
 <p>首次创建前只需准备并保存来源采购记录ID和幂等键：</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1400,7 +1439,7 @@
 </tbody>
 </table></div>
 <p><code>sourceOrderId</code>标识采购记录，<code>Idempotency-Key</code>用于防止同一请求重复建单。不同采购记录使用不同来源ID；不同创建请求使用不同幂等键。P02查询携带原创建请求的幂等键，不需要额外的批次参数。</p>
-<h3 id="section-4-5">草稿保存及失败处理</h3>
+<h3 id="section-4-6">草稿保存及失败处理</h3>
 <p>同步成功表示采购草稿及全部明细已保存。预算是否超额、超预算说明是否填写不影响保存结果。生成采购单、锁单及导出不属于本接口的处理范围。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1443,8 +1482,8 @@
 <span class="code-line">    <span class="token-key">&quot;field&quot;</span>: <span class="token-string">&quot;details[1].materialCode&quot;</span></span>
 <span class="code-line">  }</span>
 <span class="code-line">}</span></code></pre></div></details>
-<h3 id="section-4-6">可选审批人员</h3>
-<p>以下都是string类型、可选、正整数用户ID；提供时用户须启用未删且具有相应有效角色。仅产品经理须属于当前部门，其他审批角色允许跨部门。通过D01的approval-users取得ID，不能直接传姓名；deptIds可能为空数组，不代表该跨部门审批人无效。</p>
+<h3 id="section-4-7">可选审批人员</h3>
+<p>以下都是string / null类型、可选、正整数用户ID；省略或null表示不选择。提供时用户须启用未删且具有相应有效角色。仅产品经理须属于当前部门，其他审批角色允许跨部门。通过D01的approval-users取得ID，不能直接传姓名；deptIds可能为空数组，不代表该跨部门审批人无效。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -1491,7 +1530,7 @@
 </tr>
 </tbody>
 </table></div>
-<h3 id="section-4-7">明细请求参数</h3>
+<h3 id="section-4-8">明细请求参数</h3>
 <p>以下字段位于 <code>details[]</code> 中。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1535,7 +1574,7 @@
 <tr>
 <td><code>purchaseAmount</code></td>
 <td>采购金额</td>
-<td>number</td>
+<td>number / null</td>
 <td>否</td>
 <td>不传或传null时由121按quantity×purchasePrice计算；传入时必须完全相等，非负、最多两位小数，最大9999999999999.99；不一致返回422 AMOUNT_MISMATCH</td>
 </tr>
@@ -1563,44 +1602,45 @@
 <tr>
 <td><code>detailTaxRate</code></td>
 <td>明细税率</td>
-<td>number</td>
+<td>number / null</td>
 <td>否</td>
 <td>数值范围-9999999999999.99至9999999999999.99，最多两位小数；0.09表示9%；省略或null时使用主单taxRate</td>
 </tr>
 <tr>
 <td><code>materialName</code></td>
 <td>物料名称</td>
-<td>string</td>
+<td>string / null</td>
 <td>否</td>
 <td>最长100，仅接收校验，不更新物料描述</td>
 </tr>
 <tr>
 <td><code>productCode</code></td>
 <td>产品编码</td>
-<td>string</td>
+<td>string / null</td>
 <td>否</td>
 <td>最长64，不更新物料主数据</td>
 </tr>
 <tr>
 <td><code>brandName</code></td>
 <td>品牌名称</td>
-<td>string</td>
+<td>string / null</td>
 <td>否</td>
 <td>最长100，不更新品牌主数据</td>
 </tr>
 <tr>
 <td><code>remark</code></td>
 <td>明细备注</td>
-<td>string</td>
+<td>string / null</td>
 <td>否</td>
 <td>最长500</td>
 </tr>
 </tbody>
 </table></div>
 <p>供应商按supplierId、物料按materialCode匹配。供应商不存在时返回422 <code>REFERENCE_INVALID</code>；物料不存在时返回422 <code>MATERIAL_NOT_FOUND</code>，列出全部缺失编码；物料编码匹配多条记录时返回422 <code>MATERIAL_AMBIGUOUS</code>。</p>
+<p>采购数量×采购单价、销售数量×销售单价及全部明细采购金额之和，均须不超过9999999999999.99；单价合法但计算结果超出范围时仍返回400 PARAM_INVALID。</p>
 <p>建议省略<code>purchaseAmount</code>，由121统一计算。传入时按十进制精确比较，不自动四舍五入，不设误差容忍；<code>100</code>与<code>100.00</code>数值相等。金额错误会在<code>data.field</code>及<code>data.sourceDetailId</code>定位明细，并返回<code>provided</code>与<code>calculated</code>。</p>
 <p><code>detailTaxRate</code>保持121原DECIMAL(15,2)字段范围，不额外限定0—1，也不限定主单税率字典；例如<code>0.09</code>表示9%，负数或大于1也会通过当前范围校验。主单<code>taxRate</code>仍只允许0、0.06、0.13，两者规则不同。</p>
-<h3 id="section-4-8">返回字段</h3>
+<h3 id="section-4-9">返回字段</h3>
 <p>P01、P02、P03和P04使用相同业务对象。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1614,7 +1654,7 @@
 <tr>
 <td><code>data.draftId</code></td>
 <td>string</td>
-<td>121采购单唯一ID</td>
+<td>121采购单主键applyId，以字符串返回</td>
 </tr>
 <tr>
 <td><code>data.purchaseOrderNo</code></td>
@@ -1639,7 +1679,7 @@
 <tr>
 <td><code>data.details</code></td>
 <td>array</td>
-<td>来源明细与121明细ID的映射</td>
+<td>首次同步时的来源明细与121明细ID映射，不是实时完整明细</td>
 </tr>
 <tr>
 <td><code>data.details[].sourceDetailId</code></td>
@@ -1653,7 +1693,7 @@
 </tr>
 </tbody>
 </table></div>
-<h3 id="section-4-9">采购单状态值</h3>
+<h3 id="section-4-10">采购单状态值</h3>
 <p>下面是P01、P02、P03、P04的 <code>data.status</code>，与响应外层 <code>code</code> 含义不同。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -1704,7 +1744,7 @@
 </tbody>
 </table></div>
 <p>已删除标记优先于其他状态。只有确认旧单为 <code>DELETED</code> 后，调用方才能使用新幂等键重新创建。锁单及退单仍保留来源有效关联。</p>
-<h3 id="section-4-10">请求与响应示例</h3>
+<h3 id="section-4-11">请求与响应示例</h3>
 <p>除公共鉴权头外再带 <code>Idempotency-Key: 550e8400-e29b-41d4-a716-446655440001</code>。</p>
 <details class="code-example" open><summary><span>JSON 示例</span><span class="toggle-label">展开 / 折叠源码</span></summary><div class="code-body"><button class="copy-button" type="button" aria-label="复制代码">复制</button><pre tabindex="0"><code class="language-json"><span class="code-line">{</span>
 <span class="code-line">  <span class="token-key">&quot;sourceOrderId&quot;</span>: <span class="token-string">&quot;a58161da-4499-4bee-8b26-374c31989150&quot;</span>,</span>
@@ -1769,7 +1809,7 @@
 <span class="code-line">  <span class="token-key">&quot;requestId&quot;</span>:<span class="token-string">&quot;7f7c8f45-0c8c-4b56-9b77-4c4bd7de9a41&quot;</span>,</span>
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>:{<span class="token-key">&quot;field&quot;</span>:<span class="token-string">&quot;details[0].purchaseAmount&quot;</span>,<span class="token-key">&quot;sourceDetailId&quot;</span>:<span class="token-string">&quot;line-1&quot;</span>,<span class="token-key">&quot;provided&quot;</span>:<span class="token-literal">99</span>,<span class="token-key">&quot;calculated&quot;</span>:<span class="token-literal">100.00</span>}</span>
 <span class="code-line">}</span></code></pre></div></details>
-<h3 id="section-4-11">幂等、超时与重新同步</h3>
+<h3 id="section-4-12">幂等、超时与重新同步</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -1806,7 +1846,7 @@
 </table></div>
 <p>重试须保持loginAccount、sourceOrderId、幂等键及原始正文一致，包括正文空格、属性顺序和可选字段。结果未知时先查询P02。幂等键可以直接使用UUID，例如<code>550e8400-e29b-41d4-a716-446655440001</code>。</p>
 <p>返回码按实际校验顺序决定：先校验本次请求的用户、部门和幂等内容；幂等键与来源记录或正文冲突时先返回409 <code>IDEMPOTENCY_CONFLICT</code>。幂等内容一致后查询原单，或同来源已有有效关联而查询原单时，原单不存在或无权访问返回404 <code>DRAFT_NOT_FOUND</code>；只有原单可访问时才返回409 <code>SOURCE_ALREADY_SYNCED</code>及原单详情。本次提交部门越权可提前返回403 <code>OPERATOR_FORBIDDEN</code>，不能把所有原单相关失败统一解释为409。</p>
-<h3 id="section-4-12">业务返回码</h3>
+<h3 id="section-4-13">业务返回码</h3>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -1990,7 +2030,7 @@
 <tr>
 <td><code>data.draftId</code></td>
 <td>string</td>
-<td>121采购单唯一ID</td>
+<td>121采购单主键applyId，以字符串返回</td>
 </tr>
 <tr>
 <td><code>data.purchaseOrderNo</code></td>
@@ -2015,7 +2055,7 @@
 <tr>
 <td><code>data.details</code></td>
 <td>array</td>
-<td>来源明细与121明细ID的映射</td>
+<td>首次同步时的来源明细与121明细ID映射，不是实时完整明细</td>
 </tr>
 <tr>
 <td><code>data.details[].sourceDetailId</code></td>
@@ -2141,7 +2181,7 @@
 <tr>
 <td><code>data.draftId</code></td>
 <td>string</td>
-<td>121采购单唯一ID</td>
+<td>121采购单主键applyId，以字符串返回</td>
 </tr>
 <tr>
 <td><code>data.purchaseOrderNo</code></td>
@@ -2166,7 +2206,7 @@
 <tr>
 <td><code>data.details</code></td>
 <td>array</td>
-<td>来源明细与121明细ID的映射</td>
+<td>首次同步时的来源明细与121明细ID映射，不是实时完整明细</td>
 </tr>
 <tr>
 <td><code>data.details[].sourceDetailId</code></td>
@@ -2254,7 +2294,7 @@
 </tbody>
 </table></div>
 <h3 id="section-7-2">请求参数</h3>
-<p>取消等同软删除121对应采购草稿，并产生C01删除事件。</p>
+<p>取消等同软删除121对应采购草稿，并产生C01删除事件。Body必须为JSON对象；没有取消原因时传<code>{}</code>，不要发送空正文。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -2287,9 +2327,9 @@
 <td><code>reason</code></td>
 <td>取消原因</td>
 <td>Body</td>
-<td>string</td>
+<td>string / null</td>
 <td>否</td>
-<td>最长500；省略或仅空格使用CANCEL_SYNC，非空原因原样写入事件</td>
+<td>最长500；省略、null、空字符串或仅空格使用CANCEL_SYNC，非空原因原样写入事件</td>
 </tr>
 </tbody>
 </table></div>
@@ -2306,7 +2346,7 @@
 <tr>
 <td><code>data.draftId</code></td>
 <td>string</td>
-<td>121采购单唯一ID</td>
+<td>121采购单主键applyId，以字符串返回</td>
 </tr>
 <tr>
 <td><code>data.purchaseOrderNo</code></td>
@@ -2331,7 +2371,7 @@
 <tr>
 <td><code>data.details</code></td>
 <td>array</td>
-<td>来源明细与121明细ID的映射</td>
+<td>首次同步时的来源明细与121明细ID映射，不是实时完整明细</td>
 </tr>
 <tr>
 <td><code>data.details[].sourceDetailId</code></td>
@@ -2365,7 +2405,7 @@
 <span class="code-line">  <span class="token-key">&quot;data&quot;</span>: <span class="token-literal">null</span></span>
 <span class="code-line">}</span></code></pre></div></details>
 <h3 id="section-7-5">取消规则及返回码</h3>
-<p>仅DRAFT可删除；已DELETED重复调用返回同样结果，不再生成重复事件。主单、明细及同步关联一并删除，并发送C01通知。退单状态不等同于删除。当前非草稿取消提示为<code>Only an existing draft can be deleted</code>（仅草稿允许取消）；并发状态变化时可能提示<code>Procurement order changed</code>（采购单状态已变化）。提示尚未全部中文化，调用方必须按<code>errorCode=DRAFT_NOT_EDITABLE</code>判断，不能解析message。</p>
+<p>仅DRAFT可删除；已DELETED重复调用返回同样结果，不再生成重复事件。主单和明细软删除，释放来源的当前有效关联；保留同步历史及明细ID映射，供P02/P03查询，并发送C01通知。退单状态不等同于删除。当前非草稿取消提示为<code>Only an existing draft can be deleted</code>（仅草稿允许取消）；并发状态变化时可能提示<code>Procurement order changed</code>（采购单状态已变化）。提示尚未全部中文化，调用方必须按<code>errorCode=DRAFT_NOT_EDITABLE</code>判断，不能解析message。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -2595,7 +2635,7 @@
 <p>推荐成功返回 <code>204 No Content</code>。若返回JSON，可自定内容，但不能用HTTP200加失败业务码表达失败，否则121会视为成功。必须先完成可靠落库/处理再回2xx；重复eventId也回2xx。</p>
 <h3 id="section-8-5">重试、乱序与本地清理</h3>
 <ul>
-<li>通知可能重复投递。连接超时5秒、读取超时10秒；首次发送失败后按30秒、2分钟、10分钟、30分钟间隔重试，最多5次发送。</li>
+<li>通知接收地址及凭据须在121配置并启用后才会投递。通知可能重复投递；连接超时5秒、读取超时10秒，首次发送失败后按30秒、2分钟、10分钟、30分钟间隔重试，最多5次发送。间隔受后台调度影响；连续5次失败后转人工处理，不再自动重试，双方需排查并协调补发。</li>
 <li>同一事件重试保持eventId和正文，沿用该回调目标的App-Id、App-Secret。</li>
 <li>先校验两项系统凭据，再按eventId幂等处理。必须同时核对sourceOrderId和draftId，仅清除完全匹配的当前主单/明细映射。</li>
 <li>旧采购单的删除通知不能清除重新同步的新单；即使不匹配当前关联，也应将该旧事件记为已处理并回2xx。</li>
@@ -2958,7 +2998,7 @@
 </table></div>
 <p>反馈问题时提供环境、接口、HTTP状态、errorCode、requestId和时间，请勿提供密钥或完整人员信息。</p>
 </section>
-    <footer class="document-footer"><span>121系统 · 开放接口 v2.9.1</span><a href="#top">返回顶部 ↑</a></footer>
+    <footer class="document-footer"><span>121系统 · 开放接口 v2.9.2</span><a href="#top">返回顶部 ↑</a></footer>
   </main>
 </body>
 </html>
